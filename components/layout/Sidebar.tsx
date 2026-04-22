@@ -25,6 +25,7 @@ type NavItem = {
 const NAV: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: BarChart2, roles: ["org_admin", "branch_manager", "employee"] },
   { label: "Schedule", href: "/dashboard/schedule", icon: CalendarDays, roles: ["org_admin", "branch_manager", "employee"] },
+  { label: "Availability", href: "/dashboard/availability", icon: CalendarDays, roles: ["org_admin", "branch_manager", "employee"] },
   { label: "Time Off", href: "/dashboard/time-off", icon: Clock, roles: ["org_admin", "branch_manager", "employee"] },
   { label: "Shift Swaps", href: "/dashboard/shift-swaps", icon: ArrowLeftRight, roles: ["org_admin", "branch_manager", "employee"] },
   { label: "Employees", href: "/dashboard/employees", icon: Users, roles: ["org_admin", "branch_manager"] },
