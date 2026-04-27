@@ -9,11 +9,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmployeeForm } from "./EmployeeForm";
-import type { Employee, Branch } from "@/db/schema";
+import type { Employee, Branch, JobRole } from "@/db/schema";
 
 type Props = {
   employees: Employee[];
   branches: Branch[];
+  jobRoles: JobRole[];
   currentUserRole: "org_admin" | "branch_manager" | "employee";
   currentUserBranchId?: string | null;
 };
@@ -24,7 +25,7 @@ const roleLabel: Record<string, string> = {
   employee: "Employee",
 };
 
-export function EmployeeTable({ employees, branches, currentUserRole, currentUserBranchId }: Props) {
+export function EmployeeTable({ employees, branches, jobRoles, currentUserRole, currentUserBranchId }: Props) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [filterActive, setFilterActive] = useState<"all" | "active" | "inactive">("active");
@@ -32,6 +33,7 @@ export function EmployeeTable({ employees, branches, currentUserRole, currentUse
   const [editing, setEditing] = useState<Employee | undefined>();
 
   const branchMap = Object.fromEntries(branches.map((b) => [b.id, b.name]));
+  const jobRoleMap = Object.fromEntries(jobRoles.map((r) => [r.id, r.name]));
 
   const filtered = employees.filter((e) => {
     const matchSearch =
@@ -45,6 +47,15 @@ export function EmployeeTable({ employees, branches, currentUserRole, currentUse
 
   async function handleDeactivate(id: string) {
     await fetch(`/api/employees/${id}`, { method: "DELETE" });
+    router.refresh();
+  }
+
+  async function handleActivate(id: string) {
+    await fetch(`/api/employees/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive: true }),
+    });
     router.refresh();
   }
 
@@ -94,6 +105,7 @@ export function EmployeeTable({ employees, branches, currentUserRole, currentUse
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Branch</TableHead>
+              <TableHead>Job Role</TableHead>
               <TableHead>Max hrs/wk</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -102,7 +114,7 @@ export function EmployeeTable({ employees, branches, currentUserRole, currentUse
           <TableBody>
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                   No employees found.
                 </TableCell>
               </TableRow>
@@ -115,6 +127,7 @@ export function EmployeeTable({ employees, branches, currentUserRole, currentUse
                   <Badge variant="secondary">{roleLabel[emp.role]}</Badge>
                 </TableCell>
                 <TableCell>{emp.branchId ? branchMap[emp.branchId] ?? "—" : "—"}</TableCell>
+                <TableCell>{emp.jobRoleId ? jobRoleMap[emp.jobRoleId] ?? "—" : "—"}</TableCell>
                 <TableCell>{emp.maxHoursPerWeek}</TableCell>
                 <TableCell>
                   <Badge variant={emp.isActive ? "default" : "outline"}>
@@ -125,15 +138,23 @@ export function EmployeeTable({ employees, branches, currentUserRole, currentUse
                   <Button size="sm" variant="ghost" onClick={() => openEdit(emp)}>
                     Edit
                   </Button>
-                  {currentUserRole === "org_admin" && emp.isActive && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => handleDeactivate(emp.id)}
-                    >
-                      Deactivate
-                    </Button>
+                  {currentUserRole === "org_admin" && (
+                    <>
+                      {emp.isActive ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => handleDeactivate(emp.id)}
+                        >
+                          Deactivate
+                        </Button>
+                      ) : (
+                        <Button size="sm" variant="ghost" onClick={() => handleActivate(emp.id)}>
+                          Activate
+                        </Button>
+                      )}
+                    </>
                   )}
                 </TableCell>
               </TableRow>
@@ -147,6 +168,7 @@ export function EmployeeTable({ employees, branches, currentUserRole, currentUse
         onOpenChange={setFormOpen}
         employee={editing}
         branches={branches}
+        jobRoles={jobRoles}
         currentUserRole={currentUserRole}
         currentUserBranchId={currentUserBranchId}
       />

@@ -5,12 +5,13 @@ import { usePathname } from "next/navigation";
 import {
   CalendarDays,
   Users,
-  Layers,
   Clock,
   ArrowLeftRight,
   BarChart2,
   Settings,
   GitBranch,
+  CalendarCheck2,
+  Briefcase,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type AppUser } from "@/lib/auth/getUser";
@@ -20,46 +21,84 @@ type NavItem = {
   href: string;
   icon: React.ElementType;
   roles: AppUser["role"][];
+  group?: string;
 };
 
 const NAV: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard", icon: BarChart2, roles: ["org_admin", "branch_manager", "employee"] },
-  { label: "Schedule", href: "/dashboard/schedule", icon: CalendarDays, roles: ["org_admin", "branch_manager", "employee"] },
-  { label: "Availability", href: "/dashboard/availability", icon: CalendarDays, roles: ["org_admin", "branch_manager", "employee"] },
-  { label: "Time Off", href: "/dashboard/time-off", icon: Clock, roles: ["org_admin", "branch_manager", "employee"] },
-  { label: "Shift Swaps", href: "/dashboard/shift-swaps", icon: ArrowLeftRight, roles: ["org_admin", "branch_manager", "employee"] },
-  { label: "Employees", href: "/dashboard/employees", icon: Users, roles: ["org_admin", "branch_manager"] },
-  { label: "Departments", href: "/dashboard/departments", icon: Layers, roles: ["org_admin", "branch_manager"] },
-  { label: "Reports", href: "/dashboard/reports", icon: BarChart2, roles: ["org_admin", "branch_manager"] },
-  { label: "Branches", href: "/dashboard/settings/branches", icon: GitBranch, roles: ["org_admin"] },
-  { label: "Settings", href: "/dashboard/settings", icon: Settings, roles: ["org_admin"] },
+  { label: "Dashboard", href: "/dashboard", icon: BarChart2, roles: ["org_admin", "branch_manager", "employee"], group: "main" },
+  { label: "Schedule", href: "/dashboard/schedule", icon: CalendarDays, roles: ["org_admin", "branch_manager", "employee"], group: "main" },
+  { label: "Availability", href: "/dashboard/availability", icon: CalendarCheck2, roles: ["org_admin", "branch_manager", "employee"], group: "main" },
+  { label: "Time Off", href: "/dashboard/time-off", icon: Clock, roles: ["org_admin", "branch_manager", "employee"], group: "main" },
+  { label: "Shift Swaps", href: "/dashboard/shift-swaps", icon: ArrowLeftRight, roles: ["org_admin", "branch_manager", "employee"], group: "main" },
+  { label: "Employees", href: "/dashboard/employees", icon: Users, roles: ["org_admin", "branch_manager"], group: "manage" },
+  { label: "Reports", href: "/dashboard/reports", icon: BarChart2, roles: ["org_admin", "branch_manager"], group: "manage" },
+  { label: "Job Roles", href: "/dashboard/settings/job-roles", icon: Briefcase, roles: ["org_admin"], group: "settings" },
+  { label: "Branches", href: "/dashboard/settings/branches", icon: GitBranch, roles: ["org_admin"], group: "settings" },
+  { label: "Settings", href: "/dashboard/settings", icon: Settings, roles: ["org_admin"], group: "settings" },
 ];
+
+const GROUP_LABELS: Record<string, string> = {
+  main: "Workspace",
+  manage: "Management",
+  settings: "Settings",
+};
+
+function isActive(href: string, pathname: string) {
+  if (href === "/dashboard") return pathname === "/dashboard";
+  if (href === "/dashboard/settings") return pathname === "/dashboard/settings";
+  return pathname.startsWith(href);
+}
 
 export function Sidebar({ role }: { role: AppUser["role"] }) {
   const pathname = usePathname();
   const visible = NAV.filter((item) => item.roles.includes(role));
 
+  const groups = ["main", "manage", "settings"] as const;
+
   return (
-    <aside className="w-56 shrink-0 border-r bg-card flex flex-col">
-      <div className="h-14 flex items-center px-4 border-b font-semibold text-sm tracking-wide">
-        Scheduler
+    <aside className="w-60 shrink-0 flex flex-col bg-sidebar text-sidebar-foreground">
+      {/* Logo */}
+      <div className="h-14 flex items-center px-5 shrink-0 border-b border-sidebar-border">
+        <div className="flex items-center gap-2.5">
+          <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center">
+            <CalendarDays className="h-4 w-4 text-primary-foreground" />
+          </div>
+          <span className="font-bold text-sm tracking-wide text-sidebar-foreground">
+            Scheduler
+          </span>
+        </div>
       </div>
-      <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
-        {visible.map(({ label, href, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            className={cn(
-              "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-              href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href)
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            )}
-          >
-            <Icon className="h-4 w-4 shrink-0" />
-            {label}
-          </Link>
-        ))}
+
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
+        {groups.map((group) => {
+          const items = visible.filter((i) => i.group === group);
+          if (!items.length) return null;
+          return (
+            <div key={group}>
+              <p className="px-2 mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
+                {GROUP_LABELS[group]}
+              </p>
+              <div className="space-y-0.5">
+                {items.map(({ label, href, icon: Icon }) => (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={cn(
+                      "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
+                      isActive(href, pathname)
+                        ? "bg-primary text-primary-foreground shadow-sm shadow-primary/30"
+                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    )}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </nav>
     </aside>
   );

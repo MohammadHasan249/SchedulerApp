@@ -11,6 +11,7 @@ const patchSchema = z.object({
   name: z.string().min(1).optional(),
   role: z.enum(["org_admin", "branch_manager", "employee"]).optional(),
   branchId: z.string().uuid().nullable().optional(),
+  jobRoleId: z.string().uuid().nullable().optional(),
   maxHoursPerWeek: z.number().int().min(1).max(168).optional(),
   isActive: z.boolean().optional(),
   pin: z.string().regex(/^\d{4,6}$/).optional(),
@@ -72,16 +73,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   // Sync app_metadata if role or branchId changed
-  if (rest.role || rest.branchId !== undefined) {
+  if ((rest.role || rest.branchId !== undefined) && employee.authUserId) {
     const supabase = createAdminClient();
-    if (employee.authUserId) {
-      await supabase.auth.admin.updateUserById(employee.authUserId, {
-        app_metadata: {
-          role: rest.role ?? employee.role,
-          organization_id: employee.organizationId,
-          branch_id: rest.branchId !== undefined ? rest.branchId : employee.branchId,
-        },
-      });
+    const syncResult = await supabase.auth.admin.updateUserById(employee.authUserId, {
+      app_metadata: {
+        role: rest.role ?? employee.role,
+        organization_id: employee.organizationId,
+        branch_id: rest.branchId !== undefined ? rest.branchId : employee.branchId,
+      },
+    });
+    if (syncResult.error) {
+      return NextResponse.json({ error: syncResult.error.message }, { status: 500 });
     }
   }
 

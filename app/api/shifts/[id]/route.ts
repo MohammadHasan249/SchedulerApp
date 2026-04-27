@@ -8,7 +8,6 @@ import { eq, and } from "drizzle-orm";
 const patchSchema = z.object({
   startTime: z.string().datetime().optional(),
   endTime: z.string().datetime().optional(),
-  departmentId: z.string().uuid().nullable().optional(),
   isPublished: z.boolean().optional(),
 });
 
@@ -46,7 +45,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const updates: Partial<typeof shifts.$inferInsert> = {};
   if (parsed.data.startTime) updates.startTime = new Date(parsed.data.startTime);
   if (parsed.data.endTime) updates.endTime = new Date(parsed.data.endTime);
-  if (parsed.data.departmentId !== undefined) updates.departmentId = parsed.data.departmentId;
   if (parsed.data.isPublished !== undefined) updates.isPublished = parsed.data.isPublished;
 
   const [updated] = await db.update(shifts).set(updates).where(eq(shifts.id, id)).returning();

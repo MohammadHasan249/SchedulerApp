@@ -1,7 +1,7 @@
 import { getUser } from "@/lib/auth/getUser";
 import { requireRole } from "@/lib/auth/requireRole";
 import { db } from "@/lib/db";
-import { employees, branches } from "@/db/schema";
+import { employees, branches, jobRoles } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { EmployeeTable } from "@/components/employees/EmployeeTable";
 
@@ -14,9 +14,10 @@ export default async function EmployeesPage() {
     conditions.push(eq(employees.branchId, user.branchId));
   }
 
-  const [employeeRows, branchRows] = await Promise.all([
+  const [employeeRows, branchRows, roleRows] = await Promise.all([
     db.select().from(employees).where(and(...conditions)),
     db.select().from(branches).where(eq(branches.organizationId, user.organizationId)),
+    db.select().from(jobRoles).where(eq(jobRoles.organizationId, user.organizationId)),
   ]);
 
   return (
@@ -28,6 +29,7 @@ export default async function EmployeesPage() {
       <EmployeeTable
         employees={employeeRows}
         branches={branchRows}
+        jobRoles={roleRows}
         currentUserRole={user.role}
         currentUserBranchId={user.branchId}
       />

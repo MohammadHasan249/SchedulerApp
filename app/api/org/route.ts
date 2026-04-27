@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { db } from "@/lib/db";
-import { organizations } from "@/db/schema";
+import { organizations, employees, branches } from "@/db/schema";
 import { slugify } from "@/lib/utils/slugify";
 import { eq } from "drizzle-orm";
 
@@ -44,6 +44,13 @@ export async function POST(request: Request) {
     .values({ name: orgName, slug: orgSlug })
     .returning();
 
+  // Create default "Main" branch
+  await db.insert(branches).values({
+    organizationId: org.id,
+    name: "Main",
+    slug: "main",
+  });
+
   // Create auth user with app_metadata pre-set (triggers DB row creation)
   const supabase = createAdminClient();
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({
@@ -59,10 +66,17 @@ export async function POST(request: Request) {
   });
 
   if (authError) {
-    // Roll back the org if user creation fails
     await db.delete(organizations).where(eq(organizations.id, org.id));
     return NextResponse.json({ error: authError.message }, { status: 500 });
   }
+
+  await db.insert(employees).values({
+    organizationId: org.id,
+    authUserId: authData.user.id,
+    name: fullName,
+    email,
+    role: "org_admin",
+  });
 
   return NextResponse.json({ orgId: org.id, userId: authData.user.id }, { status: 201 });
 }

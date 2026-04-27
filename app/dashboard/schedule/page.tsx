@@ -1,6 +1,6 @@
 import { getUser } from "@/lib/auth/getUser";
 import { db } from "@/lib/db";
-import { shifts, shiftAssignments, employees, departments, branches } from "@/db/schema";
+import { shifts, shiftAssignments, employees, branches, availability } from "@/db/schema";
 import { eq, and, inArray, gte, lte } from "drizzle-orm";
 import { startOfWeek, addDays } from "date-fns";
 import { WeeklyScheduleGrid } from "@/components/schedule/WeeklyScheduleGrid";
@@ -41,7 +41,7 @@ export default async function SchedulePage() {
 
   const shiftIds = visibleShifts.map((s) => s.id);
 
-  const [assignmentRows, employeeRows, deptRows] = await Promise.all([
+  const [assignmentRows, employeeRows] = await Promise.all([
     shiftIds.length > 0
       ? db.select().from(shiftAssignments).where(inArray(shiftAssignments.shiftId, shiftIds))
       : Promise.resolve([]),
@@ -56,10 +56,16 @@ export default async function SchedulePage() {
             : [])
         )
       ),
-    visibleBranchIds.length > 0
-      ? db.select().from(departments).where(inArray(departments.branchId, visibleBranchIds))
-      : Promise.resolve([]),
   ]);
+
+  const employeeIds = employeeRows.map((e) => e.id);
+  const availabilityRows =
+    employeeIds.length > 0
+      ? await db
+          .select()
+          .from(availability)
+          .where(inArray(availability.employeeId, employeeIds))
+      : [];
 
   const currentBranchId = user.branchId ?? branchRows[0]?.id ?? "";
 
@@ -73,8 +79,8 @@ export default async function SchedulePage() {
         shifts={visibleShifts}
         assignments={assignmentRows}
         employees={employeeRows}
-        departments={deptRows}
         branches={branchRows}
+        availability={availabilityRows}
         canEdit={user.role !== "employee"}
         currentBranchId={currentBranchId}
       />

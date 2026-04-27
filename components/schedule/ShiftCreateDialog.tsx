@@ -1,28 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { Shift, Employee, Department } from "@/db/schema";
+import type { Shift, Employee } from "@/db/schema";
 
 type Props = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   branchId: string;
   defaultDate?: Date;
-  departments: Department[];
   employees: Employee[];
+  availability?: { id: string; employeeId: string; dayOfWeek: number; startTime: string; endTime: string }[];
   shift?: Shift;
   assignments?: { id: string; employeeId: string; jobRoleId: string | null }[];
   onSaved: () => void;
 };
 
 export function ShiftCreateDialog({
-  open, onOpenChange, branchId, defaultDate, departments, employees, shift, assignments = [], onSaved,
+  open,
+  onOpenChange,
+  branchId,
+  defaultDate,
+  employees,
+  availability = [],
+  shift,
+  assignments = [],
+  onSaved,
 }: Props) {
   const isEdit = !!shift;
   const dateStr = defaultDate ? format(defaultDate, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd");
@@ -36,13 +43,72 @@ export function ShiftCreateDialog({
   const [endTime, setEndTime] = useState(
     shift ? format(new Date(shift.endTime), "HH:mm") : "17:00"
   );
-  const [deptId, setDeptId] = useState(shift?.departmentId ?? "");
   const [assignedIds, setAssignedIds] = useState<string[]>(assignments.map((a) => a.employeeId));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    if (open) {
+      if (shift) {
+        setDate(format(new Date(shift.startTime), "yyyy-MM-dd"));
+        setStartTime(format(new Date(shift.startTime), "HH:mm"));
+        setEndTime(format(new Date(shift.endTime), "HH:mm"));
+        setAssignedIds(assignments.map((a) => a.employeeId));
+      } else {
+        setDate(dateStr);
+        setStartTime("09:00");
+        setEndTime("17:00");
+        setAssignedIds([]);
+      }
+      setError("");
+    }
+  }, [open, shift, assignments, dateStr]);
+
   function toggleEmployee(id: string) {
-    setAssignedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+    setAssignedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
+
+  function getEmployeeAvailability(empId: string): string {
+    const [year, month, day] = date.split("-").map(Number);
+    const shiftDate = new Date(year, month - 1, day);
+    const dayOfWeek = shiftDate.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+
+    const slots = availability.filter((a) => a.employeeId === empId && a.dayOfWeek === dayOfWeek);
+    if (slots.length === 0) return "No availability set";
+    return slots.map((s) => `${s.startTime}–${s.endTime}`).join(", ");
+  }
+
+  function checkAvailabilityConflicts(): string[] {
+    const [year, month, day] = date.split("-").map(Number);
+    const shiftDate = new Date(year, month - 1, day);
+    const dayOfWeek = shiftDate.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+
+    const conflicts: string[] = [];
+
+    for (const empId of assignedIds) {
+      const empAvailability = availability.filter((a) => a.employeeId === empId && a.dayOfWeek === dayOfWeek);
+      const employee = employees.find((e) => e.id === empId);
+
+      if (empAvailability.length === 0 && employee) {
+        conflicts.push(`${employee.name} has no availability set for this day`);
+      } else if (empAvailability.length > 0) {
+        const shiftStart = startTime;
+        const shiftEnd = endTime;
+        const available = empAvailability.some((a) => {
+          const availStart = a.startTime.slice(0, 5); // HH:MM format
+          const availEnd = a.endTime.slice(0, 5);
+          return availStart <= shiftStart && availEnd >= shiftEnd;
+        });
+
+        if (!available && employee) {
+          conflicts.push(`${employee.name} is not available ${shiftStart}–${shiftEnd}`);
+        }
+      }
+    }
+
+    return conflicts;
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -59,17 +125,25 @@ export function ShiftCreateDialog({
       return;
     }
 
+    const conflicts = checkAvailabilityConflicts();
+    if (conflicts.length > 0) {
+      setError(`Availability conflicts:\n${conflicts.join("\n")}`);
+      setLoading(false);
+      return;
+    }
+
     let shiftId = shift?.id;
 
     if (!isEdit) {
       const res = await fetch("/api/shifts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ branchId, departmentId: deptId || null, startTime: startISO, endTime: endISO }),
+        body: JSON.stringify({ branchId, startTime: startISO, endTime: endISO }),
       });
       if (!res.ok) {
         const d = await res.json();
-        setError(d.error ?? "Failed to create shift");
+        const msg = typeof d.error === "string" ? d.error : "Failed to create shift";
+        setError(msg);
         setLoading(false);
         return;
       }
@@ -79,11 +153,18 @@ export function ShiftCreateDialog({
       const res = await fetch(`/api/shifts/${shiftId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ departmentId: deptId || null, startTime: startISO, endTime: endISO }),
+        body: JSON.stringify({ startTime: startISO, endTime: endISO }),
       });
       if (!res.ok) {
         const d = await res.json();
-        setError(d.error ?? "Failed to update shift");
+        let msg = "Failed to update shift";
+        if (typeof d.error === "string") {
+          msg = d.error;
+        } else if (d.error?.fieldErrors) {
+          const firstError = Object.values(d.error.fieldErrors)[0];
+          msg = Array.isArray(firstError) ? firstError[0] : "Validation error";
+        }
+        setError(msg);
         setLoading(false);
         return;
       }
@@ -109,6 +190,7 @@ export function ShiftCreateDialog({
       }
     }
 
+    setLoading(false);
     onSaved();
     onOpenChange(false);
   }
@@ -127,49 +209,58 @@ export function ShiftCreateDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label>Start</Label>
-              <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
+              <Input
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                required
+              />
             </div>
             <div className="space-y-1">
               <Label>End</Label>
-              <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
+              <Input
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                required
+              />
             </div>
-          </div>
-          <div className="space-y-1">
-            <Label>Department (optional)</Label>
-            <Select value={deptId} onValueChange={(v) => setDeptId(v ?? "")}>
-              <SelectTrigger>
-                <SelectValue placeholder="None" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">None</SelectItem>
-                {departments.map((d) => (
-                  <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
           <div className="space-y-1">
             <Label>Assign Employees</Label>
             <div className="max-h-40 overflow-y-auto border rounded p-2 space-y-1">
-              {employees.filter((e) => e.isActive).map((emp) => (
-                <label key={emp.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={assignedIds.includes(emp.id)}
-                    onChange={() => toggleEmployee(emp.id)}
-                  />
-                  {emp.name}
-                </label>
-              ))}
+              {employees
+                .filter((e) => e.isActive)
+                .map((emp) => (
+                  <label key={emp.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={assignedIds.includes(emp.id)}
+                      onChange={() => toggleEmployee(emp.id)}
+                    />
+                    <div className="flex-1">
+                      <div>{emp.name}</div>
+                      <div className="text-xs text-muted-foreground">{getEmployeeAvailability(emp.id)}</div>
+                    </div>
+                  </label>
+                ))}
               {employees.filter((e) => e.isActive).length === 0 && (
                 <p className="text-xs text-muted-foreground">No active employees.</p>
               )}
             </div>
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <div className="text-sm text-destructive whitespace-pre-wrap">
+              {error}
+            </div>
+          )}
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={loading}>{loading ? "Saving…" : isEdit ? "Save" : "Create"}</Button>
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? "Saving…" : isEdit ? "Save" : "Create"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

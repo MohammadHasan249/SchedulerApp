@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import bcryptjs from "bcryptjs";
 import { db } from "@/lib/db";
 import { employees } from "@/db/schema";
 import { getUser } from "@/lib/auth/getUser";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { eq, and } from "drizzle-orm";
 
 const inviteSchema = z.object({
@@ -11,7 +11,9 @@ const inviteSchema = z.object({
   email: z.string().email(),
   role: z.enum(["org_admin", "branch_manager", "employee"]).default("employee"),
   branchId: z.string().uuid().nullable().optional(),
+  jobRoleId: z.string().uuid().nullable().optional(),
   maxHoursPerWeek: z.number().int().min(1).max(168).default(40),
+  pin: z.string().regex(/^\d{4,6}$/).optional(),
 });
 
 export async function GET() {
@@ -44,42 +46,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { name, email, role, branchId, maxHoursPerWeek } = parsed.data;
+  const { name, email, role, branchId, jobRoleId, maxHoursPerWeek, pin } = parsed.data;
 
   if (user.role === "branch_manager" && role !== "employee") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // branch_manager can only invite to their own branch
   const targetBranchId =
     user.role === "branch_manager" ? user.branchId : (branchId ?? null);
 
-  const supabase = createAdminClient();
-  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-    email,
-    email_confirm: true,
-    user_metadata: { full_name: name },
-    app_metadata: {
-      role,
-      organization_id: user.organizationId,
-      branch_id: targetBranchId,
-    },
-  });
-
-  if (authError) {
-    return NextResponse.json({ error: authError.message }, { status: 500 });
-  }
+  const pinHash = pin ? await bcryptjs.hash(pin, 10) : null;
 
   const [employee] = await db
     .insert(employees)
     .values({
       organizationId: user.organizationId,
       branchId: targetBranchId,
-      authUserId: authData.user.id,
+      authUserId: null,
       name,
       email,
       role,
+      jobRoleId: jobRoleId ?? null,
       maxHoursPerWeek,
+      pinHash,
     })
     .returning();
 

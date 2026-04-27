@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { format, addDays, startOfWeek } from "date-fns";
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { useDroppable } from "@dnd-kit/core";
@@ -9,7 +10,7 @@ import { ShiftCreateDialog } from "./ShiftCreateDialog";
 import { WeekNavigator } from "./WeekNavigator";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import type { Shift, ShiftAssignment, Employee, Department, Branch } from "@/db/schema";
+import type { Shift, ShiftAssignment, Employee, Branch } from "@/db/schema";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -17,8 +18,8 @@ type ScheduleData = {
   shifts: Shift[];
   assignments: ShiftAssignment[];
   employees: Employee[];
-  departments: Department[];
   branches: Branch[];
+  availability: { id: string; employeeId: string; dayOfWeek: number; startTime: string; endTime: string }[];
   canEdit: boolean;
   currentBranchId: string;
 };
@@ -72,11 +73,12 @@ export function WeeklyScheduleGrid({
   shifts: initialShifts,
   assignments: initialAssignments,
   employees,
-  departments,
   branches,
+  availability,
   canEdit,
   currentBranchId,
 }: ScheduleData) {
+  const router = useRouter();
   const [weekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [shifts, setShifts] = useState<Shift[]>(initialShifts);
   const [assignments, setAssignments] = useState<ShiftAssignment[]>(initialAssignments);
@@ -86,6 +88,11 @@ export function WeeklyScheduleGrid({
   const [publishing, setPublishing] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  useEffect(() => {
+    setShifts(initialShifts);
+    setAssignments(initialAssignments);
+  }, [initialShifts, initialAssignments]);
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
@@ -168,8 +175,7 @@ export function WeeklyScheduleGrid({
   }
 
   async function refreshWeek() {
-    const res = await fetch(`/api/shifts?weekStart=${weekStart.toISOString()}`);
-    if (res.ok) setShifts(await res.json());
+    router.refresh();
   }
 
   const today = new Date();
@@ -190,7 +196,7 @@ export function WeeklyScheduleGrid({
       </div>
 
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto" suppressHydrationWarning>
           <div className="min-w-[700px]">
             {/* Header row */}
             <div className="grid grid-cols-7 border rounded-t-md bg-muted/50">
@@ -241,8 +247,8 @@ export function WeeklyScheduleGrid({
         onOpenChange={setDialogOpen}
         branchId={currentBranchId}
         defaultDate={defaultDate}
-        departments={departments}
         employees={employees}
+        availability={availability}
         shift={editingShift}
         assignments={editingShift ? assignments.filter((a) => a.shiftId === editingShift.id) : []}
         onSaved={refreshWeek}

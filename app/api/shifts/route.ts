@@ -7,7 +7,6 @@ import { eq, and, gte, lte, inArray } from "drizzle-orm";
 
 const createSchema = z.object({
   branchId: z.string().uuid(),
-  departmentId: z.string().uuid().nullable().optional(),
   startTime: z.string().datetime(),
   endTime: z.string().datetime(),
 });
@@ -63,7 +62,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { branchId, departmentId, startTime, endTime } = parsed.data;
+  const { branchId, startTime, endTime } = parsed.data;
 
   // Verify branch ownership
   const [branch] = await db
@@ -82,7 +81,6 @@ export async function POST(request: Request) {
     .insert(shifts)
     .values({
       branchId,
-      departmentId: departmentId ?? null,
       startTime: new Date(startTime),
       endTime: new Date(endTime),
     })

@@ -1,6 +1,6 @@
 import { pgTable, uuid, timestamp, boolean, integer } from "drizzle-orm/pg-core";
 import { branches } from "./branches";
-import { departments, jobRoles } from "./departments";
+import { jobRoles } from "./job-roles";
 import { employees } from "./employees";
 
 export const shifts = pgTable("shifts", {
@@ -8,9 +8,6 @@ export const shifts = pgTable("shifts", {
   branchId: uuid("branch_id")
     .notNull()
     .references(() => branches.id, { onDelete: "cascade" }),
-  departmentId: uuid("department_id").references(() => departments.id, {
-    onDelete: "set null",
-  }),
   startTime: timestamp("start_time", { withTimezone: true }).notNull(),
   endTime: timestamp("end_time", { withTimezone: true }).notNull(),
   isPublished: boolean("is_published").notNull().default(false),

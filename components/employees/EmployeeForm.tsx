@@ -1,25 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { Employee } from "@/db/schema";
-import type { Branch } from "@/db/schema";
+import type { Employee, Branch, JobRole } from "@/db/schema";
+
+const roleLabel: Record<string, string> = {
+  org_admin: "Org Admin",
+  branch_manager: "Branch Manager",
+  employee: "Employee",
+};
 
 type Props = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   employee?: Employee;
   branches: Branch[];
+  jobRoles: JobRole[];
   currentUserRole: "org_admin" | "branch_manager" | "employee";
   currentUserBranchId?: string | null;
 };
 
-export function EmployeeForm({ open, onOpenChange, employee, branches, currentUserRole, currentUserBranchId }: Props) {
+export function EmployeeForm({ open, onOpenChange, employee, branches, jobRoles, currentUserRole, currentUserBranchId }: Props) {
   const router = useRouter();
   const isEdit = !!employee;
 
@@ -28,9 +34,33 @@ export function EmployeeForm({ open, onOpenChange, employee, branches, currentUs
   const [role, setRole] = useState<"org_admin" | "branch_manager" | "employee">(employee?.role ?? "employee");
   const [branchId, setBranchId] = useState<string>(employee?.branchId ?? "");
   const [maxHours, setMaxHours] = useState(String(employee?.maxHoursPerWeek ?? 40));
+  const [jobRoleId, setJobRoleId] = useState<string>(employee?.jobRoleId ?? "");
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      if (employee) {
+        setName(employee.name);
+        setEmail(employee.email);
+        setRole(employee.role);
+        setBranchId(employee.branchId ?? "");
+        setMaxHours(String(employee.maxHoursPerWeek));
+        setJobRoleId(employee.jobRoleId ?? "");
+        setPin("");
+      } else {
+        setName("");
+        setEmail("");
+        setRole("employee");
+        setBranchId("");
+        setMaxHours("40");
+        setJobRoleId("");
+        setPin("");
+      }
+      setError("");
+    }
+  }, [open, employee]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,6 +72,7 @@ export function EmployeeForm({ open, onOpenChange, employee, branches, currentUs
       role,
       maxHoursPerWeek: parseInt(maxHours),
       branchId: branchId || null,
+      jobRoleId: jobRoleId || null,
     };
 
     if (!isEdit) {
@@ -66,6 +97,7 @@ export function EmployeeForm({ open, onOpenChange, employee, branches, currentUs
       return;
     }
 
+    setLoading(false);
     onOpenChange(false);
     router.refresh();
   }
@@ -98,7 +130,7 @@ export function EmployeeForm({ open, onOpenChange, employee, branches, currentUs
             <Label>Role</Label>
             <Select value={role} onValueChange={(v) => setRole(v as typeof role)}>
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue placeholder="Select role">{roleLabel[role]}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {currentUserRole === "org_admin" && (
@@ -123,6 +155,25 @@ export function EmployeeForm({ open, onOpenChange, employee, branches, currentUs
                 {availableBranches.map((b) => (
                   <SelectItem key={b.id} value={b.id}>
                     {b.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1">
+            <Label>Job Role (optional)</Label>
+            <Select value={jobRoleId} onValueChange={(v) => setJobRoleId(v ?? "")}>
+              <SelectTrigger>
+                <SelectValue placeholder="None">
+                  {jobRoleId ? jobRoles.find((r) => r.id === jobRoleId)?.name : "None"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">None</SelectItem>
+                {jobRoles.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.name}
                   </SelectItem>
                 ))}
               </SelectContent>
