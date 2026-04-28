@@ -83,7 +83,9 @@ export function TimeOffRequestTable({ requests, canApprove, employees = [] }: Pr
                 <TableCell>{format(new Date(req.endDate), "MMM d, yyyy")}</TableCell>
                 <TableCell className="max-w-xs truncate">{req.reason ?? "—"}</TableCell>
                 <TableCell>
-                  <Badge variant={statusVariant[req.status]}>{req.status}</Badge>
+                  <Badge variant={statusVariant[req.status]}>
+                    {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
+                  </Badge>
                 </TableCell>
                 <TableCell>{format(new Date(req.createdAt), "MMM d")}</TableCell>
                 <TableCell className="text-right space-x-1">

@@ -79,7 +79,9 @@ export function ShiftSwapTable({ swaps, shifts, employees, currentEmployeeId, ca
                 <TableCell>{empMap[swap.requesterId] ?? "—"}</TableCell>
                 <TableCell>{swap.coverId ? empMap[swap.coverId] ?? "—" : "Open"}</TableCell>
                 <TableCell>
-                  <Badge variant={statusVariant[swap.status]}>{swap.status.replace("_", " ")}</Badge>
+                  <Badge variant={statusVariant[swap.status]}>
+                    {swap.status.replace("_", " ").split(" ").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ")}
+                  </Badge>
                 </TableCell>
                 <TableCell>{format(new Date(swap.createdAt), "MMM d")}</TableCell>
                 <TableCell className="text-right space-x-1">
