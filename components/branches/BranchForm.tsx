@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -21,9 +21,26 @@ export function BranchForm({ open, onOpenChange, branch }: Props) {
   const [name, setName] = useState(branch?.name ?? "");
   const [slug, setSlug] = useState(branch?.slug ?? "");
   const [address, setAddress] = useState(branch?.address ?? "");
-  const [timezone, setTimezone] = useState(branch?.timezone ?? "UTC");
+  const [timezone, setTimezone] = useState(branch?.timezone ?? "EST");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      if (branch) {
+        setName(branch.name);
+        setSlug(branch.slug);
+        setAddress(branch.address ?? "");
+        setTimezone(branch.timezone);
+      } else {
+        setName("");
+        setSlug("");
+        setAddress("");
+        setTimezone("EST");
+      }
+      setError("");
+    }
+  }, [open, branch]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
