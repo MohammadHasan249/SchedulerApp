@@ -22,8 +22,14 @@ export function TimeOffRequestForm({ open, onOpenChange }: Props) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
     setError("");
+
+    if (startDate && endDate && startDate > endDate) {
+      setError("End date must be on or after start date");
+      return;
+    }
+
+    setLoading(true);
 
     const res = await fetch("/api/time-off", {
       method: "POST",
@@ -41,6 +47,8 @@ export function TimeOffRequestForm({ open, onOpenChange }: Props) {
     onOpenChange(false);
     router.refresh();
   }
+
+  const isDateValid = !startDate || !endDate || startDate <= endDate;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -64,7 +72,7 @@ export function TimeOffRequestForm({ open, onOpenChange }: Props) {
           {error && <p className="text-sm text-destructive">{error}</p>}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={loading}>{loading ? "Submitting…" : "Submit"}</Button>
+            <Button type="submit" disabled={loading || !isDateValid}>{loading ? "Submitting…" : "Submit"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
