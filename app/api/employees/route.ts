@@ -4,6 +4,7 @@ import bcryptjs from "bcryptjs";
 import { db } from "@/lib/db";
 import { employees } from "@/db/schema";
 import { getUser } from "@/lib/auth/getUser";
+import { sendEmployeeInvitationEmail } from "@/lib/email/send-employee-invitation";
 import { eq, and } from "drizzle-orm";
 
 const inviteSchema = z.object({
@@ -71,6 +72,10 @@ export async function POST(request: Request) {
       pinHash,
     })
     .returning();
+
+  sendEmployeeInvitationEmail(name, email, user.organizationId).catch((error) => {
+    console.error("Failed to send invitation email:", error);
+  });
 
   return NextResponse.json(employee, { status: 201 });
 }
