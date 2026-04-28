@@ -148,7 +148,9 @@ export function EmployeeForm({ open, onOpenChange, employee, branches, jobRoles,
             <Label>Branch</Label>
             <Select value={branchId} onValueChange={(v) => setBranchId(v ?? "")}>
               <SelectTrigger>
-                <SelectValue placeholder="No branch" />
+                <SelectValue placeholder="No branch">
+                  {branchId ? branches.find((b) => b.id === branchId)?.name : "No branch"}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="">No branch</SelectItem>

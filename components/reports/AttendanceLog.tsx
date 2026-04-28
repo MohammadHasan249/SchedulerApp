@@ -50,7 +50,9 @@ export function AttendanceLog({ initialRows, branches }: Props) {
           <Label>Branch</Label>
           <Select value={branchId} onValueChange={(v) => setBranchId(v ?? "")}>
             <SelectTrigger className="w-44">
-              <SelectValue placeholder="All branches" />
+              <SelectValue placeholder="All branches">
+                {branchId ? branches.find((b) => b.id === branchId)?.name : "All branches"}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="">All branches</SelectItem>
