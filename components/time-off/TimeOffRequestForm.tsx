@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,16 @@ export function TimeOffRequestForm({ open, onOpenChange }: Props) {
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      const today = format(new Date(), "yyyy-MM-dd");
+      setStartDate(today);
+      setEndDate(today);
+      setReason("");
+      setError("");
+    }
+  }, [open]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,6 +55,7 @@ export function TimeOffRequestForm({ open, onOpenChange }: Props) {
       return;
     }
 
+    setLoading(false);
     onOpenChange(false);
     router.refresh();
   }

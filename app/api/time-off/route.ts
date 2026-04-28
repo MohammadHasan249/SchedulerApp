@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { timeOffRequests, employees } from "@/db/schema";
 import { getUser } from "@/lib/auth/getUser";
+import { sendTimeOffNotification } from "@/lib/email/send-time-off-notification";
 import { eq, and, inArray } from "drizzle-orm";
 
 const createSchema = z.object({
@@ -76,6 +77,11 @@ export async function POST(request: Request) {
     .insert(timeOffRequests)
     .values({ employeeId: emp.id, startDate, endDate, reason })
     .returning();
+
+  // Send notification email (non-blocking)
+  sendTimeOffNotification(emp.id, user.organizationId, startDate, endDate, reason).catch((error) => {
+    console.error("Failed to send time-off notification:", error);
+  });
 
   return NextResponse.json(req, { status: 201 });
 }

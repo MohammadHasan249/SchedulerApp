@@ -1,7 +1,10 @@
 import { getUser } from "@/lib/auth/getUser";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CalendarDays, Users, Clock, ArrowLeftRight, CalendarCheck2, BarChart2 } from "lucide-react";
+import { CalendarDays, Users, Clock, ArrowLeftRight, CalendarCheck2, BarChart2, Watch } from "lucide-react";
 import Link from "next/link";
+import { db } from "@/lib/db";
+import { employees, branches } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 
 const ALL_CARDS = [
   {
@@ -52,11 +55,40 @@ const ALL_CARDS = [
     color: "bg-primary/10 text-primary",
     roles: ["org_admin", "branch_manager"],
   },
+  {
+    title: "Clock In/Out",
+    description: "Use the time clock to punch in",
+    icon: Watch,
+    href: null,
+    color: "bg-green-500/10 text-green-600",
+    roles: ["employee"],
+  },
 ] as const;
 
 export default async function DashboardPage() {
   const user = await getUser();
-  const cards = ALL_CARDS.filter((c) => c.roles.includes(user.role as never));
+
+  const [emp] = await db
+    .select({ branchId: employees.branchId })
+    .from(employees)
+    .where(and(eq(employees.authUserId, user.id), eq(employees.organizationId, user.organizationId)))
+    .limit(1);
+
+  let kioskHref = null;
+  if (emp?.branchId) {
+    const [branch] = await db
+      .select({ slug: branches.slug })
+      .from(branches)
+      .where(eq(branches.id, emp.branchId))
+      .limit(1);
+    if (branch) {
+      kioskHref = `/kiosk/${branch.slug}`;
+    }
+  }
+
+  const cards = ALL_CARDS.filter((c) => c.roles.includes(user.role as never)).map((card) =>
+    card.title === "Clock In/Out" && kioskHref ? { ...card, href: kioskHref } : card
+  );
 
   return (
     <div className="space-y-8">
@@ -70,8 +102,8 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {cards.map(({ title, description, icon: Icon, href, color }) => (
-          <Link key={href} href={href}>
+        {cards.map(({ title, description, icon: Icon, href, color }) => {
+          const card = (
             <Card className="group hover:shadow-md hover:border-primary/30 transition-all duration-200 cursor-pointer h-full">
               <CardHeader className="pb-3">
                 <div className={`h-10 w-10 rounded-xl flex items-center justify-center mb-2 ${color}`}>
@@ -85,8 +117,18 @@ export default async function DashboardPage() {
                 <p className="text-sm text-muted-foreground">{description}</p>
               </CardContent>
             </Card>
-          </Link>
-        ))}
+          );
+
+          return href ? (
+            <Link key={href} href={href}>
+              {card}
+            </Link>
+          ) : (
+            <div key={title} className="opacity-50 cursor-not-allowed">
+              {card}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
