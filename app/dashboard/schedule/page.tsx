@@ -83,6 +83,7 @@ export default async function SchedulePage() {
         availability={availabilityRows}
         canEdit={user.role !== "employee"}
         currentBranchId={currentBranchId}
+        userRole={user.role}
       />
     </div>
   );

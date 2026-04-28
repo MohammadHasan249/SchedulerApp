@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createMiddlewareClient } from "@/lib/supabase/middleware";
 
-const PUBLIC_PATHS = ["/login", "/signup", "/api/auth", "/api/org", "/auth-error"];
+const PUBLIC_PATHS = ["/", "/login", "/signup", "/api/auth", "/api/org", "/auth-error"];
 
 export async function middleware(request: NextRequest) {
   const { supabase, response } = createMiddlewareClient(request);
@@ -23,9 +23,14 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // Public auth paths
-  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
-    if (session) {
+  // Public paths
+  if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
+    // Redirect authenticated users from root landing page to dashboard
+    if (session && pathname === "/") {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+    // Redirect authenticated users from auth pages to dashboard
+    if (session && (pathname.startsWith("/login") || pathname.startsWith("/signup"))) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
     return response;

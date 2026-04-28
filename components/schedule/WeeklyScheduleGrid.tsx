@@ -22,6 +22,7 @@ type ScheduleData = {
   availability: { id: string; employeeId: string; dayOfWeek: number; startTime: string; endTime: string }[];
   canEdit: boolean;
   currentBranchId: string;
+  userRole: string;
 };
 
 function DayCell({
@@ -77,6 +78,7 @@ export function WeeklyScheduleGrid({
   availability,
   canEdit,
   currentBranchId,
+  userRole,
 }: ScheduleData) {
   const router = useRouter();
   const [weekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -86,6 +88,7 @@ export function WeeklyScheduleGrid({
   const [editingShift, setEditingShift] = useState<Shift | undefined>();
   const [defaultDate, setDefaultDate] = useState<Date | undefined>();
   const [publishing, setPublishing] = useState(false);
+  const [autoAssigning, setAutoAssigning] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -174,6 +177,27 @@ export function WeeklyScheduleGrid({
     setPublishing(false);
   }
 
+  async function handleAutoAssign() {
+    setAutoAssigning(true);
+    const weekEnd = addDays(weekStart, 7);
+    try {
+      const res = await fetch("/api/shifts/auto-assign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          branchId: currentBranchId,
+          fromDate: weekStart.toISOString(),
+          toDate: weekEnd.toISOString(),
+        }),
+      });
+      if (res.ok) {
+        await refreshWeek();
+      }
+    } finally {
+      setAutoAssigning(false);
+    }
+  }
+
   async function refreshWeek() {
     router.refresh();
   }
@@ -185,6 +209,11 @@ export function WeeklyScheduleGrid({
     <div className="space-y-4">
       <div className="flex items-center gap-4 flex-wrap">
         <WeekNavigator weekStart={weekStart} onWeekChange={loadWeek} />
+        {canEdit && (userRole === "org_admin" || userRole === "branch_manager") && (
+          <Button size="sm" onClick={handleAutoAssign} disabled={autoAssigning} variant="secondary">
+            {autoAssigning ? "Auto-assigning…" : "Auto-assign"}
+          </Button>
+        )}
         {canEdit && unpublishedCount > 0 && (
           <Button size="sm" onClick={handlePublish} disabled={publishing}>
             {publishing ? "Publishing…" : `Publish Week (${unpublishedCount} unpublished)`}

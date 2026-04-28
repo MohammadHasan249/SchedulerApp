@@ -44,8 +44,8 @@ export async function sendEmployeeInvitationEmail(
     const supabase = await createClient();
     let userExists = false;
     try {
-      const { data: userData } = await supabase.auth.admin.getUserByEmail(employeeEmail);
-      userExists = !!userData?.user;
+      const { data: users } = await supabase.auth.admin.listUsers();
+      userExists = users.users.some((u) => u.email === employeeEmail);
     } catch (error) {
       userExists = false;
     }
