@@ -25,20 +25,22 @@ export function UserMenu({ user }: { user: AppUser }) {
     router.refresh();
   }
 
-  const initials = user.email.slice(0, 2).toUpperCase();
+  const initial = user.email[0].toUpperCase();
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        <Avatar className="h-8 w-8">
-          <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+      <DropdownMenuTrigger className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring hover:opacity-80 transition-opacity">
+        <Avatar className="h-9 w-9 border border-border">
+          <AvatarFallback className="text-sm font-semibold bg-gradient-to-br from-primary to-primary/70 text-primary-foreground">
+            {initial}
+          </AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
+      <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuGroup>
-          <DropdownMenuLabel className="font-normal">
-            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-            <p className="text-xs font-medium capitalize">{user.role.replace("_", " ")}</p>
+          <DropdownMenuLabel className="font-normal py-2">
+            <p className="text-sm font-medium break-all">{user.email}</p>
+            <p className="text-xs text-muted-foreground capitalize mt-1">{user.role.replace("_", " ")}</p>
           </DropdownMenuLabel>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />

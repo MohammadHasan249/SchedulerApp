@@ -22,7 +22,7 @@ export function Header({ user, employeeId, employeeName, orgName }: Props) {
           {employeeName ? `Welcome back, ${employeeName}` : "Welcome back!"}
         </span>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         {employeeId && (
           <NotificationBell employeeId={employeeId} organizationId={user.organizationId} />
         )}
