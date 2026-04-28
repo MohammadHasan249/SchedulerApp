@@ -61,7 +61,7 @@ const ALL_CARDS = [
     icon: Watch,
     href: null,
     color: "bg-green-500/10 text-green-600",
-    roles: ["employee"],
+    roles: ["org_admin", "branch_manager", "employee"],
   },
 ] as const;
 
