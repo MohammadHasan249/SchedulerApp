@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import type { Availability } from "@/db/schema";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 type DaySlot = {
   enabled: boolean;
@@ -65,26 +66,35 @@ export function AvailabilityEditor({ employeeId, initial, readOnly = false }: Pr
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {DAYS.map((day, i) => (
-        <div key={i} className="flex items-center gap-3">
-          <Switch
-            checked={slots[i].enabled}
-            onCheckedChange={(v) => !readOnly && setSlot(i, { enabled: v })}
-            disabled={readOnly}
-            id={`avail-${i}`}
-          />
-          <Label htmlFor={`avail-${i}`} className="w-24 text-sm">
-            {day}
-          </Label>
+        <div
+          key={i}
+          className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 rounded-xl border sm:border-0 sm:rounded-none p-3 sm:p-0 bg-card sm:bg-transparent"
+        >
+          {/* Day label + toggle */}
+          <div className="flex items-center gap-3">
+            <Switch
+              checked={slots[i].enabled}
+              onCheckedChange={(v) => !readOnly && setSlot(i, { enabled: v })}
+              disabled={readOnly}
+              id={`avail-${i}`}
+            />
+            <Label htmlFor={`avail-${i}`} className="text-sm font-medium min-w-0">
+              <span className="hidden sm:inline">{day}</span>
+              <span className="sm:hidden">{DAYS_SHORT[i]}</span>
+            </Label>
+          </div>
+
+          {/* Time inputs */}
           {slots[i].enabled ? (
-            <>
+            <div className="flex items-center gap-2 pl-9 sm:pl-0">
               <Input
                 type="time"
                 value={slots[i].startTime}
                 onChange={(e) => !readOnly && setSlot(i, { startTime: e.target.value })}
                 disabled={readOnly}
-                className="w-28"
+                className="w-28 h-8 text-sm"
               />
               <span className="text-muted-foreground text-sm">to</span>
               <Input
@@ -92,17 +102,18 @@ export function AvailabilityEditor({ employeeId, initial, readOnly = false }: Pr
                 value={slots[i].endTime}
                 onChange={(e) => !readOnly && setSlot(i, { endTime: e.target.value })}
                 disabled={readOnly}
-                className="w-28"
+                className="w-28 h-8 text-sm"
               />
-            </>
+            </div>
           ) : (
-            <span className="text-sm text-muted-foreground">Unavailable</span>
+            <span className="text-sm text-muted-foreground pl-9 sm:pl-0">Unavailable</span>
           )}
         </div>
       ))}
+
       {!readOnly && (
-        <div className="flex items-center gap-3 pt-2">
-          <Button size="sm" onClick={handleSave} disabled={saving}>
+        <div className="flex items-center gap-3 pt-3">
+          <Button size="sm" onClick={handleSave} disabled={saving} className="w-full sm:w-auto">
             {saving ? "Saving…" : "Save Availability"}
           </Button>
           {saved && <span className="text-sm text-green-600">Saved!</span>}

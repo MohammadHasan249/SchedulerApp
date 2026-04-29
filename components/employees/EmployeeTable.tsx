@@ -71,12 +71,13 @@ export function EmployeeTable({ employees, branches, jobRoles, currentUserRole, 
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3 flex-wrap">
+      {/* Toolbar */}
+      <div className="flex flex-col sm:flex-row gap-3">
         <Input
           placeholder="Search name or email…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="max-w-xs"
+          className="sm:max-w-xs"
         />
         <div className="flex gap-1">
           {(["all", "active", "inactive"] as const).map((v) => (
@@ -90,14 +91,71 @@ export function EmployeeTable({ employees, branches, jobRoles, currentUserRole, 
             </Button>
           ))}
         </div>
-        <div className="ml-auto">
-          <Button size="sm" onClick={openNew}>
+        <div className="sm:ml-auto">
+          <Button size="sm" onClick={openNew} className="w-full sm:w-auto">
             + Invite Employee
           </Button>
         </div>
       </div>
 
-      <div className="rounded-md border">
+      {/* Mobile card list */}
+      <div className="md:hidden space-y-3">
+        {filtered.length === 0 && (
+          <p className="text-center text-muted-foreground py-10 text-sm">No employees found.</p>
+        )}
+        {filtered.map((emp) => (
+          <div
+            key={emp.id}
+            className={`rounded-xl border bg-card p-4 space-y-3 ${!emp.isActive ? "opacity-50" : ""}`}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-semibold text-sm truncate">{emp.name}</p>
+                <p className="text-xs text-muted-foreground truncate">{emp.email}</p>
+              </div>
+              <Badge variant={emp.isActive ? "default" : "outline"} className="shrink-0">
+                {emp.isActive ? "Active" : "Inactive"}
+              </Badge>
+            </div>
+
+            <div className="flex flex-wrap gap-2 text-xs">
+              <Badge variant="secondary">{roleLabel[emp.role]}</Badge>
+              {emp.branchId && (
+                <Badge variant="outline">{branchMap[emp.branchId] ?? "—"}</Badge>
+              )}
+              {emp.jobRoleId && (
+                <Badge variant="outline">{jobRoleMap[emp.jobRoleId] ?? "—"}</Badge>
+              )}
+              <span className="text-muted-foreground">{emp.maxHoursPerWeek}h/wk</span>
+            </div>
+
+            <div className="flex gap-2 pt-1 border-t">
+              <Button size="sm" variant="ghost" className="flex-1" onClick={() => openEdit(emp)}>
+                Edit
+              </Button>
+              {currentUserRole === "org_admin" && (
+                emp.isActive ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="flex-1 text-destructive hover:text-destructive"
+                    onClick={() => handleDeactivate(emp.id)}
+                  >
+                    Deactivate
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="ghost" className="flex-1" onClick={() => handleActivate(emp.id)}>
+                    Activate
+                  </Button>
+                )
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
