@@ -73,13 +73,13 @@ export async function POST(request: Request) {
     })
     .returning();
 
-  // Initialize default availability for all 7 days (9am-5pm)
+  // Initialize default availability for all 7 days (9am-11pm)
   await db.insert(availability).values(
     Array.from({ length: 7 }, (_, dayOfWeek) => ({
       employeeId: employee.id,
       dayOfWeek,
       startTime: "09:00",
-      endTime: "17:00",
+      endTime: "23:00",
     }))
   );
 
