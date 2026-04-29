@@ -1,3 +1,4 @@
+import { Menu } from "lucide-react";
 import { UserMenu } from "./UserMenu";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { type AppUser } from "@/lib/auth/getUser";
@@ -7,21 +8,34 @@ type Props = {
   employeeId?: string;
   employeeName?: string;
   orgName?: string;
+  onMenuClick?: () => void;
 };
 
-export function Header({ user, employeeId, employeeName, orgName }: Props) {
+export function Header({ user, employeeId, employeeName, orgName, onMenuClick }: Props) {
   return (
-    <header className="h-14 border-b bg-card flex items-center justify-between px-6 shrink-0 shadow-sm">
-      <div className="flex flex-col leading-tight">
-        {orgName && (
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-primary/70">
-            {orgName}
+    <header className="h-14 border-b bg-card flex items-center justify-between px-4 md:px-6 shrink-0 shadow-sm">
+      <div className="flex items-center gap-3">
+        {/* Hamburger — mobile only */}
+        <button
+          onClick={onMenuClick}
+          className="lg:hidden p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          aria-label="Open menu"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+
+        <div className="flex flex-col leading-tight">
+          {orgName && (
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-primary/70">
+              {orgName}
+            </span>
+          )}
+          <span className="text-sm font-semibold text-foreground">
+            {employeeName ? `Welcome back, ${employeeName}` : "Welcome back!"}
           </span>
-        )}
-        <span className="text-sm font-semibold text-foreground">
-          {employeeName ? `Welcome back, ${employeeName}` : "Welcome back!"}
-        </span>
+        </div>
       </div>
+
       <div className="flex items-center gap-3">
         {employeeId && (
           <NotificationBell employeeId={employeeId} organizationId={user.organizationId} />

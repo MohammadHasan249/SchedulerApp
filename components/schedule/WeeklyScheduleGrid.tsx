@@ -2,9 +2,10 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { format, addDays, startOfWeek } from "date-fns";
+import { format, addDays, startOfWeek, isSameDay } from "date-fns";
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { useDroppable } from "@dnd-kit/core";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ShiftCard } from "./ShiftCard";
 import { ShiftCreateDialog } from "./ShiftCreateDialog";
 import { WeekNavigator } from "./WeekNavigator";
@@ -13,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import type { Shift, ShiftAssignment, Employee, Branch } from "@/db/schema";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAY_LABELS_FULL = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 type ScheduleData = {
   shifts: Shift[];
@@ -70,6 +72,101 @@ function DayCell({
   );
 }
 
+function MobileDayView({
+  day,
+  shifts,
+  assignments,
+  employees,
+  canEdit,
+  onEdit,
+  onDelete,
+  onAddShift,
+  onPrev,
+  onNext,
+}: {
+  day: Date;
+  shifts: Shift[];
+  assignments: ShiftAssignment[];
+  employees: Employee[];
+  canEdit: boolean;
+  onEdit: (shift: Shift) => void;
+  onDelete: (id: string) => void;
+  onAddShift: (date: Date) => void;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const isPast = day < today;
+  const isToday = isSameDay(day, new Date());
+
+  const dayShifts = shifts.filter(
+    (s) => format(new Date(s.startTime), "yyyy-MM-dd") === format(day, "yyyy-MM-dd")
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Day navigator */}
+      <div className="flex items-center justify-between bg-muted/50 rounded-lg px-4 py-3">
+        <button
+          onClick={onPrev}
+          className="p-1.5 rounded-md hover:bg-accent transition-colors"
+          aria-label="Previous day"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+
+        <div className="text-center">
+          <p className={`text-lg font-bold ${isToday ? "text-primary" : ""}`}>
+            {format(day, "EEEE")}
+          </p>
+          <p className="text-sm text-muted-foreground">{format(day, "MMMM d, yyyy")}</p>
+        </div>
+
+        <button
+          onClick={onNext}
+          className="p-1.5 rounded-md hover:bg-accent transition-colors"
+          aria-label="Next day"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </button>
+      </div>
+
+      {/* Shifts for this day */}
+      <div className="space-y-2">
+        {dayShifts.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground text-sm">
+            No shifts scheduled for this day.
+          </div>
+        ) : (
+          dayShifts.map((s) => (
+            <ShiftCard
+              key={s.id}
+              shift={s}
+              assignments={assignments.filter((a) => a.shiftId === s.id)}
+              employees={employees}
+              isPast={isPast || new Date(s.startTime) < new Date()}
+              canEdit={canEdit}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
+          ))
+        )}
+      </div>
+
+      {canEdit && !isPast && (
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={() => onAddShift(day)}
+        >
+          + Add Shift
+        </Button>
+      )}
+    </div>
+  );
+}
+
 export function WeeklyScheduleGrid({
   shifts: initialShifts,
   assignments: initialAssignments,
@@ -89,6 +186,7 @@ export function WeeklyScheduleGrid({
   const [defaultDate, setDefaultDate] = useState<Date | undefined>();
   const [publishing, setPublishing] = useState(false);
   const [autoAssigning, setAutoAssigning] = useState(false);
+  const [mobileDay, setMobileDay] = useState(new Date());
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -207,27 +305,46 @@ export function WeeklyScheduleGrid({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4 flex-wrap">
-        <WeekNavigator weekStart={weekStart} onWeekChange={loadWeek} />
-        {canEdit && (userRole === "org_admin" || userRole === "branch_manager") && (
-          <Button size="sm" onClick={handleAutoAssign} disabled={autoAssigning} variant="secondary">
-            {autoAssigning ? "Auto-assigning…" : "Auto-assign"}
-          </Button>
-        )}
-        {canEdit && unpublishedCount > 0 && (
-          <Button size="sm" onClick={handlePublish} disabled={publishing}>
-            {publishing ? "Publishing…" : `Publish Week (${unpublishedCount} unpublished)`}
-          </Button>
-        )}
-        {unpublishedCount === 0 && visibleShifts.length > 0 && (
-          <Badge variant="secondary">Published</Badge>
-        )}
+      {/* Controls */}
+      <div className="flex items-center gap-3 flex-wrap">
+        {/* Week navigator — hidden on mobile, shown on desktop */}
+        <div className="hidden md:flex items-center gap-4 flex-wrap">
+          <WeekNavigator weekStart={weekStart} onWeekChange={loadWeek} />
+          {canEdit && (userRole === "org_admin" || userRole === "branch_manager") && (
+            <Button size="sm" onClick={handleAutoAssign} disabled={autoAssigning} variant="secondary">
+              {autoAssigning ? "Auto-assigning…" : "Auto-assign"}
+            </Button>
+          )}
+          {canEdit && unpublishedCount > 0 && (
+            <Button size="sm" onClick={handlePublish} disabled={publishing}>
+              {publishing ? "Publishing…" : `Publish Week (${unpublishedCount} unpublished)`}
+            </Button>
+          )}
+          {unpublishedCount === 0 && visibleShifts.length > 0 && (
+            <Badge variant="secondary">Published</Badge>
+          )}
+        </div>
+
+        {/* Mobile week controls */}
+        <div className="flex md:hidden items-center gap-2 w-full flex-wrap">
+          <WeekNavigator weekStart={weekStart} onWeekChange={loadWeek} />
+          {canEdit && unpublishedCount > 0 && (
+            <Button size="sm" onClick={handlePublish} disabled={publishing} className="flex-1">
+              {publishing ? "Publishing…" : `Publish (${unpublishedCount})`}
+            </Button>
+          )}
+          {canEdit && (userRole === "org_admin" || userRole === "branch_manager") && (
+            <Button size="sm" onClick={handleAutoAssign} disabled={autoAssigning} variant="secondary">
+              {autoAssigning ? "Assigning…" : "Auto-assign"}
+            </Button>
+          )}
+        </div>
       </div>
 
+      {/* Desktop: 7-column week grid */}
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-        <div className="overflow-x-auto" suppressHydrationWarning>
+        <div className="hidden md:block overflow-x-auto" suppressHydrationWarning>
           <div className="min-w-[700px]">
-            {/* Header row */}
             <div className="grid grid-cols-7 border rounded-t-md bg-muted/50">
               {weekDays.map((day, i) => (
                 <div
@@ -243,7 +360,6 @@ export function WeeklyScheduleGrid({
                 </div>
               ))}
             </div>
-            {/* Shift cells */}
             <div className="grid grid-cols-7 border border-t-0 rounded-b-md">
               {weekDays.map((day, i) => {
                 const dayKey = format(day, "yyyy-MM-dd");
@@ -270,6 +386,54 @@ export function WeeklyScheduleGrid({
           </div>
         </div>
       </DndContext>
+
+      {/* Mobile: single day view */}
+      <div className="md:hidden">
+        {/* Day-of-week pill strip */}
+        <div className="flex gap-1 overflow-x-auto pb-2 mb-2 scrollbar-hide">
+          {weekDays.map((day, i) => {
+            const isSelected = isSameDay(day, mobileDay);
+            const isToday = isSameDay(day, new Date());
+            const dayShiftCount = visibleShifts.filter(
+              (s) => format(new Date(s.startTime), "yyyy-MM-dd") === format(day, "yyyy-MM-dd")
+            ).length;
+            return (
+              <button
+                key={i}
+                onClick={() => setMobileDay(day)}
+                className={`flex flex-col items-center px-3 py-2 rounded-xl min-w-[52px] transition-colors ${
+                  isSelected
+                    ? "bg-primary text-primary-foreground"
+                    : isToday
+                    ? "bg-primary/10 text-primary"
+                    : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                <span className="text-[10px] font-semibold uppercase">{DAY_LABELS[i]}</span>
+                <span className="text-lg font-bold leading-tight">{format(day, "d")}</span>
+                {dayShiftCount > 0 && (
+                  <span className={`text-[9px] font-medium mt-0.5 ${isSelected ? "text-primary-foreground/80" : "text-primary"}`}>
+                    {dayShiftCount} shift{dayShiftCount !== 1 ? "s" : ""}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <MobileDayView
+          day={mobileDay}
+          shifts={visibleShifts}
+          assignments={assignments}
+          employees={employees}
+          canEdit={canEdit}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onAddShift={handleAddShift}
+          onPrev={() => setMobileDay((d) => addDays(d, -1))}
+          onNext={() => setMobileDay((d) => addDays(d, 1))}
+        />
+      </div>
 
       <ShiftCreateDialog
         open={dialogOpen}

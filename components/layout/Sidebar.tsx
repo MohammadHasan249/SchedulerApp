@@ -12,6 +12,7 @@ import {
   GitBranch,
   CalendarCheck2,
   Briefcase,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type AppUser } from "@/lib/auth/getUser";
@@ -49,17 +50,30 @@ function isActive(href: string, pathname: string) {
   return pathname.startsWith(href);
 }
 
-export function Sidebar({ role }: { role: AppUser["role"] }) {
+type Props = {
+  role: AppUser["role"];
+  isOpen?: boolean;
+  onClose?: () => void;
+};
+
+export function Sidebar({ role, isOpen = false, onClose }: Props) {
   const pathname = usePathname();
   const visible = NAV.filter((item) => item.roles.includes(role));
-
   const groups = ["main", "manage", "settings"] as const;
 
   return (
-    <aside className="w-60 shrink-0 flex flex-col bg-sidebar text-sidebar-foreground">
-      {/* Logo */}
+    <aside
+      className={cn(
+        // Mobile: fixed overlay, slide in/out
+        "fixed inset-y-0 left-0 z-30 w-72 flex flex-col bg-sidebar text-sidebar-foreground transition-transform duration-300",
+        isOpen ? "translate-x-0" : "-translate-x-full",
+        // Desktop: relative, always visible, narrower
+        "lg:relative lg:w-60 lg:translate-x-0 lg:shrink-0"
+      )}
+    >
+      {/* Logo + mobile close */}
       <div className="h-14 flex items-center px-5 shrink-0 border-b border-sidebar-border">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-1">
           <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center">
             <CalendarDays className="h-4 w-4 text-primary-foreground" />
           </div>
@@ -67,6 +81,13 @@ export function Sidebar({ role }: { role: AppUser["role"] }) {
             Scheduler
           </span>
         </div>
+        <button
+          onClick={onClose}
+          className="lg:hidden p-1 rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+          aria-label="Close menu"
+        >
+          <X className="h-5 w-5" />
+        </button>
       </div>
 
       {/* Nav */}
@@ -84,8 +105,9 @@ export function Sidebar({ role }: { role: AppUser["role"] }) {
                   <Link
                     key={href}
                     href={href}
+                    onClick={onClose}
                     className={cn(
-                      "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
+                      "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
                       isActive(href, pathname)
                         ? "bg-primary text-primary-foreground shadow-sm shadow-primary/30"
                         : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
