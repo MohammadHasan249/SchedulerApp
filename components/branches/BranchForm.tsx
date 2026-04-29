@@ -64,6 +64,7 @@ export function BranchForm({ open, onOpenChange, branch }: Props) {
       return;
     }
 
+    setLoading(false);
     onOpenChange(false);
     router.refresh();
   }

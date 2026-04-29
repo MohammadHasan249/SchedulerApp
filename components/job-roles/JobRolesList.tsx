@@ -69,6 +69,7 @@ export function JobRolesList({ roles: initialRoles }: Props) {
       setRoles([...roles, updated]);
     }
 
+    setLoading(false);
     closeForm();
     router.refresh();
   }
