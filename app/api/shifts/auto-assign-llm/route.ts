@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { Anthropic } from "@anthropic-ai/sdk";
 import { getUser } from "@/lib/auth/getUser";
 import { db } from "@/lib/db";
 import {
@@ -163,11 +162,7 @@ export async function POST(request: Request) {
       timeOff: Array.from(timeOffByEmployeeId.get(e.id) || new Set()),
     }));
 
-    // Call Claude Haiku (cheapest model)
-    const client = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    });
-
+    // Call DeepSeek (very cost-efficient model)
     const prompt = `You are a workforce scheduling expert. Given shifts and employees, assign employees to shifts optimally.
 
 SHIFTS TO ASSIGN:
@@ -188,19 +183,36 @@ Return ONLY a valid JSON array of assignments. Each assignment has: shiftId, emp
 Example: [{"shiftId":"shift-1","employeeId":"emp-1","jobRoleId":null}]
 Return empty array [] if no valid assignments possible.`;
 
-    const response = await client.messages.create({
-      model: "claude-3-5-haiku-20241022",
-      max_tokens: 4096,
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
+    const deepseekResponse = await fetch("https://api.deepseek.com/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "deepseek-chat",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: 0.3,
+        max_tokens: 4096,
+      }),
     });
 
+    if (!deepseekResponse.ok) {
+      console.error("DeepSeek API error:", await deepseekResponse.text());
+      return NextResponse.json(
+        { error: "Failed to call DeepSeek API" },
+        { status: 500 }
+      );
+    }
+
+    const deepseekData = await deepseekResponse.json();
     const responseText =
-      response.content[0].type === "text" ? response.content[0].text : "";
+      deepseekData.choices?.[0]?.message?.content || "";
 
     // Parse JSON from response
     const jsonMatch = responseText.match(/\[[\s\S]*\]/);
