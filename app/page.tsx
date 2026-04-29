@@ -74,7 +74,7 @@ export default function LandingPage() {
                 Log in
               </Button>
             </Link>
-            <Link href="/signup/org">
+            <Link href="/signup">
               <Button className="bg-primary hover:bg-primary/90">
                 Get Started
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -101,7 +101,7 @@ export default function LandingPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/signup/org">
+            <Link href="/signup">
               <Button size="lg" className="bg-primary hover:bg-primary/90 text-base h-12">
                 Start Free Trial
                 <ArrowRight className="ml-2 h-5 w-5" />
@@ -198,7 +198,7 @@ export default function LandingPage() {
             Join hundreds of teams already using Scheduler App to manage their workforce.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/signup/org">
+            <Link href="/signup">
               <Button size="lg" className="bg-primary hover:bg-primary/90 text-base h-12">
                 Start Your Free Trial
                 <ArrowRight className="ml-2 h-5 w-5" />
@@ -224,7 +224,7 @@ export default function LandingPage() {
               </div>
               <span className="font-semibold text-white">Scheduler App</span>
             </div>
-            <p className="text-sm text-slate-500">© 2024 Scheduler App. All rights reserved.</p>
+            <p className="text-sm text-slate-500">© 2026 Scheduler App. All rights reserved.</p>
           </div>
         </div>
       </footer>

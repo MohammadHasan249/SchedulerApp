@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import bcryptjs from "bcryptjs";
 import { db } from "@/lib/db";
-import { employees } from "@/db/schema";
+import { employees, availability } from "@/db/schema";
 import { getUser } from "@/lib/auth/getUser";
 import { sendEmployeeInvitationEmail } from "@/lib/email/send-employee-invitation";
 import { eq, and } from "drizzle-orm";
@@ -72,6 +72,16 @@ export async function POST(request: Request) {
       pinHash,
     })
     .returning();
+
+  // Initialize default availability for all 7 days (9am-5pm)
+  await db.insert(availability).values(
+    Array.from({ length: 7 }, (_, dayOfWeek) => ({
+      employeeId: employee.id,
+      dayOfWeek,
+      startTime: "09:00",
+      endTime: "17:00",
+    }))
+  );
 
   sendEmployeeInvitationEmail(name, email, user.organizationId).catch((error) => {
     console.error("Failed to send invitation email:", error);

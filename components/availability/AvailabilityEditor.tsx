@@ -20,7 +20,7 @@ function toSlots(rows: Availability[]): DaySlot[] {
     const row = rows.find((r) => r.dayOfWeek === i);
     return row
       ? { enabled: true, startTime: row.startTime.slice(0, 5), endTime: row.endTime.slice(0, 5) }
-      : { enabled: false, startTime: "09:00", endTime: "17:00" };
+      : { enabled: true, startTime: "09:00", endTime: "17:00" };
   });
 }
 
