@@ -186,6 +186,7 @@ export function WeeklyScheduleGrid({
   const [defaultDate, setDefaultDate] = useState<Date | undefined>();
   const [publishing, setPublishing] = useState(false);
   const [autoAssigning, setAutoAssigning] = useState(false);
+  const [aiAssigning, setAiAssigning] = useState(false);
   const [mobileDay, setMobileDay] = useState(new Date());
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -296,6 +297,27 @@ export function WeeklyScheduleGrid({
     }
   }
 
+  async function handleAiAssign() {
+    setAiAssigning(true);
+    const weekEnd = addDays(weekStart, 7);
+    try {
+      const res = await fetch("/api/shifts/auto-assign-llm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          branchId: currentBranchId,
+          fromDate: weekStart.toISOString(),
+          toDate: weekEnd.toISOString(),
+        }),
+      });
+      if (res.ok) {
+        await refreshWeek();
+      }
+    } finally {
+      setAiAssigning(false);
+    }
+  }
+
   async function refreshWeek() {
     router.refresh();
   }
@@ -311,9 +333,14 @@ export function WeeklyScheduleGrid({
         <div className="hidden md:flex items-center gap-4 flex-wrap">
           <WeekNavigator weekStart={weekStart} onWeekChange={loadWeek} />
           {canEdit && (userRole === "org_admin" || userRole === "branch_manager") && (
-            <Button size="sm" onClick={handleAutoAssign} disabled={autoAssigning} variant="secondary">
-              {autoAssigning ? "Auto-assigning…" : "Auto-assign"}
-            </Button>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleAutoAssign} disabled={autoAssigning} variant="secondary">
+                {autoAssigning ? "Auto-assigning…" : "Auto-assign"}
+              </Button>
+              <Button size="sm" onClick={handleAiAssign} disabled={aiAssigning} variant="outline">
+                {aiAssigning ? "AI Assigning…" : "AI Assign"}
+              </Button>
+            </div>
           )}
           {canEdit && unpublishedCount > 0 && (
             <Button size="sm" onClick={handlePublish} disabled={publishing}>
@@ -334,9 +361,14 @@ export function WeeklyScheduleGrid({
             </Button>
           )}
           {canEdit && (userRole === "org_admin" || userRole === "branch_manager") && (
-            <Button size="sm" onClick={handleAutoAssign} disabled={autoAssigning} variant="secondary">
-              {autoAssigning ? "Assigning…" : "Auto-assign"}
-            </Button>
+            <>
+              <Button size="sm" onClick={handleAutoAssign} disabled={autoAssigning} variant="secondary" className="flex-1">
+                {autoAssigning ? "Assigning…" : "Auto-assign"}
+              </Button>
+              <Button size="sm" onClick={handleAiAssign} disabled={aiAssigning} variant="outline" className="flex-1">
+                {aiAssigning ? "AI…" : "AI Assign"}
+              </Button>
+            </>
           )}
         </div>
       </div>
