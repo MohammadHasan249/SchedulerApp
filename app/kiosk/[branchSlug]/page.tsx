@@ -1,7 +1,16 @@
 import { format } from "date-fns";
+import { redirect } from "next/navigation";
+import { getUser } from "@/lib/auth/getUser";
 import { KioskContent } from "@/components/kiosk/KioskContent";
 
 export default async function KioskPage({ params }: { params: Promise<{ branchSlug: string }> }) {
+  const user = await getUser();
+
+  // Only org_admin and branch_manager can access the kiosk
+  if (user.role !== "org_admin" && user.role !== "branch_manager") {
+    redirect("/dashboard");
+  }
+
   const { branchSlug } = await params;
 
   return (

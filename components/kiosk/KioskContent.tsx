@@ -1,8 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { PinPad } from "./PinPad";
 import { ClockConfirmation } from "./ClockConfirmation";
+import { ExitPasscodeModal } from "./ExitPasscodeModal";
 
 type ClockResult = {
   employeeName: string;
@@ -14,10 +18,14 @@ type Props = {
   branchSlug: string;
 };
 
+const EXIT_PASSCODE = "9999";
+
 export function KioskContent({ branchSlug }: Props) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ClockResult | null>(null);
   const [error, setError] = useState("");
+  const [exitModalOpen, setExitModalOpen] = useState(false);
 
   async function handlePin(pin: string) {
     setLoading(true);
@@ -51,13 +59,37 @@ export function KioskContent({ branchSlug }: Props) {
     setError("");
   }
 
+  function handleExitConfirmed() {
+    setExitModalOpen(false);
+    router.push("/dashboard");
+  }
+
   return (
     <>
-      {result || error ? (
-        <ClockConfirmation result={result} error={error} onReset={handleReset} />
-      ) : (
-        <PinPad onSubmit={handlePin} loading={loading} />
-      )}
+      <ExitPasscodeModal
+        open={exitModalOpen}
+        onClose={() => setExitModalOpen(false)}
+        onExitConfirmed={handleExitConfirmed}
+        exitPasscode={EXIT_PASSCODE}
+      />
+
+      <div className="flex flex-col items-center gap-6">
+        {result || error ? (
+          <ClockConfirmation result={result} error={error} onReset={handleReset} />
+        ) : (
+          <PinPad onSubmit={handlePin} loading={loading} />
+        )}
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          onClick={() => setExitModalOpen(true)}
+        >
+          <LogOut className="h-4 w-4" />
+          Exit
+        </Button>
+      </div>
     </>
   );
 }

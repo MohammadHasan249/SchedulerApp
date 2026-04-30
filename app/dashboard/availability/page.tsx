@@ -9,7 +9,7 @@ import { TeamAvailabilityView } from "@/components/availability/TeamAvailability
 export default async function AvailabilityPage() {
   const user = await getUser();
 
-  // For managers/admins, show team availability view
+  // For managers/admins, show team availability view + their own availability if they have an employee record
   if (user.role === "org_admin" || user.role === "branch_manager") {
     const empConditions = [eq(employees.organizationId, user.organizationId)];
     if (user.role === "branch_manager" && user.branchId) {
@@ -30,8 +30,40 @@ export default async function AvailabilityPage() {
             .where(inArray(availability.employeeId, teamEmployeeIds))
         : [];
 
+    // Check if admin has their own employee record
+    const [adminEmployee] = await db
+      .select()
+      .from(employees)
+      .where(
+        and(
+          eq(employees.authUserId, user.id),
+          eq(employees.organizationId, user.organizationId)
+        )
+      )
+      .limit(1);
+
+    let adminAvailability: typeof availability.$inferSelect[] = [];
+    if (adminEmployee) {
+      adminAvailability = await db
+        .select()
+        .from(availability)
+        .where(eq(availability.employeeId, adminEmployee.id));
+    }
+
     return (
-      <div className="space-y-6">
+      <div className="space-y-8">
+        {adminEmployee && (
+          <div className="max-w-md space-y-4 pb-6 border-b">
+            <div>
+              <h2 className="text-xl font-semibold">Your Availability</h2>
+              <p className="text-muted-foreground text-sm mt-1">
+                Set your own weekly recurring availability.
+              </p>
+            </div>
+            <AvailabilityEditor employeeId={adminEmployee.id} initial={adminAvailability} />
+          </div>
+        )}
+
         <div>
           <h1 className="text-2xl font-semibold">Team Availability</h1>
           <p className="text-muted-foreground text-sm mt-1">
