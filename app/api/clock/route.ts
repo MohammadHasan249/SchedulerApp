@@ -72,15 +72,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Branch not found" }, { status: 404 });
   }
 
-  // Find employees in this branch with a PIN set
+  // Find all active employees and admins in this branch with a PIN set
   const branchEmployees = await db
     .select()
     .from(employees)
     .where(and(eq(employees.branchId, branch.id), eq(employees.isActive, true)));
 
-  // Find the matching employee by bcrypt comparing
+  // Also get admins from this organization (not tied to specific branch)
+  const orgAdmins = await db
+    .select()
+    .from(employees)
+    .where(
+      and(
+        eq(employees.organizationId, branch.organizationId),
+        eq(employees.isActive, true)
+      )
+    );
+
+  const allUsers = [...branchEmployees, ...orgAdmins.filter(admin => !branchEmployees.some(e => e.id === admin.id))];
+
+  // Find the matching employee/admin by bcrypt comparing
   let matchedEmployee: typeof employees.$inferSelect | null = null;
-  for (const emp of branchEmployees) {
+  for (const emp of allUsers) {
     if (emp.pinHash && await bcrypt.compare(pin, emp.pinHash)) {
       matchedEmployee = emp;
       break;

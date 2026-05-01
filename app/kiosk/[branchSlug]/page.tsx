@@ -1,6 +1,9 @@
 import { format } from "date-fns";
 import { redirect } from "next/navigation";
 import { getUser } from "@/lib/auth/getUser";
+import { db } from "@/lib/db";
+import { employees } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 import { KioskContent } from "@/components/kiosk/KioskContent";
 
 export default async function KioskPage({ params }: { params: Promise<{ branchSlug: string }> }) {
@@ -13,6 +16,20 @@ export default async function KioskPage({ params }: { params: Promise<{ branchSl
 
   const { branchSlug } = await params;
 
+  // Get admin's employee record to check if they have a PIN
+  const [adminEmployee] = await db
+    .select({ id: employees.id, pinHash: employees.pinHash })
+    .from(employees)
+    .where(
+      and(
+        eq(employees.authUserId, user.id),
+        eq(employees.organizationId, user.organizationId)
+      )
+    )
+    .limit(1);
+
+  const needsPinSetup = adminEmployee && !adminEmployee.pinHash;
+
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-8 p-8">
       <div className="text-center">
@@ -20,7 +37,11 @@ export default async function KioskPage({ params }: { params: Promise<{ branchSl
         <p className="text-muted-foreground mt-1">{format(new Date(), "EEEE, MMMM d · HH:mm")}</p>
       </div>
 
-      <KioskContent branchSlug={branchSlug} />
+      <KioskContent
+        branchSlug={branchSlug}
+        adminEmployeeId={adminEmployee?.id}
+        needsPinSetup={needsPinSetup ?? false}
+      />
     </div>
   );
 }

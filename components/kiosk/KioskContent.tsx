@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { PinPad } from "./PinPad";
 import { ClockConfirmation } from "./ClockConfirmation";
 import { ExitPasscodeModal } from "./ExitPasscodeModal";
+import { AdminPinSetup } from "./AdminPinSetup";
 
 type ClockResult = {
   employeeName: string;
@@ -16,16 +17,19 @@ type ClockResult = {
 
 type Props = {
   branchSlug: string;
+  adminEmployeeId?: string;
+  needsPinSetup?: boolean;
 };
 
 const EXIT_PASSCODE = "9999";
 
-export function KioskContent({ branchSlug }: Props) {
+export function KioskContent({ branchSlug, adminEmployeeId, needsPinSetup = false }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ClockResult | null>(null);
   const [error, setError] = useState("");
   const [exitModalOpen, setExitModalOpen] = useState(false);
+  const [showPinSetup, setShowPinSetup] = useState(needsPinSetup);
 
   async function handlePin(pin: string) {
     setLoading(true);
@@ -66,6 +70,14 @@ export function KioskContent({ branchSlug }: Props) {
 
   return (
     <>
+      {adminEmployeeId && (
+        <AdminPinSetup
+          open={showPinSetup}
+          employeeId={adminEmployeeId}
+          onSuccess={() => setShowPinSetup(false)}
+        />
+      )}
+
       <ExitPasscodeModal
         open={exitModalOpen}
         onClose={() => setExitModalOpen(false)}
