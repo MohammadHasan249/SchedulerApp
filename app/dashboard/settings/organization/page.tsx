@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getUser } from "@/lib/auth/getUser";
 
 export default async function OrganizationSettingsPage() {
