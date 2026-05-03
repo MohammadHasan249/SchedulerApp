@@ -10,6 +10,12 @@ export async function GET(
   const size = parseInt(sizeParam) || 192;
   const { searchParams } = new URL(request.url);
   const color = searchParams.get("color") ?? "#3b82f6";
+
+  // If the org has uploaded a logo, redirect to it — the browser will use it as-is.
+  const logo = searchParams.get("logo");
+  if (logo) {
+    return Response.redirect(logo, 302);
+  }
   const radius = Math.round(size * 0.2);
 
   return new ImageResponse(

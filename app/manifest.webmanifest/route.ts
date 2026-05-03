@@ -14,11 +14,16 @@ export async function GET(request: Request) {
   let name = "Scheduler App";
   let shortName = "Scheduler";
   let primaryColor = "#3b82f6";
+  let logoUrl: string | null = null;
 
   if (slug) {
     try {
       const [org] = await db
-        .select({ name: organizations.name, primaryColor: organizations.primaryColor })
+        .select({
+          name: organizations.name,
+          primaryColor: organizations.primaryColor,
+          logoUrl: organizations.logoUrl,
+        })
         .from(organizations)
         .where(eq(organizations.slug, slug))
         .limit(1);
@@ -26,11 +31,31 @@ export async function GET(request: Request) {
         name = org.name;
         shortName = org.name.split(" ").slice(0, 2).join(" ");
         primaryColor = org.primaryColor ?? "#3b82f6";
+        logoUrl = org.logoUrl ?? null;
       }
     } catch {
       // fall back to defaults
     }
   }
+
+  // Use the org's uploaded logo if available, otherwise fall back to the
+  // generated calendar icon in their brand color.
+  const icons = logoUrl
+    ? [{ src: logoUrl, sizes: "any", type: "image/png", purpose: "any maskable" }]
+    : [
+        {
+          src: `/icon/192?color=${encodeURIComponent(primaryColor)}`,
+          sizes: "192x192",
+          type: "image/png",
+          purpose: "any",
+        },
+        {
+          src: `/icon/512?color=${encodeURIComponent(primaryColor)}`,
+          sizes: "512x512",
+          type: "image/png",
+          purpose: "maskable",
+        },
+      ];
 
   const manifest = {
     name,
@@ -42,20 +67,7 @@ export async function GET(request: Request) {
     orientation: "portrait",
     background_color: "#0f172a",
     theme_color: primaryColor,
-    icons: [
-      {
-        src: `/icon/192?color=${encodeURIComponent(primaryColor)}`,
-        sizes: "192x192",
-        type: "image/png",
-        purpose: "any",
-      },
-      {
-        src: `/icon/512?color=${encodeURIComponent(primaryColor)}`,
-        sizes: "512x512",
-        type: "image/png",
-        purpose: "maskable",
-      },
-    ],
+    icons,
     shortcuts: [
       {
         name: "Schedule",
