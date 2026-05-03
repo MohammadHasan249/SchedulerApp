@@ -15,14 +15,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
       .where(and(eq(employees.authUserId, user.id), eq(employees.organizationId, user.organizationId)))
       .limit(1),
     db
-      .select({ name: organizations.name, theme: organizations.theme })
+      .select({ name: organizations.name })
       .from(organizations)
       .where(eq(organizations.id, user.organizationId))
       .limit(1),
   ]);
 
   return (
-    <OrgContextProvider user={user} organization={org as any}>
+    <OrgContextProvider user={user} organization={org}>
       <DashboardShell
         user={user}
         employeeId={emp?.id}

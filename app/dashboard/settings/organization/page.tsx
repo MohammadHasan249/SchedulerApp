@@ -1,9 +1,4 @@
 import { getUser } from "@/lib/auth/getUser";
-import { db } from "@/lib/db";
-import { organizations } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { ThemeEditor } from "@/components/settings/ThemeEditor";
-import { OrganizationThemeClient } from "@/components/settings/OrganizationThemeClient";
 
 export default async function OrganizationSettingsPage() {
   const user = await getUser();
@@ -19,20 +14,6 @@ export default async function OrganizationSettingsPage() {
     );
   }
 
-  const [org] = await db
-    .select()
-    .from(organizations)
-    .where(eq(organizations.id, user.organizationId))
-    .limit(1);
-
-  const theme = (org?.theme as any) ?? {
-    primary: "#3b82f6",
-    secondary: "#64748b",
-    accent: "#06b6d4",
-    background: "#ffffff",
-    foreground: "#000000",
-  };
-
   return (
     <div className="space-y-8">
       <div>
@@ -41,13 +22,7 @@ export default async function OrganizationSettingsPage() {
           Customize your organization's appearance and branding.
         </p>
       </div>
-
-      <div className="max-w-2xl space-y-6">
-        <div>
-          <h2 className="text-lg font-semibold mb-4">Brand Colors</h2>
-          <OrganizationThemeClient initialTheme={theme} />
-        </div>
-      </div>
+      <p className="text-sm text-muted-foreground">Theme customization coming soon.</p>
     </div>
   );
 }
