@@ -27,18 +27,11 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  try {
-    const [org] = await db
-      .update(organizations)
-      .set({ theme: parsed.data })
-      .where(eq(organizations.id, user.organizationId))
-      .returning();
+  const [org] = await db
+    .update(organizations)
+    .set({ theme: parsed.data })
+    .where(eq(organizations.id, user.organizationId))
+    .returning();
 
-    return NextResponse.json(org);
-  } catch {
-    return NextResponse.json(
-      { error: "Theme update failed. DB migration may be pending." },
-      { status: 503 }
-    );
-  }
+  return NextResponse.json(org);
 }
