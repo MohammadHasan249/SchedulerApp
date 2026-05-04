@@ -64,7 +64,7 @@ export async function POST(request: Request) {
               eq(shifts.isPublished, false)
             )
           ),
-        db.select().from(employees).where(eq(employees.organizationId, user.organizationId)),
+        db.select().from(employees).where(and(eq(employees.organizationId, user.organizationId), eq(employees.isActive, true))),
         db.select().from(availability),
         db
           .select()
@@ -161,6 +161,10 @@ export async function POST(request: Request) {
       availability: availabilityByEmployeeId.get(e.id) || [],
       timeOff: Array.from(timeOffByEmployeeId.get(e.id) || new Set()),
     }));
+
+    if (!process.env.DEEPSEEK_API_KEY) {
+      return NextResponse.json({ error: "AI assign is not configured (DEEPSEEK_API_KEY missing)" }, { status: 503 });
+    }
 
     // Call DeepSeek (very cost-efficient model)
     const prompt = `You are a workforce scheduling expert. Given shifts and employees, assign employees to shifts optimally.

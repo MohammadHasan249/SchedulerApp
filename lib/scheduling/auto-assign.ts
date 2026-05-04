@@ -58,11 +58,11 @@ export async function autoAssignShifts(
     return [];
   }
 
-  // Get all employees in this organization
+  // Get all active employees in this organization
   const allEmployees = await db
     .select()
     .from(employees)
-    .where(eq(employees.organizationId, organizationId));
+    .where(and(eq(employees.organizationId, organizationId), eq(employees.isActive, true)));
 
   // Batch fetch all availability for all employees (avoid N+1)
   const allAvailability = await db.select().from(availability);

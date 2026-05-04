@@ -11,6 +11,7 @@ import { ShiftCreateDialog } from "./ShiftCreateDialog";
 import { WeekNavigator } from "./WeekNavigator";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 import type { Shift, ShiftAssignment, Employee, Branch } from "@/db/schema";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -289,9 +290,17 @@ export function WeeklyScheduleGrid({
           toDate: weekEnd.toISOString(),
         }),
       });
-      if (res.ok) {
-        await refreshWeek();
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "Auto-assign failed");
+      } else if (data.assignmentsCreated === 0) {
+        toast.info("No assignments made — make sure shifts are unpublished and employees have availability set");
+      } else {
+        toast.success(`Assigned ${data.assignmentsCreated} employee${data.assignmentsCreated !== 1 ? "s" : ""} to shifts`);
+        refreshWeek();
       }
+    } catch {
+      toast.error("Auto-assign failed — check your connection");
     } finally {
       setAutoAssigning(false);
     }
@@ -310,15 +319,23 @@ export function WeeklyScheduleGrid({
           toDate: weekEnd.toISOString(),
         }),
       });
-      if (res.ok) {
-        await refreshWeek();
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "AI assign failed");
+      } else if (data.assignmentsCreated === 0) {
+        toast.info("No assignments made — make sure shifts are unpublished and employees have availability set");
+      } else {
+        toast.success(`AI assigned ${data.assignmentsCreated} employee${data.assignmentsCreated !== 1 ? "s" : ""} to shifts`);
+        refreshWeek();
       }
+    } catch {
+      toast.error("AI assign failed — check your connection");
     } finally {
       setAiAssigning(false);
     }
   }
 
-  async function refreshWeek() {
+  function refreshWeek() {
     router.refresh();
   }
 
