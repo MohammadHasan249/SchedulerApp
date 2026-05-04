@@ -266,10 +266,10 @@ function getShiftHours(shift: typeof shifts.$inferSelect): number {
   );
 }
 
-function convertTimestampToTimeString(date: Date, timezone: string = "UTC"): string {
-  const utcHours = String(date.getUTCHours()).padStart(2, "0");
-  const utcMinutes = String(date.getUTCMinutes()).padStart(2, "0");
-  return `${utcHours}:${utcMinutes}`;
+function convertTimestampToTimeString(date: Date): string {
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
 }
 
 function isAvailableForShift(
@@ -278,7 +278,7 @@ function isAvailableForShift(
 ): boolean {
   const shiftStart = new Date(shift.startTime);
   const shiftEnd = new Date(shift.endTime);
-  const shiftDayOfWeek = shiftStart.getUTCDay();
+  const shiftDayOfWeek = shiftStart.getDay();
   const shiftStartTime = convertTimestampToTimeString(shiftStart);
   const shiftEndTime = convertTimestampToTimeString(shiftEnd);
 

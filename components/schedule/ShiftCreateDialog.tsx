@@ -46,6 +46,8 @@ export function ShiftCreateDialog({
   const [assignedIds, setAssignedIds] = useState<string[]>(assignments.map((a) => a.employeeId));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [availabilityWarning, setAvailabilityWarning] = useState<string[]>([]);
+  const [overrideAvailability, setOverrideAvailability] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -61,6 +63,8 @@ export function ShiftCreateDialog({
         setAssignedIds([]);
       }
       setError("");
+      setAvailabilityWarning([]);
+      setOverrideAvailability(false);
     }
   }, [open, shift, assignments, dateStr]);
 
@@ -126,8 +130,9 @@ export function ShiftCreateDialog({
     }
 
     const conflicts = checkAvailabilityConflicts();
-    if (conflicts.length > 0) {
-      setError(`Availability conflicts:\n${conflicts.join("\n")}`);
+    if (conflicts.length > 0 && !overrideAvailability) {
+      // Show as a warning and let the manager confirm — don't hard-block
+      setAvailabilityWarning(conflicts);
       setLoading(false);
       return;
     }
@@ -249,6 +254,27 @@ export function ShiftCreateDialog({
               )}
             </div>
           </div>
+          {availabilityWarning.length > 0 && !overrideAvailability && (
+            <div className="rounded-md border border-yellow-500/40 bg-yellow-500/10 p-3 space-y-2">
+              <p className="text-sm font-medium text-yellow-600 dark:text-yellow-400">
+                Availability conflicts — schedule anyway?
+              </p>
+              <ul className="text-xs text-yellow-700 dark:text-yellow-300 space-y-0.5">
+                {availabilityWarning.map((w, i) => (
+                  <li key={i}>• {w}</li>
+                ))}
+              </ul>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="border-yellow-500/50 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-500/10"
+                onClick={() => setOverrideAvailability(true)}
+              >
+                Schedule anyway
+              </Button>
+            </div>
+          )}
           {error && (
             <div className="text-sm text-destructive whitespace-pre-wrap">
               {error}

@@ -35,7 +35,7 @@ const NAV: NavItem[] = [
   { label: "Reports", href: "/dashboard/reports", icon: BarChart2, roles: ["org_admin", "branch_manager"], group: "manage" },
   { label: "Job Roles", href: "/dashboard/settings/job-roles", icon: Briefcase, roles: ["org_admin"], group: "settings" },
   { label: "Branches", href: "/dashboard/settings/branches", icon: GitBranch, roles: ["org_admin"], group: "settings" },
-  { label: "Settings", href: "/dashboard/settings", icon: Settings, roles: ["org_admin"], group: "settings" },
+  { label: "Settings", href: "/dashboard/settings/organization", icon: Settings, roles: ["org_admin"], group: "settings" },
 ];
 
 const GROUP_LABELS: Record<string, string> = {
@@ -46,7 +46,7 @@ const GROUP_LABELS: Record<string, string> = {
 
 function isActive(href: string, pathname: string) {
   if (href === "/dashboard") return pathname === "/dashboard";
-  if (href === "/dashboard/settings") return pathname === "/dashboard/settings";
+  if (href === "/dashboard/settings/organization") return pathname.startsWith("/dashboard/settings/organization");
   return pathname.startsWith(href);
 }
 
