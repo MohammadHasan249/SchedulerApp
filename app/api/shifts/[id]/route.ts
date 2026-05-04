@@ -29,7 +29,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const row = await getShift(id, user.organizationId);
   if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  if (user.role === "branch_manager" && row.branch.id !== user.branchId) {
+  if (user.role === "branch_manager" && (!user.branchId || row.branch.id !== user.branchId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -59,7 +59,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   const row = await getShift(id, user.organizationId);
   if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  if (user.role === "branch_manager" && row.branch.id !== user.branchId) {
+  if (user.role === "branch_manager" && (!user.branchId || row.branch.id !== user.branchId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

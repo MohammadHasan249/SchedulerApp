@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import bcryptjs from "bcryptjs";
 import { db } from "@/lib/db";
-import { employees, availability } from "@/db/schema";
+import { employees, availability, branches, jobRoles } from "@/db/schema";
 import { getUser } from "@/lib/auth/getUser";
 import { sendEmployeeInvitationEmail } from "@/lib/email/send-employee-invitation";
 import { eq, and } from "drizzle-orm";
@@ -20,14 +20,29 @@ const inviteSchema = z.object({
 export async function GET() {
   const user = await getUser();
 
+  if (user.role === "branch_manager" && !user.branchId) {
+    return NextResponse.json([]);
+  }
+
   const conditions = [eq(employees.organizationId, user.organizationId)];
 
-  if (user.role === "branch_manager" && user.branchId) {
-    conditions.push(eq(employees.branchId, user.branchId));
+  if (user.role === "branch_manager") {
+    conditions.push(eq(employees.branchId, user.branchId!));
   }
 
   const rows = await db
-    .select()
+    .select({
+      id: employees.id,
+      organizationId: employees.organizationId,
+      branchId: employees.branchId,
+      authUserId: employees.authUserId,
+      name: employees.name,
+      email: employees.email,
+      role: employees.role,
+      jobRoleId: employees.jobRoleId,
+      maxHoursPerWeek: employees.maxHoursPerWeek,
+      isActive: employees.isActive,
+    })
     .from(employees)
     .where(and(...conditions));
 
@@ -53,8 +68,37 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // Only org_admin can create another org_admin
+  if (role === "org_admin" && user.role !== "org_admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const targetBranchId =
     user.role === "branch_manager" ? user.branchId : (branchId ?? null);
+
+  // Verify branchId belongs to this organization (prevent cross-tenant assignment)
+  if (targetBranchId) {
+    const [branch] = await db
+      .select({ id: branches.id })
+      .from(branches)
+      .where(and(eq(branches.id, targetBranchId), eq(branches.organizationId, user.organizationId)))
+      .limit(1);
+    if (!branch) {
+      return NextResponse.json({ error: "Branch not found" }, { status: 404 });
+    }
+  }
+
+  // Verify jobRoleId belongs to this organization
+  if (jobRoleId) {
+    const [jr] = await db
+      .select({ id: jobRoles.id })
+      .from(jobRoles)
+      .where(and(eq(jobRoles.id, jobRoleId), eq(jobRoles.organizationId, user.organizationId)))
+      .limit(1);
+    if (!jr) {
+      return NextResponse.json({ error: "Job role not found" }, { status: 404 });
+    }
+  }
 
   const pinHash = pin ? await bcryptjs.hash(pin, 10) : null;
 

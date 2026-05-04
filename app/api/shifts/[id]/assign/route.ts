@@ -31,6 +31,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const row = await getShift(id, user.organizationId);
   if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // Employees can only view assignments for published shifts in their own branch
+  if (user.role === "employee") {
+    if (!row.shift.isPublished) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+  }
+  if (user.role === "branch_manager" && (!user.branchId || row.branch.id !== user.branchId)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const assignments = await db
     .select()
     .from(shiftAssignments)
@@ -47,7 +57,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const row = await getShift(id, user.organizationId);
   if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  if (user.role === "branch_manager" && row.branch.id !== user.branchId) {
+  if (user.role === "branch_manager" && (!user.branchId || row.branch.id !== user.branchId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -61,12 +71,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   // Verify employee belongs to same org
   const [employee] = await db
-    .select({ id: employees.id })
+    .select({ id: employees.id, branchId: employees.branchId })
     .from(employees)
     .where(and(eq(employees.id, parsed.data.employeeId), eq(employees.organizationId, user.organizationId)))
     .limit(1);
 
   if (!employee) return NextResponse.json({ error: "Employee not found" }, { status: 404 });
+
+  // Branch managers can only assign employees from their own branch
+  if (user.role === "branch_manager" && employee.branchId !== user.branchId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const [assignment] = await db
     .insert(shiftAssignments)
@@ -88,7 +103,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   const row = await getShift(id, user.organizationId);
   if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  if (user.role === "branch_manager" && row.branch.id !== user.branchId) {
+  if (user.role === "branch_manager" && (!user.branchId || row.branch.id !== user.branchId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

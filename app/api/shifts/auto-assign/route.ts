@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getUser } from "@/lib/auth/getUser";
 import { autoAssignShifts } from "@/lib/scheduling/auto-assign";
+import { db } from "@/lib/db";
+import { branches } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 
 const autoAssignSchema = z.object({
   branchId: z.string().uuid(),
@@ -35,6 +38,16 @@ export async function POST(request: Request) {
   // Branch managers can only auto-assign their own branch
   if (user.role === "branch_manager" && branchId !== user.branchId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // Verify branch belongs to caller's org (prevent cross-tenant escalation)
+  const [branch] = await db
+    .select({ id: branches.id })
+    .from(branches)
+    .where(and(eq(branches.id, branchId), eq(branches.organizationId, user.organizationId)))
+    .limit(1);
+  if (!branch) {
+    return NextResponse.json({ error: "Branch not found" }, { status: 404 });
   }
 
   try {

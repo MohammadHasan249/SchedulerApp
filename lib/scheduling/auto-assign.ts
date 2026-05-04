@@ -64,8 +64,16 @@ export async function autoAssignShifts(
     .from(employees)
     .where(and(eq(employees.organizationId, organizationId), eq(employees.isActive, true)));
 
-  // Batch fetch all availability for all employees (avoid N+1)
-  const allAvailability = await db.select().from(availability);
+  const employeeIds = allEmployees.map((e) => e.id);
+
+  // Batch fetch availability scoped to this org's employees only (prevents fetching every org's data)
+  const allAvailability =
+    employeeIds.length > 0
+      ? await db
+          .select()
+          .from(availability)
+          .where(inArray(availability.employeeId, employeeIds))
+      : [];
   const availabilityByEmployeeId = new Map<
     string,
     (typeof availability.$inferSelect)[]
@@ -77,11 +85,19 @@ export async function autoAssignShifts(
     availabilityByEmployeeId.get(avail.employeeId)!.push(avail);
   });
 
-  // Batch fetch approved time-off requests (check for any overlap with date range)
-  const approvedTimeOff = await db
-    .select()
-    .from(timeOffRequests)
-    .where(eq(timeOffRequests.status, "approved"));
+  // Batch fetch approved time-off requests scoped to this org's employees only
+  const approvedTimeOff =
+    employeeIds.length > 0
+      ? await db
+          .select()
+          .from(timeOffRequests)
+          .where(
+            and(
+              eq(timeOffRequests.status, "approved"),
+              inArray(timeOffRequests.employeeId, employeeIds)
+            )
+          )
+      : [];
 
   const timeOffByEmployeeId = buildTimeOffMap(approvedTimeOff, fromDate, toDate);
 

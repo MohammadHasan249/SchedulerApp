@@ -88,12 +88,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    if (user.role === "branch_manager" && row.branch.id !== user.branchId) {
+    if (user.role === "branch_manager" && (!user.branchId || row.branch.id !== user.branchId)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     if (action === "manager_approve" && swap.status !== "cover_accepted") {
       return NextResponse.json({ error: "Cover must accept before manager approval" }, { status: 409 });
+    }
+
+    if (swap.status === "manager_approved" || swap.status === "denied") {
+      return NextResponse.json({ error: "Swap is already finalized" }, { status: 409 });
     }
 
     const managerEmp = await getEmployeeForUser(user.id, user.organizationId);

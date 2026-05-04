@@ -51,32 +51,30 @@ export async function POST(request: Request) {
     );
   }
 
-  // Try to find or create auth user
-  const { data: existingUsers } = await supabase.auth.admin.listUsers();
-  const existingUser = existingUsers.users?.find((u) => u.email === email);
-
+  // Try to create auth user. If they already exist (rare race or stale invite),
+  // fall back to looking them up — but never return the existing record's data.
   let authUserId: string;
+  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    app_metadata: {
+      role: employee.role,
+      organization_id: employee.organizationId,
+      branch_id: employee.branchId ?? null,
+    },
+  });
 
-  if (existingUser) {
-    authUserId = existingUser.id;
-  } else {
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      app_metadata: {
-        role: employee.role,
-        organization_id: employee.organizationId,
-        branch_id: employee.branchId ?? null,
-      },
-    });
-
-    if (authError) {
-      return NextResponse.json({ error: authError.message }, { status: 500 });
-    }
-
-    authUserId = authData.user.id;
+  if (authError) {
+    // If the user already exists, refuse — they should log in instead.
+    // Do NOT enumerate all users via listUsers().
+    return NextResponse.json(
+      { error: "Unable to complete signup. If you already have an account, please log in instead." },
+      { status: 400 }
+    );
   }
+
+  authUserId = authData.user.id;
 
   // Link auth user to employee record
   await db

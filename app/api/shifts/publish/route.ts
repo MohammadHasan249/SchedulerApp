@@ -28,7 +28,7 @@ export async function POST(request: Request) {
 
   if (!branch) return NextResponse.json({ error: "Branch not found" }, { status: 404 });
 
-  if (user.role === "branch_manager" && user.branchId !== branchId) {
+  if (user.role === "branch_manager" && (!user.branchId || user.branchId !== branchId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

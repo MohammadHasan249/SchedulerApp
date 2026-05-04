@@ -24,9 +24,13 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const weekStart = searchParams.get("weekStart"); // ISO date string
 
+  if (user.role === "branch_manager" && !user.branchId) {
+    return NextResponse.json([]);
+  }
+
   const branchIds =
-    user.role === "branch_manager" && user.branchId
-      ? [user.branchId]
+    user.role === "branch_manager"
+      ? [user.branchId!]
       : await getOrgBranchIds(user.organizationId);
 
   if (branchIds.length === 0) return NextResponse.json([]);
@@ -46,7 +50,16 @@ export async function GET(request: Request) {
     conditions.push(eq(shifts.isPublished, true));
   }
 
-  const rows = await db.select().from(shifts).where(and(...conditions));
+  const rows = await db
+    .select({
+      id: shifts.id,
+      branchId: shifts.branchId,
+      startTime: shifts.startTime,
+      endTime: shifts.endTime,
+      isPublished: shifts.isPublished,
+    })
+    .from(shifts)
+    .where(and(...conditions));
   return NextResponse.json(rows);
 }
 
@@ -73,7 +86,7 @@ export async function POST(request: Request) {
 
   if (!branch) return NextResponse.json({ error: "Branch not found" }, { status: 404 });
 
-  if (user.role === "branch_manager" && user.branchId !== branchId) {
+  if (user.role === "branch_manager" && (!user.branchId || user.branchId !== branchId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
