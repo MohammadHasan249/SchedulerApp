@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { employees } from "@/db/schema";
+import { employees, branches, jobRoles } from "@/db/schema";
 import { getUser } from "@/lib/auth/getUser";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { eq, and } from "drizzle-orm";
@@ -33,7 +33,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const employee = await getEmployee(id, user.organizationId);
   if (!employee) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  if (user.role === "branch_manager" && employee.branchId !== user.branchId) {
+  if (user.role === "branch_manager" && (!user.branchId || employee.branchId !== user.branchId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -51,7 +51,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const employee = await getEmployee(id, user.organizationId);
   if (!employee) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  if (user.role === "branch_manager" && employee.branchId !== user.branchId) {
+  if (user.role === "branch_manager" && (!user.branchId || employee.branchId !== user.branchId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -62,6 +62,45 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const { pin, ...rest } = parsed.data;
+
+  // Only org_admin can change roles, and only org_admin can promote to org_admin
+  if (rest.role !== undefined) {
+    if (user.role !== "org_admin") {
+      return NextResponse.json({ error: "Forbidden: only org_admin can change roles" }, { status: 403 });
+    }
+  }
+
+  // Branch managers cannot move employees to a different branch
+  if (rest.branchId !== undefined && user.role === "branch_manager") {
+    if (rest.branchId !== user.branchId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
+  // Verify branchId belongs to this organization
+  if (rest.branchId) {
+    const [branch] = await db
+      .select({ id: branches.id })
+      .from(branches)
+      .where(and(eq(branches.id, rest.branchId), eq(branches.organizationId, user.organizationId)))
+      .limit(1);
+    if (!branch) {
+      return NextResponse.json({ error: "Branch not found" }, { status: 404 });
+    }
+  }
+
+  // Verify jobRoleId belongs to this organization
+  if (rest.jobRoleId) {
+    const [jr] = await db
+      .select({ id: jobRoles.id })
+      .from(jobRoles)
+      .where(and(eq(jobRoles.id, rest.jobRoleId), eq(jobRoles.organizationId, user.organizationId)))
+      .limit(1);
+    if (!jr) {
+      return NextResponse.json({ error: "Job role not found" }, { status: 404 });
+    }
+  }
+
   const updates: Partial<typeof employees.$inferInsert> = { ...rest };
 
   if (pin) {

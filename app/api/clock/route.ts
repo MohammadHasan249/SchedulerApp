@@ -15,16 +15,20 @@ export async function GET(request: Request) {
   const from = searchParams.get("from");
   const to = searchParams.get("to");
 
-  // Get visible branches
-  const branchRows = await db
-    .select()
-    .from(branches)
-    .where(eq(branches.organizationId, user.organizationId));
+  if (user.role === "branch_manager" && !user.branchId) {
+    return NextResponse.json([]);
+  }
 
+  // Get visible branches (only fetch ids we need)
   const allowedBranchIds =
-    user.role === "branch_manager" && user.branchId
-      ? [user.branchId]
-      : branchRows.map((b) => b.id);
+    user.role === "branch_manager"
+      ? [user.branchId!]
+      : (
+          await db
+            .select({ id: branches.id })
+            .from(branches)
+            .where(eq(branches.organizationId, user.organizationId))
+        ).map((b) => b.id);
 
   const targetBranchIds =
     branchId && allowedBranchIds.includes(branchId) ? [branchId] : allowedBranchIds;
@@ -72,15 +76,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Branch not found" }, { status: 404 });
   }
 
-  // Find all active employees and admins in this branch with a PIN set
-  const branchEmployees = await db
-    .select()
-    .from(employees)
-    .where(and(eq(employees.branchId, branch.id), eq(employees.isActive, true)));
-
-  // Also get admins from this organization (not tied to specific branch)
-  const orgAdmins = await db
-    .select()
+  // Find all active users who can clock in at this branch:
+  //   - employees/managers assigned to this branch
+  //   - org_admins of this branch's organization (no branch assignment required)
+  // Single query, only fetch fields we actually need.
+  const candidates = await db
+    .select({
+      id: employees.id,
+      name: employees.name,
+      branchId: employees.branchId,
+      role: employees.role,
+      pinHash: employees.pinHash,
+    })
     .from(employees)
     .where(
       and(
@@ -89,15 +96,22 @@ export async function POST(request: Request) {
       )
     );
 
-  const allUsers = [...branchEmployees, ...orgAdmins.filter(admin => !branchEmployees.some(e => e.id === admin.id))];
+  const allUsers = candidates.filter(
+    (e) => e.pinHash && (e.branchId === branch.id || e.role === "org_admin")
+  );
 
   // Find the matching employee/admin by bcrypt comparing
-  let matchedEmployee: typeof employees.$inferSelect | null = null;
+  let matchedEmployee: (typeof allUsers)[number] | null = null;
   for (const emp of allUsers) {
-    if (emp.pinHash && await bcrypt.compare(pin, emp.pinHash)) {
+    if (emp.pinHash && (await bcrypt.compare(pin, emp.pinHash))) {
       matchedEmployee = emp;
       break;
     }
+  }
+
+  // Dummy compare to keep timing roughly constant when no candidates exist
+  if (!matchedEmployee && allUsers.length === 0) {
+    await bcrypt.compare(pin, "$2a$10$CwTycUXWue0Thq9StjUM0uJ8.QvE2mLQ9cqYQUoxWZqXOZkS/GeNi");
   }
 
   if (!matchedEmployee) {

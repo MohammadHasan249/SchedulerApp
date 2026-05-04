@@ -34,9 +34,12 @@ export async function GET() {
   }
 
   // Manager/admin sees requests from their visible employees
+  if (user.role === "branch_manager" && !user.branchId) {
+    return NextResponse.json([]);
+  }
   const empConditions = [eq(employees.organizationId, user.organizationId)];
-  if (user.role === "branch_manager" && user.branchId) {
-    empConditions.push(eq(employees.branchId, user.branchId));
+  if (user.role === "branch_manager") {
+    empConditions.push(eq(employees.branchId, user.branchId!));
   }
 
   const empRows = await db.select({ id: employees.id }).from(employees).where(and(...empConditions));

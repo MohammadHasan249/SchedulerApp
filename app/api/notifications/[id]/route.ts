@@ -17,10 +17,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   if (!emp) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // Verify the notification belongs to this employee
-  const [row] = await db
-    .select()
-    .from(notifications)
+  // Single conditional update — also acts as the ownership check
+  const [updated] = await db
+    .update(notifications)
+    .set({ isRead: true })
     .where(
       and(
         eq(notifications.id, id),
@@ -28,15 +28,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         eq(notifications.organizationId, user.organizationId)
       )
     )
-    .limit(1);
-
-  if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  const [updated] = await db
-    .update(notifications)
-    .set({ isRead: true })
-    .where(eq(notifications.id, id))
     .returning();
+
+  if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   return NextResponse.json(updated);
 }

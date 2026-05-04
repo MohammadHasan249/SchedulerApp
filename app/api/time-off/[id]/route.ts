@@ -30,7 +30,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const row = await getRequest(id, user);
   if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  if (user.role === "branch_manager" && row.emp.branchId !== user.branchId) {
+  if (user.role === "branch_manager" && (!user.branchId || row.emp.branchId !== user.branchId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

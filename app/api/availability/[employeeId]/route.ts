@@ -21,7 +21,8 @@ async function verifyEmployeeAccess(
     eq(employees.id, employeeId),
     eq(employees.organizationId, user.organizationId),
   ];
-  if (user.role === "branch_manager" && user.branchId) {
+  if (user.role === "branch_manager") {
+    if (!user.branchId) return null;
     conditions.push(eq(employees.branchId, user.branchId));
   }
   if (user.role === "employee") {
@@ -39,7 +40,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ empl
   const emp = await verifyEmployeeAccess(employeeId, user);
   if (!emp) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const rows = await db.select().from(availability).where(eq(availability.employeeId, employeeId));
+  const rows = await db
+    .select({
+      id: availability.id,
+      employeeId: availability.employeeId,
+      dayOfWeek: availability.dayOfWeek,
+      startTime: availability.startTime,
+      endTime: availability.endTime,
+    })
+    .from(availability)
+    .where(eq(availability.employeeId, employeeId));
   return NextResponse.json(rows);
 }
 
@@ -62,12 +72,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ empl
   // Replace all availability for this employee
   await db.delete(availability).where(eq(availability.employeeId, employeeId));
 
-  if (parsed.data.length > 0) {
-    await db.insert(availability).values(
-      parsed.data.map((slot) => ({ employeeId, ...slot }))
-    );
+  if (parsed.data.length === 0) {
+    return NextResponse.json([]);
   }
 
-  const rows = await db.select().from(availability).where(eq(availability.employeeId, employeeId));
-  return NextResponse.json(rows);
+  const inserted = await db
+    .insert(availability)
+    .values(parsed.data.map((slot) => ({ employeeId, ...slot })))
+    .returning();
+  return NextResponse.json(inserted);
 }

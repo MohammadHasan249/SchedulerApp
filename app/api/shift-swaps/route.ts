@@ -36,9 +36,12 @@ export async function GET() {
   }
 
   // Manager/admin sees all in their org/branch
+  if (user.role === "branch_manager" && !user.branchId) {
+    return NextResponse.json([]);
+  }
   const empConditions = [eq(employees.organizationId, user.organizationId)];
-  if (user.role === "branch_manager" && user.branchId) {
-    empConditions.push(eq(employees.branchId, user.branchId));
+  if (user.role === "branch_manager") {
+    empConditions.push(eq(employees.branchId, user.branchId!));
   }
 
   const empRows = await db.select({ id: employees.id }).from(employees).where(and(...empConditions));
@@ -49,7 +52,12 @@ export async function GET() {
   const rows = await db
     .select()
     .from(shiftSwapRequests)
-    .where(inArray(shiftSwapRequests.requesterId, empIds));
+    .where(
+      or(
+        inArray(shiftSwapRequests.requesterId, empIds),
+        inArray(shiftSwapRequests.coverId, empIds)
+      )
+    );
 
   return NextResponse.json(rows);
 }
@@ -91,14 +99,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Cannot swap a past shift" }, { status: 409 });
   }
 
-  // Verify nominated cover belongs to the same org
+  // Verify nominated cover belongs to the same org and same branch as the shift
   if (coverId) {
+    if (coverId === emp.id) {
+      return NextResponse.json({ error: "Cannot nominate yourself as cover" }, { status: 400 });
+    }
     const [coverEmp] = await db
-      .select({ id: employees.id })
+      .select({ id: employees.id, branchId: employees.branchId })
       .from(employees)
       .where(and(eq(employees.id, coverId), eq(employees.organizationId, user.organizationId)))
       .limit(1);
     if (!coverEmp) return NextResponse.json({ error: "Cover employee not found" }, { status: 404 });
+    if (coverEmp.branchId !== shiftRow.branch.id) {
+      return NextResponse.json(
+        { error: "Cover must be in the same branch as the shift" },
+        { status: 409 }
+      );
+    }
   }
 
   const [swap] = await db

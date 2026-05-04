@@ -9,6 +9,7 @@ import {
   availability,
   timeOffRequests,
   shiftRoleRequirements,
+  branches,
 } from "@/db/schema";
 import { eq, and, gte, lte, inArray } from "drizzle-orm";
 
@@ -50,28 +51,64 @@ export async function POST(request: Request) {
     const fromDateObj = new Date(fromDate);
     const toDateObj = new Date(toDate);
 
-    // Fetch all necessary data
-    const [unassignedShifts, allEmployees, allAvailability, approvedTimeOff, roleRequirements] =
-      await Promise.all([
-        db
-          .select()
-          .from(shifts)
-          .where(
-            and(
-              eq(shifts.branchId, branchId),
-              gte(shifts.startTime, fromDateObj),
-              lte(shifts.endTime, toDateObj),
-              eq(shifts.isPublished, false)
+    // Verify branch belongs to caller's org (prevent cross-tenant escalation by UUID guess)
+    const [branch] = await db
+      .select({ id: branches.id })
+      .from(branches)
+      .where(and(eq(branches.id, branchId), eq(branches.organizationId, user.organizationId)))
+      .limit(1);
+    if (!branch) {
+      return NextResponse.json({ error: "Branch not found" }, { status: 404 });
+    }
+
+    // Fetch unassigned shifts and org employees first; we need their IDs to scope downstream queries
+    const [unassignedShifts, allEmployees] = await Promise.all([
+      db
+        .select()
+        .from(shifts)
+        .where(
+          and(
+            eq(shifts.branchId, branchId),
+            gte(shifts.startTime, fromDateObj),
+            lte(shifts.endTime, toDateObj),
+            eq(shifts.isPublished, false)
+          )
+        ),
+      db
+        .select()
+        .from(employees)
+        .where(
+          and(eq(employees.organizationId, user.organizationId), eq(employees.isActive, true))
+        ),
+    ]);
+
+    const employeeIds = allEmployees.map((e) => e.id);
+    const shiftIds = unassignedShifts.map((s) => s.id);
+
+    // Scope availability/time-off to this org's employees only (prevents cross-tenant leak),
+    // and role requirements to this batch of shifts only.
+    const [allAvailability, approvedTimeOff, roleRequirements] = await Promise.all([
+      employeeIds.length > 0
+        ? db.select().from(availability).where(inArray(availability.employeeId, employeeIds))
+        : Promise.resolve([]),
+      employeeIds.length > 0
+        ? db
+            .select()
+            .from(timeOffRequests)
+            .where(
+              and(
+                eq(timeOffRequests.status, "approved"),
+                inArray(timeOffRequests.employeeId, employeeIds)
+              )
             )
-          ),
-        db.select().from(employees).where(and(eq(employees.organizationId, user.organizationId), eq(employees.isActive, true))),
-        db.select().from(availability),
-        db
-          .select()
-          .from(timeOffRequests)
-          .where(eq(timeOffRequests.status, "approved")),
-        db.select().from(shiftRoleRequirements),
-      ]);
+        : Promise.resolve([]),
+      shiftIds.length > 0
+        ? db
+            .select()
+            .from(shiftRoleRequirements)
+            .where(inArray(shiftRoleRequirements.shiftId, shiftIds))
+        : Promise.resolve([]),
+    ]);
 
     if (unassignedShifts.length === 0) {
       return NextResponse.json({
@@ -229,26 +266,28 @@ Return empty array [] if no valid assignments possible.`;
 
     const assignments = JSON.parse(jsonMatch[0]);
 
-    // Validate and insert assignments
-    if (assignments.length > 0) {
-      const validAssignments = assignments.filter(
-        (a: any) =>
-          typeof a.shiftId === "string" &&
-          typeof a.employeeId === "string" &&
-          unassignedShifts.some((s) => s.id === a.shiftId) &&
-          allEmployees.some((e) => e.id === a.employeeId)
-      );
+    // Validate and insert assignments — strictly scope to this org's shifts + employees
+    const shiftIdSet = new Set(unassignedShifts.map((s) => s.id));
+    const employeeIdSet = new Set(allEmployees.map((e) => e.id));
 
-      if (validAssignments.length > 0) {
-        await db.insert(shiftAssignments).values(validAssignments);
-      }
+    const validAssignments = (Array.isArray(assignments) ? assignments : []).filter(
+      (a: any) =>
+        a &&
+        typeof a.shiftId === "string" &&
+        typeof a.employeeId === "string" &&
+        shiftIdSet.has(a.shiftId) &&
+        employeeIdSet.has(a.employeeId)
+    );
+
+    if (validAssignments.length > 0) {
+      await db.insert(shiftAssignments).values(validAssignments);
     }
 
     return NextResponse.json(
       {
         success: true,
-        assignmentsCreated: assignments.length,
-        assignments,
+        assignmentsCreated: validAssignments.length,
+        assignments: validAssignments,
       },
       { status: 200 }
     );
