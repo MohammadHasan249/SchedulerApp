@@ -14,14 +14,17 @@
 /coverage
 
 # next.js
-/.next/
+.next/
 /out/
 
 # production
 /build
+dist/
+
+# turbo
+.turbo/
 
 # misc
-.DS_Store
 *.pem
 
 # debug
@@ -40,5 +43,13 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-.vercel
-*.md
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
