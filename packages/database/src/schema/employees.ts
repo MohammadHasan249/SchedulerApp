@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, boolean, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, boolean, pgEnum, jsonb } from "drizzle-orm/pg-core";
 import { organizations } from "./organizations";
 import { branches } from "./branches";
 import { jobRoles } from "./job-roles";
@@ -24,6 +24,7 @@ export const employees = pgTable("employees", {
   pinHash: text("pin_hash"),
   maxHoursPerWeek: integer("max_hours_per_week").default(40),
   isActive: boolean("is_active").notNull().default(true),
+  availabilitySchedule: jsonb("availability_schedule").default({}),
 });
 
 export type Employee = typeof employees.$inferSelect;

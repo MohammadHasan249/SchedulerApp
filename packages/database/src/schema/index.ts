@@ -3,7 +3,7 @@ export * from "./branches";
 export * from "./employees";
 export * from "./job-roles";
 export * from "./shifts";
-export * from "./availability";
+export * from "./organization-hours";
 export * from "./timeOff";
 export * from "./shiftSwaps";
 export * from "./clockEvents";

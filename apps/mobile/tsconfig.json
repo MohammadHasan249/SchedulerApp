@@ -3,9 +3,21 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@/*": ["./*"],
-      "@scheduler/types": ["../../packages/types/src/index.ts"],
-      "@scheduler/api-client": ["../../packages/api-client/src/index.ts"]
+      "@/*": [
+        "./*"
+      ],
+      "@scheduler/types": [
+        "../../packages/types/src/index.ts"
+      ],
+      "@scheduler/api-client": [
+        "../../packages/api-client/src/index.ts"
+      ]
     }
-  }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ]
 }

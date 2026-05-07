@@ -42,19 +42,19 @@ export default function AvailabilityScreen() {
         if (!empId) { setLoading(false); return; }
         setEmployeeId(empId);
 
-        // Get saved employee availability
-        const rows = await getAvailability(empId);
+        // Get saved employee availability (Record<dayOfWeek, { startTime, endTime }>)
+        const schedule = await getAvailability(empId);
 
         // Build slots: use saved availability if exists, otherwise use org hours as default
         setSlots(
           DAYS.map((_, i) => {
-            const savedRow = rows.find((r) => r.dayOfWeek === i);
-            if (savedRow) {
+            const saved = schedule[i];
+            if (saved) {
               // Use saved availability
               return {
                 enabled: true,
-                startTime: savedRow.startTime.slice(0, 5),
-                endTime: savedRow.endTime.slice(0, 5),
+                startTime: saved.startTime.slice(0, 5),
+                endTime: saved.endTime.slice(0, 5),
               };
             }
 
@@ -101,10 +101,12 @@ export default function AvailabilityScreen() {
     if (!employeeId) return;
     setSaving(true);
     try {
-      const payload = slots
-        .map((s, i) => ({ ...s, dayOfWeek: i }))
-        .filter((s) => s.enabled)
-        .map(({ dayOfWeek, startTime, endTime }) => ({ dayOfWeek, startTime, endTime }));
+      const payload: Record<number, { startTime: string; endTime: string }> = {};
+      slots.forEach((s, i) => {
+        if (s.enabled) {
+          payload[i] = { startTime: s.startTime, endTime: s.endTime };
+        }
+      });
       await saveAvailability(employeeId, payload);
       Alert.alert("Saved", "Your availability has been updated.");
     } catch {

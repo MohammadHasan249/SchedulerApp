@@ -1,17 +1,16 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { availability, employees } from "@scheduler/database/schema";
+import { employees } from "@scheduler/database/schema";
 import { getUser } from "@/lib/auth/getUser";
 import { eq, and } from "drizzle-orm";
 
 const slotSchema = z.object({
-  dayOfWeek: z.number().int().min(0).max(6),
   startTime: z.string().regex(/^\d{2}:\d{2}$/),
   endTime: z.string().regex(/^\d{2}:\d{2}$/),
 });
 
-const putSchema = z.array(slotSchema);
+const scheduleSchema = z.record(z.string().regex(/^\d$/), slotSchema);
 
 async function verifyEmployeeAccess(
   employeeId: string,
@@ -40,17 +39,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ empl
   const emp = await verifyEmployeeAccess(employeeId, user);
   if (!emp) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const rows = await db
-    .select({
-      id: availability.id,
-      employeeId: availability.employeeId,
-      dayOfWeek: availability.dayOfWeek,
-      startTime: availability.startTime,
-      endTime: availability.endTime,
-    })
-    .from(availability)
-    .where(eq(availability.employeeId, employeeId));
-  return NextResponse.json(rows);
+  const [row] = await db
+    .select({ availabilitySchedule: employees.availabilitySchedule })
+    .from(employees)
+    .where(eq(employees.id, employeeId));
+  return NextResponse.json(row?.availabilitySchedule ?? {});
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ employeeId: string }> }) {
@@ -61,24 +54,19 @@ export async function PUT(request: Request, { params }: { params: Promise<{ empl
   if (!emp) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await request.json();
-  const parsed = putSchema.safeParse(body);
+  const parsed = scheduleSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const invalid = parsed.data.find((s) => s.startTime >= s.endTime);
-  if (invalid) {
-    return NextResponse.json({ error: "Start time must be before end time" }, { status: 400 });
+  for (const slot of Object.values(parsed.data)) {
+    if (slot.startTime >= slot.endTime) {
+      return NextResponse.json({ error: "Start time must be before end time" }, { status: 400 });
+    }
   }
 
-  // Replace all availability for this employee
-  await db.delete(availability).where(eq(availability.employeeId, employeeId));
-
-  if (parsed.data.length === 0) {
-    return NextResponse.json([]);
-  }
-
-  const inserted = await db
-    .insert(availability)
-    .values(parsed.data.map((slot) => ({ employeeId, ...slot })))
-    .returning();
-  return NextResponse.json(inserted);
+  const [updated] = await db
+    .update(employees)
+    .set({ availabilitySchedule: parsed.data })
+    .where(eq(employees.id, employeeId))
+    .returning({ availabilitySchedule: employees.availabilitySchedule });
+  return NextResponse.json(updated?.availabilitySchedule ?? {});
 }

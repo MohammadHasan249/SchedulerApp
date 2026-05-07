@@ -1,16 +1,22 @@
 import { apiFetch } from "./client";
-import type { Availability } from "@scheduler/types";
 
-export function getAvailability(employeeId: string): Promise<Availability[]> {
+export interface AvailabilitySlot {
+  startTime: string;
+  endTime: string;
+}
+
+export type AvailabilitySchedule = Record<number, AvailabilitySlot>;
+
+export function getAvailability(employeeId: string): Promise<AvailabilitySchedule> {
   return apiFetch(`/api/availability/${employeeId}`);
 }
 
 export function saveAvailability(
   employeeId: string,
-  slots: { dayOfWeek: number; startTime: string; endTime: string }[]
-): Promise<Availability[]> {
+  schedule: AvailabilitySchedule
+): Promise<AvailabilitySchedule> {
   return apiFetch(`/api/availability/${employeeId}`, {
     method: "PUT",
-    body: JSON.stringify(slots),
+    body: JSON.stringify(schedule),
   });
 }
