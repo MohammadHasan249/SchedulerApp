@@ -6,7 +6,6 @@ import {
   shifts,
   shiftAssignments,
   employees,
-  availability,
   timeOffRequests,
   shiftRoleRequirements,
   branches,
@@ -85,12 +84,9 @@ export async function POST(request: Request) {
     const employeeIds = allEmployees.map((e) => e.id);
     const shiftIds = unassignedShifts.map((s) => s.id);
 
-    // Scope availability/time-off to this org's employees only (prevents cross-tenant leak),
+    // Scope time-off to this org's employees only (prevents cross-tenant leak),
     // and role requirements to this batch of shifts only.
-    const [allAvailability, approvedTimeOff, roleRequirements] = await Promise.all([
-      employeeIds.length > 0
-        ? db.select().from(availability).where(inArray(availability.employeeId, employeeIds))
-        : Promise.resolve([]),
+    const [approvedTimeOff, roleRequirements] = await Promise.all([
       employeeIds.length > 0
         ? db
             .select()
@@ -118,16 +114,21 @@ export async function POST(request: Request) {
       });
     }
 
-    // Build availability map
+    // Build availability map from employees' availabilitySchedule JSON
     const availabilityByEmployeeId = new Map<
       string,
-      (typeof availability.$inferSelect)[]
+      Array<{ dayOfWeek: number; startTime: string; endTime: string }>
     >();
-    allAvailability.forEach((avail) => {
-      if (!availabilityByEmployeeId.has(avail.employeeId)) {
-        availabilityByEmployeeId.set(avail.employeeId, []);
+    allEmployees.forEach((emp) => {
+      const schedule = emp.availabilitySchedule as Record<number, { startTime: string; endTime: string }> | null;
+      if (schedule) {
+        const availability = Object.entries(schedule).map(([day, slot]) => ({
+          dayOfWeek: parseInt(day, 10),
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+        }));
+        availabilityByEmployeeId.set(emp.id, availability);
       }
-      availabilityByEmployeeId.get(avail.employeeId)!.push(avail);
     });
 
     // Build time-off map

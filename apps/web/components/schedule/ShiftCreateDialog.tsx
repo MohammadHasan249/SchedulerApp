@@ -14,7 +14,7 @@ type Props = {
   branchId: string;
   defaultDate?: Date;
   employees: Employee[];
-  availability?: { id: string; employeeId: string; dayOfWeek: number; startTime: string; endTime: string }[];
+  availability?: { dayOfWeek: number; startTime: string; endTime: string }[];
   shift?: Shift;
   assignments?: { id: string; employeeId: string; jobRoleId: string | null }[];
   onSaved: () => void;
@@ -79,9 +79,14 @@ export function ShiftCreateDialog({
     const shiftDate = new Date(year, month - 1, day);
     const dayOfWeek = shiftDate.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
 
-    const slots = availability.filter((a) => a.employeeId === empId && a.dayOfWeek === dayOfWeek);
-    if (slots.length === 0) return "No availability set";
-    return slots.map((s) => `${s.startTime}–${s.endTime}`).join(", ");
+    const employee = employees.find((e) => e.id === empId);
+    if (!employee) return "Employee not found";
+
+    const schedule = employee.availabilitySchedule as Record<number, { startTime: string; endTime: string }> | null;
+    if (!schedule || !schedule[dayOfWeek]) return "No availability set";
+
+    const slot = schedule[dayOfWeek];
+    return `${slot.startTime}–${slot.endTime}`;
   }
 
   function checkAvailabilityConflicts(): string[] {
@@ -92,21 +97,22 @@ export function ShiftCreateDialog({
     const conflicts: string[] = [];
 
     for (const empId of assignedIds) {
-      const empAvailability = availability.filter((a) => a.employeeId === empId && a.dayOfWeek === dayOfWeek);
       const employee = employees.find((e) => e.id === empId);
+      if (!employee) continue;
 
-      if (empAvailability.length === 0 && employee) {
+      const schedule = employee.availabilitySchedule as Record<number, { startTime: string; endTime: string }> | null;
+      const empAvailability = schedule?.[dayOfWeek];
+
+      if (!empAvailability) {
         conflicts.push(`${employee.name} has no availability set for this day`);
-      } else if (empAvailability.length > 0) {
+      } else {
         const shiftStart = startTime;
         const shiftEnd = endTime;
-        const available = empAvailability.some((a) => {
-          const availStart = a.startTime.slice(0, 5); // HH:MM format
-          const availEnd = a.endTime.slice(0, 5);
-          return availStart <= shiftStart && availEnd >= shiftEnd;
-        });
+        const availStart = empAvailability.startTime.slice(0, 5); // HH:MM format
+        const availEnd = empAvailability.endTime.slice(0, 5);
+        const available = availStart <= shiftStart && availEnd >= shiftEnd;
 
-        if (!available && employee) {
+        if (!available) {
           conflicts.push(`${employee.name} is not available ${shiftStart}–${shiftEnd}`);
         }
       }

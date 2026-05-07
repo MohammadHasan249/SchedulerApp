@@ -22,7 +22,7 @@ type ScheduleData = {
   assignments: ShiftAssignment[];
   employees: Employee[];
   branches: Branch[];
-  availability: { id: string; employeeId: string; dayOfWeek: number; startTime: string; endTime: string }[];
+  availability: { dayOfWeek: number; startTime: string; endTime: string }[];
   canEdit: boolean;
   currentBranchId: string;
   userRole: string;

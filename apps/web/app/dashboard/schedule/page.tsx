@@ -1,9 +1,20 @@
 import { getUser } from "@/lib/auth/getUser";
 import { db } from "@/lib/db";
-import { shifts, shiftAssignments, employees, branches, availability } from "@scheduler/database/schema";
+import { shifts, shiftAssignments, employees, branches } from "@scheduler/database/schema";
 import { eq, and, inArray, gte, lte } from "drizzle-orm";
 import { startOfWeek, addDays } from "date-fns";
 import { WeeklyScheduleGrid } from "@/components/schedule/WeeklyScheduleGrid";
+
+type AvailabilityRow = { dayOfWeek: number; startTime: string; endTime: string };
+
+function scheduleToRows(schedule: Record<number, { startTime: string; endTime: string }> | null): AvailabilityRow[] {
+  if (!schedule) return [];
+  return Object.entries(schedule).map(([day, slot]) => ({
+    dayOfWeek: parseInt(day, 10),
+    startTime: slot.startTime,
+    endTime: slot.endTime,
+  }));
+}
 
 export default async function SchedulePage() {
   const user = await getUser();
@@ -58,14 +69,13 @@ export default async function SchedulePage() {
       ),
   ]);
 
-  const employeeIds = employeeRows.map((e) => e.id);
-  const availabilityRows =
-    employeeIds.length > 0
-      ? await db
-          .select()
-          .from(availability)
-          .where(inArray(availability.employeeId, employeeIds))
-      : [];
+  // Convert availabilitySchedule from all employees to a flat array for backward compatibility
+  const availabilityRows: AvailabilityRow[] = [];
+  employeeRows.forEach((emp) => {
+    const schedule = emp.availabilitySchedule as Record<number, { startTime: string; endTime: string }> | null;
+    const rows = scheduleToRows(schedule);
+    availabilityRows.push(...rows);
+  });
 
   const currentBranchId = user.branchId ?? branchRows[0]?.id ?? "";
 

@@ -4,7 +4,6 @@ import {
   shiftAssignments,
   shiftRoleRequirements,
   employees,
-  availability,
   timeOffRequests,
 } from "@scheduler/database/schema";
 import { eq, and, gte, lte, inArray } from "drizzle-orm";
@@ -22,15 +21,10 @@ interface EmployeeCandidate {
   jobRoleMatch: boolean;
 }
 
-interface EmployeeWithAvailability {
-  id: string;
-  maxHoursPerWeek: number | null;
-  jobRoleId: string | null;
-  availability: Array<{
-    dayOfWeek: number;
-    startTime: string;
-    endTime: string;
-  }>;
+interface AvailabilitySlot {
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
 }
 
 export async function autoAssignShifts(
@@ -64,25 +58,18 @@ export async function autoAssignShifts(
     .from(employees)
     .where(and(eq(employees.organizationId, organizationId), eq(employees.isActive, true)));
 
-  const employeeIds = allEmployees.map((e) => e.id);
-
-  // Batch fetch availability scoped to this org's employees only (prevents fetching every org's data)
-  const allAvailability =
-    employeeIds.length > 0
-      ? await db
-          .select()
-          .from(availability)
-          .where(inArray(availability.employeeId, employeeIds))
-      : [];
-  const availabilityByEmployeeId = new Map<
-    string,
-    (typeof availability.$inferSelect)[]
-  >();
-  allAvailability.forEach((avail) => {
-    if (!availabilityByEmployeeId.has(avail.employeeId)) {
-      availabilityByEmployeeId.set(avail.employeeId, []);
+  // Build availability map from employees' availabilitySchedule JSON
+  const availabilityByEmployeeId = new Map<string, AvailabilitySlot[]>();
+  allEmployees.forEach((emp) => {
+    const schedule = emp.availabilitySchedule as Record<number, { startTime: string; endTime: string }> | null;
+    if (schedule) {
+      const slots = Object.entries(schedule).map(([day, slot]) => ({
+        dayOfWeek: parseInt(day, 10),
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+      }));
+      availabilityByEmployeeId.set(emp.id, slots);
     }
-    availabilityByEmployeeId.get(avail.employeeId)!.push(avail);
   });
 
   // Batch fetch approved time-off requests scoped to this org's employees only
@@ -290,7 +277,7 @@ function convertTimestampToTimeString(date: Date): string {
 
 function isAvailableForShift(
   shift: typeof shifts.$inferSelect,
-  empAvailability: (typeof availability.$inferSelect)[]
+  empAvailability: AvailabilitySlot[]
 ): boolean {
   const shiftStart = new Date(shift.startTime);
   const shiftEnd = new Date(shift.endTime);
@@ -312,7 +299,7 @@ function findBestCandidate(
   requiredJobRoleId: string | null,
   hoursPerEmployee: Map<string, number>,
   timeOffByEmployeeId: Map<string, Set<string>>,
-  availabilityByEmployeeId: Map<string, (typeof availability.$inferSelect)[]>,
+  availabilityByEmployeeId: Map<string, AvailabilitySlot[]>,
   assignedEmployeeSet: Set<string>
 ): EmployeeCandidate | null {
   const shiftHours = getShiftHours(shift);

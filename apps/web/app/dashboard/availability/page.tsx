@@ -1,10 +1,21 @@
 import { getUser } from "@/lib/auth/getUser";
 import { requireRole } from "@/lib/auth/requireRole";
 import { db } from "@/lib/db";
-import { availability, employees } from "@scheduler/database/schema";
-import { eq, and, inArray } from "drizzle-orm";
+import { employees } from "@scheduler/database/schema";
+import { eq, and } from "drizzle-orm";
 import { AvailabilityEditor } from "@/components/availability/AvailabilityEditor";
 import { TeamAvailabilityView } from "@/components/availability/TeamAvailabilityView";
+
+type AvailabilityRow = { dayOfWeek: number; startTime: string; endTime: string };
+
+function scheduleToRows(schedule: Record<number, { startTime: string; endTime: string }> | null): AvailabilityRow[] {
+  if (!schedule) return [];
+  return Object.entries(schedule).map(([day, slot]) => ({
+    dayOfWeek: parseInt(day, 10),
+    startTime: slot.startTime,
+    endTime: slot.endTime,
+  }));
+}
 
 export default async function AvailabilityPage() {
   const user = await getUser();
@@ -21,15 +32,6 @@ export default async function AvailabilityPage() {
       .from(employees)
       .where(and(...empConditions));
 
-    const teamEmployeeIds = teamEmployees.map((e) => e.id);
-    const availabilityRows =
-      teamEmployeeIds.length > 0
-        ? await db
-            .select()
-            .from(availability)
-            .where(inArray(availability.employeeId, teamEmployeeIds))
-        : [];
-
     // Check if admin has their own employee record
     const [adminEmployee] = await db
       .select()
@@ -42,13 +44,7 @@ export default async function AvailabilityPage() {
       )
       .limit(1);
 
-    let adminAvailability: typeof availability.$inferSelect[] = [];
-    if (adminEmployee) {
-      adminAvailability = await db
-        .select()
-        .from(availability)
-        .where(eq(availability.employeeId, adminEmployee.id));
-    }
+    const adminAvailability = adminEmployee ? scheduleToRows(adminEmployee.availabilitySchedule as Record<number, { startTime: string; endTime: string }> | null) : [];
 
     return (
       <div className="space-y-8">
@@ -70,7 +66,7 @@ export default async function AvailabilityPage() {
             View availability for team members.
           </p>
         </div>
-        <TeamAvailabilityView employees={teamEmployees} availability={availabilityRows} />
+        <TeamAvailabilityView employees={teamEmployees} availability={[]} />
       </div>
     );
   }
@@ -96,10 +92,7 @@ export default async function AvailabilityPage() {
     );
   }
 
-  const rows = await db
-    .select()
-    .from(availability)
-    .where(eq(availability.employeeId, employee.id));
+  const rows = scheduleToRows(employee.availabilitySchedule as Record<number, { startTime: string; endTime: string }> | null);
 
   return (
     <div className="max-w-md space-y-6">

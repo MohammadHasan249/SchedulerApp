@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import bcryptjs from "bcryptjs";
 import { db } from "@/lib/db";
-import { employees, availability, branches, jobRoles } from "@scheduler/database/schema";
+import { employees, branches, jobRoles } from "@scheduler/database/schema";
 import { getUser } from "@/lib/auth/getUser";
 import { sendEmployeeInvitationEmail } from "@/lib/email/send-employee-invitation";
 import { eq, and } from "drizzle-orm";
@@ -102,6 +102,12 @@ export async function POST(request: Request) {
 
   const pinHash = pin ? await bcryptjs.hash(pin, 10) : null;
 
+  // Initialize default availability schedule for all 7 days (9am-11pm)
+  const defaultSchedule: Record<number, { startTime: string; endTime: string }> = {};
+  for (let i = 0; i < 7; i++) {
+    defaultSchedule[i] = { startTime: "09:00", endTime: "23:00" };
+  }
+
   const [employee] = await db
     .insert(employees)
     .values({
@@ -114,18 +120,9 @@ export async function POST(request: Request) {
       jobRoleId: jobRoleId ?? null,
       maxHoursPerWeek,
       pinHash,
+      availabilitySchedule: defaultSchedule,
     })
     .returning();
-
-  // Initialize default availability for all 7 days (9am-11pm)
-  await db.insert(availability).values(
-    Array.from({ length: 7 }, (_, dayOfWeek) => ({
-      employeeId: employee.id,
-      dayOfWeek,
-      startTime: "09:00",
-      endTime: "23:00",
-    }))
-  );
 
   sendEmployeeInvitationEmail(name, email, user.organizationId).catch((error) => {
     console.error("Failed to send invitation email:", error);

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { organizationHours, employees, availability } from "@scheduler/database/schema";
+import { organizationHours, employees } from "@scheduler/database/schema";
 import { getUser } from "@/lib/auth/getUser";
 import { eq, and } from "drizzle-orm";
 
@@ -22,13 +22,16 @@ export async function POST() {
     );
   }
 
-  const slots = hours
-    .filter((h) => !h.isClosed && h.startTime && h.endTime)
-    .map((h) => ({
-      dayOfWeek: h.dayOfWeek,
-      startTime: h.startTime!,
-      endTime: h.endTime!,
-    }));
+  // Build availability schedule from organization hours
+  const schedule: Record<number, { startTime: string; endTime: string }> = {};
+  for (const h of hours) {
+    if (!h.isClosed && h.startTime && h.endTime) {
+      schedule[h.dayOfWeek] = {
+        startTime: h.startTime,
+        endTime: h.endTime,
+      };
+    }
+  }
 
   const orgEmployees = await db
     .select({ id: employees.id })
@@ -42,12 +45,7 @@ export async function POST() {
 
   await db.transaction(async (tx) => {
     for (const emp of orgEmployees) {
-      await tx.delete(availability).where(eq(availability.employeeId, emp.id));
-      if (slots.length > 0) {
-        await tx.insert(availability).values(
-          slots.map((s) => ({ employeeId: emp.id, ...s }))
-        );
-      }
+      await tx.update(employees).set({ availabilitySchedule: schedule }).where(eq(employees.id, emp.id));
     }
   });
 

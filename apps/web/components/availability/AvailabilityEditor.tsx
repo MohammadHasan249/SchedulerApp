@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import type { Availability } from "@scheduler/database/schema";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -16,7 +15,9 @@ type DaySlot = {
   endTime: string;
 };
 
-function toSlots(rows: Availability[]): DaySlot[] {
+type AvailabilityRow = { dayOfWeek: number; startTime: string; endTime: string };
+
+function toSlots(rows: AvailabilityRow[]): DaySlot[] {
   return DAYS.map((_, i) => {
     const row = rows.find((r) => r.dayOfWeek === i);
     return row
@@ -27,7 +28,7 @@ function toSlots(rows: Availability[]): DaySlot[] {
 
 type Props = {
   employeeId: string;
-  initial: Availability[];
+  initial: AvailabilityRow[];
   readOnly?: boolean;
 };
 
@@ -46,10 +47,12 @@ export function AvailabilityEditor({ employeeId, initial, readOnly = false }: Pr
     setError("");
     setSaved(false);
 
-    const payload = slots
-      .map((s, i) => ({ ...s, dayOfWeek: i }))
-      .filter((s) => s.enabled)
-      .map(({ dayOfWeek, startTime, endTime }) => ({ dayOfWeek, startTime, endTime }));
+    const payload: Record<number, { startTime: string; endTime: string }> = {};
+    slots.forEach((s, i) => {
+      if (s.enabled) {
+        payload[i] = { startTime: s.startTime, endTime: s.endTime };
+      }
+    });
 
     const res = await fetch(`/api/availability/${employeeId}`, {
       method: "PUT",
