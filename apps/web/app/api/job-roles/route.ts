@@ -2,14 +2,15 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { jobRoles } from "@scheduler/database/schema";
-import { getUser } from "@/lib/auth/getUser";
+import { getUserForApi as getUser } from "@/lib/auth/getUser"
+import { withAuth } from "@/lib/auth/withAuth";
 import { eq } from "drizzle-orm";
 
 const createSchema = z.object({
   name: z.string().min(1),
 });
 
-export async function GET() {
+export const GET = withAuth(async function GET() {
   const user = await getUser();
 
   const rows = await db
@@ -18,9 +19,9 @@ export async function GET() {
     .where(eq(jobRoles.organizationId, user.organizationId));
 
   return NextResponse.json(rows);
-}
+});
 
-export async function POST(request: Request) {
+export const POST = withAuth(async function POST(request: Request) {
   const user = await getUser();
 
   if (user.role !== "org_admin" && user.role !== "branch_manager") {
@@ -37,4 +38,4 @@ export async function POST(request: Request) {
     .returning();
 
   return NextResponse.json(role, { status: 201 });
-}
+});

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { timeOffRequests, employees } from "@scheduler/database/schema";
-import { getUser } from "@/lib/auth/getUser";
+import { getUserForApi as getUser } from "@/lib/auth/getUser"
+import { withAuth } from "@/lib/auth/withAuth";
 import { eq, and } from "drizzle-orm";
 
 const patchSchema = z.object({
@@ -19,7 +20,7 @@ async function getRequest(id: string, user: Awaited<ReturnType<typeof getUser>>)
   return row ?? null;
 }
 
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const PATCH = withAuth(async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
 
   if (user.role === "employee") {
@@ -45,9 +46,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .returning();
 
   return NextResponse.json(updated);
-}
+});
 
-export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const DELETE = withAuth(async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
 
   // Only employees can cancel their own pending requests; managers use PATCH to approve/deny
@@ -76,4 +77,4 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
   await db.delete(timeOffRequests).where(eq(timeOffRequests.id, id));
   return new NextResponse(null, { status: 204 });
-}
+});

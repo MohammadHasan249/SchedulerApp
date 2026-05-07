@@ -3,7 +3,8 @@ import { z } from "zod";
 import bcryptjs from "bcryptjs";
 import { db } from "@/lib/db";
 import { employees, branches, jobRoles } from "@scheduler/database/schema";
-import { getUser } from "@/lib/auth/getUser";
+import { getUserForApi as getUser } from "@/lib/auth/getUser"
+import { withAuth } from "@/lib/auth/withAuth";
 import { sendEmployeeInvitationEmail } from "@/lib/email/send-employee-invitation";
 import { eq, and } from "drizzle-orm";
 
@@ -17,7 +18,7 @@ const inviteSchema = z.object({
   pin: z.string().regex(/^\d{4,6}$/).optional(),
 });
 
-export async function GET() {
+export const GET = withAuth(async function GET() {
   const user = await getUser();
 
   if (user.role === "branch_manager" && !user.branchId) {
@@ -47,9 +48,9 @@ export async function GET() {
     .where(and(...conditions));
 
   return NextResponse.json(rows);
-}
+});
 
-export async function POST(request: Request) {
+export const POST = withAuth(async function POST(request: Request) {
   const user = await getUser();
 
   if (user.role === "employee") {
@@ -129,4 +130,4 @@ export async function POST(request: Request) {
   });
 
   return NextResponse.json(employee, { status: 201 });
-}
+});

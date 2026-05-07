@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { shifts, shiftAssignments, branches, employees } from "@scheduler/database/schema";
-import { getUser } from "@/lib/auth/getUser";
+import { getUserForApi as getUser } from "@/lib/auth/getUser"
+import { withAuth } from "@/lib/auth/withAuth";
 import { eq, and } from "drizzle-orm";
 
 const assignSchema = z.object({
@@ -24,7 +25,7 @@ async function getShift(id: string, organizationId: string) {
   return row ?? null;
 }
 
-export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const GET = withAuth(async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
   const { id } = await params;
 
@@ -47,9 +48,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     .where(eq(shiftAssignments.shiftId, id));
 
   return NextResponse.json(assignments);
-}
+});
 
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const POST = withAuth(async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
   if (user.role === "employee") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
@@ -93,9 +94,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .returning();
 
   return NextResponse.json(assignment, { status: 201 });
-}
+});
 
-export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const DELETE = withAuth(async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
   if (user.role === "employee") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
@@ -123,4 +124,4 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   );
 
   return new NextResponse(null, { status: 204 });
-}
+});

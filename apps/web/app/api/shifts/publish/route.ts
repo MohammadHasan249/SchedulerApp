@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { shifts, branches } from "@scheduler/database/schema";
-import { getUser } from "@/lib/auth/getUser";
+import { getUserForApi as getUser } from "@/lib/auth/getUser"
+import { withAuth } from "@/lib/auth/withAuth";
 import { eq, and, gte, lte, inArray } from "drizzle-orm";
 
 const publishSchema = z.object({
@@ -10,7 +11,7 @@ const publishSchema = z.object({
   weekStart: z.string().datetime(),
 });
 
-export async function POST(request: Request) {
+export const POST = withAuth(async function POST(request: Request) {
   const user = await getUser();
   if (user.role === "employee") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
@@ -48,4 +49,4 @@ export async function POST(request: Request) {
     );
 
   return NextResponse.json({ ok: true });
-}
+});

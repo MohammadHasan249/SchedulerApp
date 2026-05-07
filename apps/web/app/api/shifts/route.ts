@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { shifts, branches } from "@scheduler/database/schema";
-import { getUser } from "@/lib/auth/getUser";
+import { getUserForApi as getUser } from "@/lib/auth/getUser"
+import { withAuth } from "@/lib/auth/withAuth";
 import { eq, and, gte, lte, inArray } from "drizzle-orm";
 
 const createSchema = z.object({
@@ -19,7 +20,7 @@ async function getOrgBranchIds(organizationId: string) {
   return rows.map((r) => r.id);
 }
 
-export async function GET(request: Request) {
+export const GET = withAuth(async function GET(request: Request) {
   const user = await getUser();
   const { searchParams } = new URL(request.url);
   const weekStart = searchParams.get("weekStart"); // ISO date string
@@ -61,9 +62,9 @@ export async function GET(request: Request) {
     .from(shifts)
     .where(and(...conditions));
   return NextResponse.json(rows);
-}
+});
 
-export async function POST(request: Request) {
+export const POST = withAuth(async function POST(request: Request) {
   const user = await getUser();
   if (user.role === "employee") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -100,4 +101,4 @@ export async function POST(request: Request) {
     .returning();
 
   return NextResponse.json(shift, { status: 201 });
-}
+});

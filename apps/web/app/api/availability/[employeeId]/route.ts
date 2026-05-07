@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { employees } from "@scheduler/database/schema";
-import { getUser } from "@/lib/auth/getUser";
+import { getUserForApi as getUser } from "@/lib/auth/getUser"
+import { withAuth } from "@/lib/auth/withAuth";
 import { eq, and } from "drizzle-orm";
 
 const slotSchema = z.object({
@@ -32,7 +33,7 @@ async function verifyEmployeeAccess(
   return row ?? null;
 }
 
-export async function GET(request: Request, { params }: { params: Promise<{ employeeId: string }> }) {
+export const GET = withAuth(async function GET(request: Request, { params }: { params: Promise<{ employeeId: string }> }) {
   const user = await getUser();
   const { employeeId } = await params;
 
@@ -44,9 +45,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ empl
     .from(employees)
     .where(eq(employees.id, employeeId));
   return NextResponse.json(row?.availabilitySchedule ?? {});
-}
+});
 
-export async function PUT(request: Request, { params }: { params: Promise<{ employeeId: string }> }) {
+export const PUT = withAuth(async function PUT(request: Request, { params }: { params: Promise<{ employeeId: string }> }) {
   const user = await getUser();
   const { employeeId } = await params;
 
@@ -69,4 +70,4 @@ export async function PUT(request: Request, { params }: { params: Promise<{ empl
     .where(eq(employees.id, employeeId))
     .returning({ availabilitySchedule: employees.availabilitySchedule });
   return NextResponse.json(updated?.availabilitySchedule ?? {});
-}
+});

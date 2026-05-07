@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { shiftSwapRequests, employees, shifts, branches, shiftAssignments } from "@scheduler/database/schema";
-import { getUser } from "@/lib/auth/getUser";
+import { getUserForApi as getUser } from "@/lib/auth/getUser"
+import { withAuth } from "@/lib/auth/withAuth";
 import { eq, and, or, inArray } from "drizzle-orm";
 
 const createSchema = z.object({
@@ -19,7 +20,7 @@ async function getEmployeeForUser(userId: string, organizationId: string) {
   return emp ?? null;
 }
 
-export async function GET() {
+export const GET = withAuth(async function GET() {
   const user = await getUser();
 
   if (user.role === "employee") {
@@ -60,9 +61,9 @@ export async function GET() {
     );
 
   return NextResponse.json(rows);
-}
+});
 
-export async function POST(request: Request) {
+export const POST = withAuth(async function POST(request: Request) {
   const user = await getUser();
 
   const emp = await getEmployeeForUser(user.id, user.organizationId);
@@ -124,4 +125,4 @@ export async function POST(request: Request) {
     .returning();
 
   return NextResponse.json(swap, { status: 201 });
-}
+});

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { shifts, branches } from "@scheduler/database/schema";
-import { getUser } from "@/lib/auth/getUser";
+import { getUserForApi as getUser } from "@/lib/auth/getUser"
+import { withAuth } from "@/lib/auth/withAuth";
 import { eq, and } from "drizzle-orm";
 
 const patchSchema = z.object({
@@ -21,7 +22,7 @@ async function getShift(id: string, organizationId: string) {
   return row ?? null;
 }
 
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const PATCH = withAuth(async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
   if (user.role === "employee") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
@@ -49,9 +50,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const [updated] = await db.update(shifts).set(updates).where(eq(shifts.id, id)).returning();
   return NextResponse.json(updated);
-}
+});
 
-export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const DELETE = withAuth(async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
   if (user.role === "employee") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
@@ -69,4 +70,4 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
   await db.delete(shifts).where(eq(shifts.id, id));
   return new NextResponse(null, { status: 204 });
-}
+});

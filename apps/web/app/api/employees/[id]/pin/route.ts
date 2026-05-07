@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import bcryptjs from "bcryptjs";
-import { getUser } from "@/lib/auth/getUser";
+import { getUserForApi as getUser } from "@/lib/auth/getUser"
+import { withAuth } from "@/lib/auth/withAuth";
 import { db } from "@/lib/db";
 import { employees } from "@scheduler/database/schema";
 import { eq, and } from "drizzle-orm";
@@ -10,7 +11,7 @@ const pinSchema = z.object({
   pin: z.string().regex(/^\d{4,6}$/),
 });
 
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const PATCH = withAuth(async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
   const { id } = await params;
 
@@ -41,4 +42,4 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .returning();
 
   return NextResponse.json({ success: true, name: updated.name });
-}
+});

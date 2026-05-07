@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getUser } from "@/lib/auth/getUser";
+import { getUserForApi as getUser } from "@/lib/auth/getUser"
+import { withAuth } from "@/lib/auth/withAuth";
 import { db } from "@/lib/db";
 import { organizations } from "@scheduler/database/schema";
 import { eq } from "drizzle-orm";
@@ -13,7 +14,7 @@ const themeSchema = z.object({
   foreground: z.string().regex(/^#[0-9a-f]{6}$/i),
 });
 
-export async function PATCH(request: Request) {
+export const PATCH = withAuth(async function PATCH(request: Request) {
   const user = await getUser();
 
   if (user.role !== "org_admin") {
@@ -34,4 +35,4 @@ export async function PATCH(request: Request) {
     .returning();
 
   return NextResponse.json(org);
-}
+});

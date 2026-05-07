@@ -4,9 +4,10 @@ import { db } from "@/lib/db";
 import { clockEvents, employees, branches } from "@scheduler/database/schema";
 import { eq, and, desc, gte, lte, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
-import { getUser } from "@/lib/auth/getUser";
+import { getUserForApi as getUser } from "@/lib/auth/getUser"
+import { withAuth } from "@/lib/auth/withAuth";
 
-export async function GET(request: Request) {
+export const GET = withAuth(async function GET(request: Request) {
   const user = await getUser();
   if (user.role === "employee") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
@@ -48,7 +49,7 @@ export async function GET(request: Request) {
     .orderBy(desc(clockEvents.timestamp));
 
   return NextResponse.json(rows);
-}
+});
 
 const clockSchema = z.object({
   pin: z.string().regex(/^\d{4,6}$/),
@@ -56,7 +57,7 @@ const clockSchema = z.object({
 });
 
 // Public route — no auth, uses service role via direct DB access
-export async function POST(request: Request) {
+export const POST = withAuth(async function POST(request: Request) {
   const body = await request.json();
   const parsed = clockSchema.safeParse(body);
   if (!parsed.success) {
@@ -152,4 +153,4 @@ export async function POST(request: Request) {
     clockType,
     timestamp: event.timestamp,
   });
-}
+});

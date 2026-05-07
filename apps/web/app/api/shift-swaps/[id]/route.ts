@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { shiftSwapRequests, employees, shifts, branches } from "@scheduler/database/schema";
-import { getUser } from "@/lib/auth/getUser";
+import { getUserForApi as getUser } from "@/lib/auth/getUser"
+import { withAuth } from "@/lib/auth/withAuth";
 import { eq, and } from "drizzle-orm";
 
 const patchSchema = z.discriminatedUnion("action", [
@@ -32,7 +33,7 @@ async function getEmployeeForUser(userId: string, organizationId: string) {
   return emp ?? null;
 }
 
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const PATCH = withAuth(async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
   const { id } = await params;
 
@@ -115,4 +116,4 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-}
+});

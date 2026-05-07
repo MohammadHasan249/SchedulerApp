@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { notifications, employees } from "@scheduler/database/schema";
-import { getUser } from "@/lib/auth/getUser";
+import { getUserForApi as getUser } from "@/lib/auth/getUser"
+import { withAuth } from "@/lib/auth/withAuth";
 import { eq, and, desc } from "drizzle-orm";
 
-export async function GET() {
+export const GET = withAuth(async function GET() {
   const user = await getUser();
 
   // Find the employee row for this auth user
@@ -24,4 +25,4 @@ export async function GET() {
     .limit(50);
 
   return NextResponse.json(rows);
-}
+});

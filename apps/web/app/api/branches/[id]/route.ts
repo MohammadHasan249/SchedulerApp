@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { branches } from "@scheduler/database/schema";
-import { getUser } from "@/lib/auth/getUser";
+import { getUserForApi as getUser } from "@/lib/auth/getUser"
+import { withAuth } from "@/lib/auth/withAuth";
 import { eq, and } from "drizzle-orm";
 
 const patchSchema = z.object({
@@ -21,7 +22,7 @@ async function getBranch(id: string, organizationId: string) {
   return row ?? null;
 }
 
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const PATCH = withAuth(async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
 
   if (user.role !== "org_admin") {
@@ -54,9 +55,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .returning();
 
   return NextResponse.json(updated);
-}
+});
 
-export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const DELETE = withAuth(async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
 
   if (user.role !== "org_admin") {
@@ -69,4 +70,4 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
   await db.delete(branches).where(and(eq(branches.id, id), eq(branches.organizationId, user.organizationId)));
   return new NextResponse(null, { status: 204 });
-}
+});

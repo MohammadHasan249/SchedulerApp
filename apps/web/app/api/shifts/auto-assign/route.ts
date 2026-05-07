@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getUser } from "@/lib/auth/getUser";
+import { getUserForApi as getUser } from "@/lib/auth/getUser"
+import { withAuth } from "@/lib/auth/withAuth";
 import { autoAssignShifts } from "@/lib/scheduling/auto-assign";
 import { db } from "@/lib/db";
 import { branches } from "@scheduler/database/schema";
@@ -12,7 +13,7 @@ const autoAssignSchema = z.object({
   toDate: z.string().datetime(),
 });
 
-export async function POST(request: Request) {
+export const POST = withAuth(async function POST(request: Request) {
   const user = await getUser();
 
   if (user.role === "employee") {
@@ -73,4 +74,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});

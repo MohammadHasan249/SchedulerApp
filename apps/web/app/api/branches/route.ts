@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { branches } from "@scheduler/database/schema";
-import { getUser } from "@/lib/auth/getUser";
+import { getUserForApi as getUser } from "@/lib/auth/getUser"
+import { withAuth } from "@/lib/auth/withAuth";
 import { eq, and } from "drizzle-orm";
 import { slugify } from "@/lib/utils/slugify";
 
@@ -13,7 +14,7 @@ const createSchema = z.object({
   timezone: z.string().default("UTC"),
 });
 
-export async function GET() {
+export const GET = withAuth(async function GET() {
   const user = await getUser();
 
   const rows = await db
@@ -22,9 +23,9 @@ export async function GET() {
     .where(eq(branches.organizationId, user.organizationId));
 
   return NextResponse.json(rows);
-}
+});
 
-export async function POST(request: Request) {
+export const POST = withAuth(async function POST(request: Request) {
   const user = await getUser();
 
   if (user.role !== "org_admin") {
@@ -55,4 +56,4 @@ export async function POST(request: Request) {
     .returning();
 
   return NextResponse.json(branch, { status: 201 });
-}
+});

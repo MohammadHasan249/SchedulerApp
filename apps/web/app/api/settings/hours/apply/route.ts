@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { organizationHours, employees } from "@scheduler/database/schema";
-import { getUser } from "@/lib/auth/getUser";
+import { getUserForApi as getUser } from "@/lib/auth/getUser"
+import { withAuth } from "@/lib/auth/withAuth";
 import { eq, and } from "drizzle-orm";
 
-export async function POST() {
+export const POST = withAuth(async function POST() {
   const user = await getUser();
   if (user.role !== "org_admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -50,4 +51,4 @@ export async function POST() {
   });
 
   return NextResponse.json({ applied: orgEmployees.length });
-}
+});

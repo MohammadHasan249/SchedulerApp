@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { timeOffRequests, employees } from "@scheduler/database/schema";
-import { getUser } from "@/lib/auth/getUser";
+import { getUserForApi as getUser } from "@/lib/auth/getUser"
+import { withAuth } from "@/lib/auth/withAuth";
 import { sendTimeOffNotification } from "@/lib/email/send-time-off-notification";
 import { eq, and, inArray } from "drizzle-orm";
 
@@ -12,7 +13,7 @@ const createSchema = z.object({
   reason: z.string().optional(),
 });
 
-export async function GET() {
+export const GET = withAuth(async function GET() {
   const user = await getUser();
 
   if (user.role === "employee") {
@@ -53,9 +54,9 @@ export async function GET() {
     .where(inArray(timeOffRequests.employeeId, empIds));
 
   return NextResponse.json(rows);
-}
+});
 
-export async function POST(request: Request) {
+export const POST = withAuth(async function POST(request: Request) {
   const user = await getUser();
 
   const [emp] = await db
@@ -87,4 +88,4 @@ export async function POST(request: Request) {
   });
 
   return NextResponse.json(req, { status: 201 });
-}
+});

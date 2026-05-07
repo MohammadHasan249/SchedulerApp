@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { employees, branches, jobRoles } from "@scheduler/database/schema";
-import { getUser } from "@/lib/auth/getUser";
+import { getUserForApi as getUser } from "@/lib/auth/getUser"
+import { withAuth } from "@/lib/auth/withAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { eq, and } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -26,7 +27,7 @@ async function getEmployee(id: string, organizationId: string) {
   return row ?? null;
 }
 
-export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const GET = withAuth(async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
   const { id } = await params;
 
@@ -38,9 +39,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   }
 
   return NextResponse.json(employee);
-}
+});
 
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const PATCH = withAuth(async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
   const { id } = await params;
 
@@ -133,9 +134,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .returning();
 
   return NextResponse.json(updated);
-}
+});
 
-export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const DELETE = withAuth(async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
   const { id } = await params;
 
@@ -154,4 +155,4 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     .returning();
 
   return NextResponse.json(updated);
-}
+});
