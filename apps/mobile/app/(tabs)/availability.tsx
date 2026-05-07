@@ -4,7 +4,7 @@ import {
   ActivityIndicator, Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getAvailability, saveAvailability } from "@/lib/api";
+import { getAvailability, saveAvailability, getOrganizationHours, type OrganizationHours } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -16,30 +16,64 @@ const TIME_OPTIONS = Array.from({ length: 24 * 2 }, (_, i) => {
 
 type DaySlot = { enabled: boolean; startTime: string; endTime: string };
 
+const DEFAULT_START = "09:00";
+const DEFAULT_END = "17:00";
+
 export default function AvailabilityScreen() {
   const { session } = useAuthStore();
   const [slots, setSlots] = useState<DaySlot[]>(
-    DAYS.map(() => ({ enabled: false, startTime: "09:00", endTime: "17:00" }))
+    DAYS.map(() => ({ enabled: true, startTime: DEFAULT_START, endTime: DEFAULT_END }))
   );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [employeeId, setEmployeeId] = useState<string | null>(null);
+  const [orgHours, setOrgHours] = useState<OrganizationHours[]>([]);
 
   useEffect(() => {
     async function load() {
       if (!session) return;
       try {
+        // Get organization hours first to use as defaults
+        const hours = await getOrganizationHours();
+        setOrgHours(hours);
+
         // Get employee ID from session metadata
         const empId = session.user.user_metadata?.employee_id as string | undefined;
         if (!empId) { setLoading(false); return; }
         setEmployeeId(empId);
+
+        // Get saved employee availability
         const rows = await getAvailability(empId);
+
+        // Build slots: use saved availability if exists, otherwise use org hours as default
         setSlots(
           DAYS.map((_, i) => {
-            const row = rows.find((r) => r.dayOfWeek === i);
-            return row
-              ? { enabled: true, startTime: row.startTime.slice(0, 5), endTime: row.endTime.slice(0, 5) }
-              : { enabled: false, startTime: "09:00", endTime: "17:00" };
+            const savedRow = rows.find((r) => r.dayOfWeek === i);
+            if (savedRow) {
+              // Use saved availability
+              return {
+                enabled: true,
+                startTime: savedRow.startTime.slice(0, 5),
+                endTime: savedRow.endTime.slice(0, 5),
+              };
+            }
+
+            // Use org hours for this day as default
+            const orgHour = hours.find((h) => h.dayOfWeek === i);
+            if (orgHour && !orgHour.isClosed && orgHour.startTime && orgHour.endTime) {
+              return {
+                enabled: true,
+                startTime: orgHour.startTime.slice(0, 5),
+                endTime: orgHour.endTime.slice(0, 5),
+              };
+            }
+
+            // Default: enabled with org hours or fallback times
+            return {
+              enabled: true,
+              startTime: orgHour?.startTime?.slice(0, 5) ?? DEFAULT_START,
+              endTime: orgHour?.endTime?.slice(0, 5) ?? DEFAULT_END,
+            };
           })
         );
       } catch {
@@ -91,6 +125,18 @@ export default function AvailabilityScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Availability</Text>
         <Text style={styles.subtitle}>Set your weekly schedule</Text>
+        {orgHours.length > 0 && (
+          <View style={styles.orgHoursInfo}>
+            <Text style={styles.orgHoursLabel}>Organization Hours:</Text>
+            <Text style={styles.orgHoursText}>
+              {orgHours.map((oh, idx) => {
+                const day = DAYS[oh.dayOfWeek];
+                const hours = oh.isClosed ? 'Closed' : `${oh.startTime} - ${oh.endTime}`;
+                return idx === 0 ? `${day}: ${hours}` : `${day}: ${hours}`;
+              }).join(' • ')}
+            </Text>
+          </View>
+        )}
       </View>
 
       <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
@@ -169,6 +215,9 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 },
   title: { fontSize: 26, fontWeight: "700", color: "#f8fafc" },
   subtitle: { fontSize: 13, color: "#64748b", marginTop: 2 },
+  orgHoursInfo: { marginTop: 12, backgroundColor: "#1e293b", borderRadius: 8, padding: 10 },
+  orgHoursLabel: { fontSize: 12, fontWeight: "600", color: "#94a3b8", marginBottom: 4 },
+  orgHoursText: { fontSize: 12, color: "#cbd5e1" },
   list: { flex: 1 },
   listContent: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32, gap: 8 },
   row: {
