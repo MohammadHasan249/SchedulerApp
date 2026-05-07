@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createMiddlewareClient } from "@/lib/supabase/middleware";
 
-const PUBLIC_PATHS = ["/", "/login", "/signup", "/api", "/auth-error"];
+const PUBLIC_PATHS = ["/", "/login", "/signup", "/auth-error"];
 
 export async function middleware(request: NextRequest) {
   const { supabase, response } = createMiddlewareClient(request);
@@ -20,11 +20,6 @@ export async function middleware(request: NextRequest) {
 
   // Kiosk is public — no auth required
   if (pathname.startsWith("/kiosk")) {
-    return response;
-  }
-
-  // API routes with a Bearer token are authenticated by the route handler itself
-  if (pathname.startsWith("/api/") && request.headers.get("authorization")?.startsWith("Bearer ")) {
     return response;
   }
 
@@ -68,6 +63,6 @@ function resolveOrgSlug(hostname: string, request: NextRequest): string | null {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
