@@ -23,6 +23,11 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  // API routes with a Bearer token are authenticated by the route handler itself
+  if (pathname.startsWith("/api/") && request.headers.get("authorization")?.startsWith("Bearer ")) {
+    return response;
+  }
+
   // Public paths
   if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
     // Redirect authenticated users from root landing page to dashboard
