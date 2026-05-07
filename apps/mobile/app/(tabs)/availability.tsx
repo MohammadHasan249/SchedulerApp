@@ -33,17 +33,21 @@ export default function AvailabilityScreen() {
     async function load() {
       if (!session) return;
       try {
+        console.log("[Availability] Loading...");
         // Get organization hours first to use as defaults
         const hours = await getOrganizationHours();
+        console.log("[Availability] Org hours loaded:", hours);
         setOrgHours(hours);
 
         // Get employee ID from session metadata
         const empId = session.user.user_metadata?.employee_id as string | undefined;
+        console.log("[Availability] Employee ID:", empId);
         if (!empId) { setLoading(false); return; }
         setEmployeeId(empId);
 
         // Get saved employee availability (Record<dayOfWeek, { startTime, endTime }>)
         const schedule = await getAvailability(empId);
+        console.log("[Availability] Schedule loaded:", schedule);
 
         // Build slots: use saved availability if exists, otherwise use org hours as default
         setSlots(
@@ -76,7 +80,8 @@ export default function AvailabilityScreen() {
             };
           })
         );
-      } catch {
+      } catch (err) {
+        console.error("[Availability] Error:", err);
         // leave defaults
       } finally {
         setLoading(false);

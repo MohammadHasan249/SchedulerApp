@@ -14,7 +14,9 @@ export async function apiFetch<T>(
   init: RequestInit = {}
 ): Promise<T> {
   const token = _getToken ? await _getToken() : null;
-  const res = await fetch(`${_baseUrl}${path}`, {
+  const url = `${_baseUrl}${path}`;
+  console.log("[apiFetch] Requesting:", url);
+  const res = await fetch(url, {
     ...init,
     headers: {
       "Content-Type": "application/json",
@@ -22,9 +24,21 @@ export async function apiFetch<T>(
       ...init.headers,
     },
   });
+  console.log("[apiFetch] Response status:", res.status, "ok:", res.ok);
+  console.log("[apiFetch] Response headers:", res.headers);
+
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error ?? `Request failed: ${res.status}`);
+    const text = await res.text();
+    console.log("[apiFetch] Error response body:", text.slice(0, 500));
+    try {
+      const err = JSON.parse(text);
+      throw new Error(err.error ?? `Request failed: ${res.status}`);
+    } catch {
+      throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+    }
   }
-  return res.json();
+
+  const text = await res.text();
+  console.log("[apiFetch] Response body (first 500 chars):", text.slice(0, 500));
+  return JSON.parse(text);
 }

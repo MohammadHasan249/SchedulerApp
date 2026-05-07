@@ -17,10 +17,16 @@ export default function ProfileScreen() {
   useEffect(() => {
     async function loadHours() {
       try {
+        console.log("Fetching organization hours...");
         const hours = await getOrganizationHours();
+        console.log("Organization hours loaded:", hours);
         setOrgHours(hours);
       } catch (err) {
-        console.error("Failed to load org hours:", err);
+        console.error("Failed to load org hours - Full error:", err);
+        if (err instanceof Error) {
+          console.error("Error message:", err.message);
+          console.error("Error stack:", err.stack);
+        }
       } finally {
         setLoadingHours(false);
       }
