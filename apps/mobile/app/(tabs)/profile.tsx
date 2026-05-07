@@ -18,6 +18,7 @@ export default function ProfileScreen() {
     async function loadHours() {
       try {
         console.log("Fetching organization hours...");
+        console.log("User session:", !!session, "User email:", user?.email);
         const hours = await getOrganizationHours();
         console.log("Organization hours loaded:", hours);
         setOrgHours(hours);
@@ -31,8 +32,13 @@ export default function ProfileScreen() {
         setLoadingHours(false);
       }
     }
-    loadHours();
-  }, []);
+    if (session) {
+      loadHours();
+    } else {
+      console.log("No session available, skipping org hours fetch");
+      setLoadingHours(false);
+    }
+  }, [session]);
 
   async function handleSignOut() {
     Alert.alert("Sign out", "Are you sure you want to sign out?", [

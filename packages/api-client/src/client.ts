@@ -14,8 +14,15 @@ export async function apiFetch<T>(
   init: RequestInit = {}
 ): Promise<T> {
   const token = _getToken ? await _getToken() : null;
+  console.log("[apiFetch] Token available:", !!token, "Token length:", token?.length ?? 0);
   const url = `${_baseUrl}${path}`;
   console.log("[apiFetch] Requesting:", url);
+  const headers = {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token.slice(0, 20)}...` } : { Authorization: "NONE" }),
+    ...init.headers,
+  };
+  console.log("[apiFetch] Headers:", headers);
   const res = await fetch(url, {
     ...init,
     headers: {
