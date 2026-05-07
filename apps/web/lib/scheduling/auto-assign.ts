@@ -58,6 +58,8 @@ export async function autoAssignShifts(
     .from(employees)
     .where(and(eq(employees.organizationId, organizationId), eq(employees.isActive, true)));
 
+  const employeeIds = allEmployees.map((e) => e.id);
+
   // Build availability map from employees' availabilitySchedule JSON
   const availabilityByEmployeeId = new Map<string, AvailabilitySlot[]>();
   allEmployees.forEach((emp) => {

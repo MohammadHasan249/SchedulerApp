@@ -7,9 +7,6 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
   },
-  css: {
-    postcss: null,
-  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './'),
