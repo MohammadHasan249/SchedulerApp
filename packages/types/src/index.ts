@@ -46,6 +46,18 @@ export interface Availability {
   endTime: string;
 }
 
+export type SwapStatus = "pending" | "cover_accepted" | "manager_approved" | "denied";
+
+export interface ShiftSwapRequest {
+  id: string;
+  shiftId: string;
+  requesterId: string;
+  coverId: string | null;
+  managerId: string | null;
+  status: SwapStatus;
+  createdAt: string;
+}
+
 export interface TimeOffRequest {
   id: string;
   employeeId: string;

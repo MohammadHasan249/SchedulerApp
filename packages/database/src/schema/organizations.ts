@@ -35,6 +35,7 @@ export const organizations = pgTable("organizations", {
     foreground: "#000000",
   }),
   hoursSchedule: jsonb("hours_schedule").$type<HoursSchedule>().default(DEFAULT_HOURS).notNull(),
+  exitPinHash: text("exit_pin_hash"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

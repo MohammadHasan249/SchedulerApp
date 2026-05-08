@@ -38,14 +38,16 @@ export default function RootLayout() {
     if (!session && !inAuthGroup) {
       router.replace("/(auth)/login");
     } else if (session && inAuthGroup) {
-      router.replace("/(tabs)/schedule");
+      const role = session.user?.app_metadata?.role;
+      const isAdmin = role === "org_admin" || role === "branch_manager";
+      router.replace(isAdmin ? "/(tabs)/dashboard" : "/(tabs)/schedule");
     }
   }, [session, segments]);
 
   return (
     <>
       <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false }} initialRouteName={session ? "(tabs)/schedule" : "(auth)/login"} />
+      <Stack screenOptions={{ headerShown: false }} />
     </>
   );
 }

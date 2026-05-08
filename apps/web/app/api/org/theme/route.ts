@@ -42,7 +42,7 @@ export const PATCH = withAuth(async function PATCH(request: Request) {
     .update(organizations)
     .set({ theme: parsed.data })
     .where(eq(organizations.id, user.organizationId))
-    .returning();
+    .returning({ theme: organizations.theme });
 
-  return NextResponse.json(org);
+  return NextResponse.json(org.theme);
 });
