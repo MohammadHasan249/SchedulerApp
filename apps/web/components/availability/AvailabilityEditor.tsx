@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { TimePicker } from "@/components/ui/time-picker";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -75,7 +75,6 @@ export function AvailabilityEditor({ employeeId, initial, readOnly = false }: Pr
           key={i}
           className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 rounded-xl border sm:border-0 sm:rounded-none p-3 sm:p-0 bg-card sm:bg-transparent"
         >
-          {/* Day label + toggle */}
           <div className="flex items-center gap-3">
             <Switch
               checked={slots[i].enabled}
@@ -89,23 +88,18 @@ export function AvailabilityEditor({ employeeId, initial, readOnly = false }: Pr
             </Label>
           </div>
 
-          {/* Time inputs */}
           {slots[i].enabled ? (
             <div className="flex items-center gap-2 pl-9 sm:pl-0">
-              <Input
-                type="time"
+              <TimePicker
                 value={slots[i].startTime}
-                onChange={(e) => !readOnly && setSlot(i, { startTime: e.target.value })}
+                onChange={(v) => !readOnly && setSlot(i, { startTime: v })}
                 disabled={readOnly}
-                className="w-28 h-8 text-sm"
               />
               <span className="text-muted-foreground text-sm">to</span>
-              <Input
-                type="time"
+              <TimePicker
                 value={slots[i].endTime}
-                onChange={(e) => !readOnly && setSlot(i, { endTime: e.target.value })}
+                onChange={(v) => !readOnly && setSlot(i, { endTime: v })}
                 disabled={readOnly}
-                className="w-28 h-8 text-sm"
               />
             </div>
           ) : (

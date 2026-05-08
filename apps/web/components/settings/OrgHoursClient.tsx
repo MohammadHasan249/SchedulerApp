@@ -1,24 +1,18 @@
 "use client";
 
 import { HoursEditor } from "./HoursEditor";
-import type { OrganizationHours } from "@scheduler/database/schema";
+import type { HoursSchedule } from "@scheduler/database/schema";
 
 type Props = {
-  initialHours: OrganizationHours[];
+  initialHours: HoursSchedule;
 };
 
 export function OrgHoursClient({ initialHours }: Props) {
-  async function handleSave(rows: { isClosed: boolean; startTime: string; endTime: string }[]) {
-    const payload = rows.map((r, i) => ({
-      dayOfWeek: i,
-      isClosed: r.isClosed,
-      startTime: r.isClosed ? null : r.startTime,
-      endTime: r.isClosed ? null : r.endTime,
-    }));
+  async function handleSave(schedule: HoursSchedule) {
     const res = await fetch("/api/settings/hours", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(schedule),
     });
     if (!res.ok) throw new Error("Failed to save");
   }

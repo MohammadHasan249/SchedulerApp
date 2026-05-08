@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { organizationHours, employees } from "@scheduler/database/schema";
-import { getApiUser as getUser } from "@/lib/auth/getUser"
+import { organizations, employees } from "@scheduler/database/schema";
+import { getApiUser as getUser } from "@/lib/auth/getUser";
 import { withAuth } from "@/lib/auth/withAuth";
 import { eq, and } from "drizzle-orm";
 
@@ -11,27 +11,17 @@ export const POST = withAuth(async function POST() {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const hours = await db
-    .select()
-    .from(organizationHours)
-    .where(eq(organizationHours.organizationId, user.organizationId));
+  const [org] = await db
+    .select({ hoursSchedule: organizations.hoursSchedule })
+    .from(organizations)
+    .where(eq(organizations.id, user.organizationId))
+    .limit(1);
 
-  if (hours.length === 0) {
+  if (!org?.hoursSchedule || Object.keys(org.hoursSchedule).length === 0) {
     return NextResponse.json(
       { error: "No hours of operation configured yet" },
       { status: 400 }
     );
-  }
-
-  // Build availability schedule from organization hours
-  const schedule: Record<number, { startTime: string; endTime: string }> = {};
-  for (const h of hours) {
-    if (!h.isClosed && h.startTime && h.endTime) {
-      schedule[h.dayOfWeek] = {
-        startTime: h.startTime,
-        endTime: h.endTime,
-      };
-    }
   }
 
   const orgEmployees = await db
@@ -46,7 +36,10 @@ export const POST = withAuth(async function POST() {
 
   await db.transaction(async (tx) => {
     for (const emp of orgEmployees) {
-      await tx.update(employees).set({ availabilitySchedule: schedule }).where(eq(employees.id, emp.id));
+      await tx
+        .update(employees)
+        .set({ availabilitySchedule: org.hoursSchedule })
+        .where(eq(employees.id, emp.id));
     }
   });
 

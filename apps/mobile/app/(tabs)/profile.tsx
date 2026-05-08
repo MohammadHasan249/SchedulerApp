@@ -3,7 +3,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { LogOut, User, Mail, Clock } from "lucide-react-native";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/lib/authStore";
-import { getOrganizationHours, type OrganizationHours } from "@/lib/api";
+import { getOrganizationHours, type HoursSchedule } from "@/lib/api";
 import { useEffect, useState } from "react";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -11,23 +11,16 @@ const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", 
 export default function ProfileScreen() {
   const { session } = useAuthStore();
   const user = session?.user;
-  const [orgHours, setOrgHours] = useState<OrganizationHours[]>([]);
+  const [orgHours, setOrgHours] = useState<HoursSchedule | null>(null);
   const [loadingHours, setLoadingHours] = useState(true);
 
   useEffect(() => {
     async function loadHours() {
       try {
-        console.log("Fetching organization hours...");
-        console.log("User session:", !!session, "User email:", user?.email);
         const hours = await getOrganizationHours();
-        console.log("Organization hours loaded:", hours);
         setOrgHours(hours);
       } catch (err) {
-        console.error("Failed to load org hours - Full error:", err);
-        if (err instanceof Error) {
-          console.error("Error message:", err.message);
-          console.error("Error stack:", err.stack);
-        }
+        console.error("Failed to load org hours:", err);
       } finally {
         setLoadingHours(false);
       }
@@ -35,7 +28,6 @@ export default function ProfileScreen() {
     if (session) {
       loadHours();
     } else {
-      console.log("No session available, skipping org hours fetch");
       setLoadingHours(false);
     }
   }, [session]);
@@ -58,7 +50,6 @@ export default function ProfileScreen() {
           <Text style={styles.title}>Profile</Text>
         </View>
 
-        {/* Avatar */}
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>
             {(user?.user_metadata?.full_name as string | undefined)?.[0]?.toUpperCase() ?? "?"}
@@ -69,7 +60,6 @@ export default function ProfileScreen() {
           {(user?.user_metadata?.full_name as string | undefined) ?? "Employee"}
         </Text>
 
-        {/* Info rows */}
         <View style={styles.section}>
           <View style={styles.row}>
             <Mail size={18} color="#64748b" />
@@ -85,23 +75,25 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Organization Hours */}
         {loadingHours ? (
           <ActivityIndicator color="#3b82f6" style={{ marginTop: 24 }} />
-        ) : orgHours.length > 0 ? (
+        ) : orgHours && Object.keys(orgHours).length > 0 ? (
           <View style={styles.orgSection}>
             <View style={styles.orgHeader}>
               <Clock size={18} color="#3b82f6" />
               <Text style={styles.orgTitle}>Organization Hours</Text>
             </View>
-            {orgHours.map((oh, idx) => (
-              <View key={idx} style={[styles.orgRow, idx === orgHours.length - 1 && styles.orgRowLast]}>
-                <Text style={styles.orgDay}>{DAYS[oh.dayOfWeek]}</Text>
-                <Text style={styles.orgTime}>
-                  {oh.isClosed ? "Closed" : `${oh.startTime} - ${oh.endTime}`}
-                </Text>
-              </View>
-            ))}
+            {DAYS.map((day, i) => {
+              const slot = orgHours[i.toString()];
+              return (
+                <View key={i} style={[styles.orgRow, i === DAYS.length - 1 && styles.orgRowLast]}>
+                  <Text style={styles.orgDay}>{day}</Text>
+                  <Text style={styles.orgTime}>
+                    {slot ? `${slot.startTime} – ${slot.endTime}` : "Closed"}
+                  </Text>
+                </View>
+              );
+            })}
           </View>
         ) : null}
 

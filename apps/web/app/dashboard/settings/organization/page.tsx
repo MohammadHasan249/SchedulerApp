@@ -1,8 +1,7 @@
 import { getUser } from "@/lib/auth/getUser";
 import { db } from "@/lib/db";
-import { organizations, organizationHours } from "@scheduler/database/schema";
+import { organizations } from "@scheduler/database/schema";
 import { eq } from "drizzle-orm";
-import { ThemeEditor } from "@/components/settings/ThemeEditor";
 import { OrganizationThemeClient } from "@/components/settings/OrganizationThemeClient";
 import { OrgHoursClient } from "@/components/settings/OrgHoursClient";
 
@@ -21,7 +20,7 @@ export default async function OrganizationSettingsPage() {
   }
 
   const [org] = await db
-    .select()
+    .select({ theme: organizations.theme, hoursSchedule: organizations.hoursSchedule })
     .from(organizations)
     .where(eq(organizations.id, user.organizationId))
     .limit(1);
@@ -33,11 +32,6 @@ export default async function OrganizationSettingsPage() {
     background: "#ffffff",
     foreground: "#000000",
   };
-
-  const hours = await db
-    .select()
-    .from(organizationHours)
-    .where(eq(organizationHours.organizationId, user.organizationId));
 
   return (
     <div className="space-y-8">
@@ -59,7 +53,7 @@ export default async function OrganizationSettingsPage() {
           <p className="text-muted-foreground text-sm mb-4">
             Set your organization's open hours per day. Use "Apply to All Employees" to push these as default availability.
           </p>
-          <OrgHoursClient initialHours={hours} />
+          <OrgHoursClient initialHours={org?.hoursSchedule ?? {}} />
         </div>
       </div>
     </div>

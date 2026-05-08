@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import type { OrganizationHours } from "@scheduler/database/schema";
+import { TimePicker } from "@/components/ui/time-picker";
+import type { HoursSchedule } from "@scheduler/database/schema";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -16,22 +16,26 @@ type DayRow = {
   endTime: string;
 };
 
-function toRows(serverRows: OrganizationHours[]): DayRow[] {
+function toRows(schedule: HoursSchedule): DayRow[] {
   return DAYS.map((_, i) => {
-    const row = serverRows.find((r) => r.dayOfWeek === i);
-    return row && !row.isClosed
-      ? {
-          isClosed: false,
-          startTime: row.startTime?.slice(0, 5) ?? "09:00",
-          endTime: row.endTime?.slice(0, 5) ?? "17:00",
-        }
+    const slot = schedule[i];
+    return slot
+      ? { isClosed: false, startTime: slot.startTime, endTime: slot.endTime }
       : { isClosed: true, startTime: "09:00", endTime: "17:00" };
   });
 }
 
+function toSchedule(rows: DayRow[]): HoursSchedule {
+  const schedule: HoursSchedule = {};
+  rows.forEach((r, i) => {
+    if (!r.isClosed) schedule[i] = { startTime: r.startTime, endTime: r.endTime };
+  });
+  return schedule;
+}
+
 type Props = {
-  initial: OrganizationHours[];
-  onSave: (rows: DayRow[]) => Promise<void>;
+  initial: HoursSchedule;
+  onSave: (schedule: HoursSchedule) => Promise<void>;
   onApply: () => Promise<{ applied: number }>;
 };
 
@@ -49,7 +53,7 @@ export function HoursEditor({ initial, onSave, onApply }: Props) {
     setSaving(true);
     setStatus(null);
     try {
-      await onSave(rows);
+      await onSave(toSchedule(rows));
       setStatus({ type: "ok", msg: "Saved!" });
     } catch {
       setStatus({ type: "err", msg: "Failed to save hours of operation" });
@@ -89,18 +93,14 @@ export function HoursEditor({ initial, onSave, onApply }: Props) {
           </div>
           {!rows[i].isClosed ? (
             <div className="flex items-center gap-2 pl-9 sm:pl-0">
-              <Input
-                type="time"
+              <TimePicker
                 value={rows[i].startTime}
-                onChange={(e) => setRow(i, { startTime: e.target.value })}
-                className="w-28 h-8 text-sm"
+                onChange={(v) => setRow(i, { startTime: v })}
               />
               <span className="text-muted-foreground text-sm">to</span>
-              <Input
-                type="time"
+              <TimePicker
                 value={rows[i].endTime}
-                onChange={(e) => setRow(i, { endTime: e.target.value })}
-                className="w-28 h-8 text-sm"
+                onChange={(v) => setRow(i, { endTime: v })}
               />
             </div>
           ) : (

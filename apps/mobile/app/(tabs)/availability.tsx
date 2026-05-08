@@ -4,7 +4,7 @@ import {
   ActivityIndicator, Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getAvailability, saveAvailability, getOrganizationHours, type OrganizationHours } from "@/lib/api";
+import { getAvailability, saveAvailability, getOrganizationHours, type HoursSchedule } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -27,62 +27,41 @@ export default function AvailabilityScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [employeeId, setEmployeeId] = useState<string | null>(null);
-  const [orgHours, setOrgHours] = useState<OrganizationHours[]>([]);
+  const [orgHours, setOrgHours] = useState<HoursSchedule>({});
 
   useEffect(() => {
     async function load() {
       if (!session) return;
       try {
-        console.log("[Availability] Loading...");
-        // Get organization hours first to use as defaults
         const hours = await getOrganizationHours();
-        console.log("[Availability] Org hours loaded:", hours);
         setOrgHours(hours);
 
-        // Get employee ID from session metadata
         const empId = session.user.user_metadata?.employee_id as string | undefined;
-        console.log("[Availability] Employee ID:", empId);
         if (!empId) { setLoading(false); return; }
         setEmployeeId(empId);
 
-        // Get saved employee availability (Record<dayOfWeek, { startTime, endTime }>)
         const schedule = await getAvailability(empId);
-        console.log("[Availability] Schedule loaded:", schedule);
 
-        // Build slots: use saved availability if exists, otherwise use org hours as default
         setSlots(
           DAYS.map((_, i) => {
             const saved = schedule[i];
             if (saved) {
-              // Use saved availability
               return {
                 enabled: true,
                 startTime: saved.startTime.slice(0, 5),
                 endTime: saved.endTime.slice(0, 5),
               };
             }
-
-            // Use org hours for this day as default
-            const orgHour = hours.find((h) => h.dayOfWeek === i);
-            if (orgHour && !orgHour.isClosed && orgHour.startTime && orgHour.endTime) {
-              return {
-                enabled: true,
-                startTime: orgHour.startTime.slice(0, 5),
-                endTime: orgHour.endTime.slice(0, 5),
-              };
-            }
-
-            // Default: enabled with org hours or fallback times
+            const orgSlot = hours[i.toString()];
             return {
-              enabled: true,
-              startTime: orgHour?.startTime?.slice(0, 5) ?? DEFAULT_START,
-              endTime: orgHour?.endTime?.slice(0, 5) ?? DEFAULT_END,
+              enabled: !!orgSlot,
+              startTime: orgSlot?.startTime ?? DEFAULT_START,
+              endTime: orgSlot?.endTime ?? DEFAULT_END,
             };
           })
         );
       } catch (err) {
         console.error("[Availability] Error:", err);
-        // leave defaults
       } finally {
         setLoading(false);
       }
@@ -108,9 +87,7 @@ export default function AvailabilityScreen() {
     try {
       const payload: Record<number, { startTime: string; endTime: string }> = {};
       slots.forEach((s, i) => {
-        if (s.enabled) {
-          payload[i] = { startTime: s.startTime, endTime: s.endTime };
-        }
+        if (s.enabled) payload[i] = { startTime: s.startTime, endTime: s.endTime };
       });
       await saveAvailability(employeeId, payload);
       Alert.alert("Saved", "Your availability has been updated.");
@@ -127,20 +104,21 @@ export default function AvailabilityScreen() {
     </SafeAreaView>
   );
 
+  const hasOrgHours = Object.keys(orgHours).length > 0;
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
         <Text style={styles.title}>Availability</Text>
         <Text style={styles.subtitle}>Set your weekly schedule</Text>
-        {orgHours.length > 0 && (
+        {hasOrgHours && (
           <View style={styles.orgHoursInfo}>
             <Text style={styles.orgHoursLabel}>Organization Hours:</Text>
             <Text style={styles.orgHoursText}>
-              {orgHours.map((oh, idx) => {
-                const day = DAYS[oh.dayOfWeek];
-                const hours = oh.isClosed ? 'Closed' : `${oh.startTime} - ${oh.endTime}`;
-                return idx === 0 ? `${day}: ${hours}` : `${day}: ${hours}`;
-              }).join(' • ')}
+              {DAYS.map((day, i) => {
+                const slot = orgHours[i.toString()];
+                return `${day}: ${slot ? `${slot.startTime}–${slot.endTime}` : "Closed"}`;
+              }).join(" • ")}
             </Text>
           </View>
         )}
@@ -227,27 +205,20 @@ const styles = StyleSheet.create({
   orgHoursText: { fontSize: 12, color: "#cbd5e1" },
   list: { flex: 1 },
   listContent: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32, gap: 8 },
-  row: {
-    backgroundColor: "#1e293b", borderRadius: 12, padding: 14,
-    gap: 10,
-  },
+  row: { backgroundColor: "#1e293b", borderRadius: 12, padding: 14, gap: 10 },
   toggle: { flexDirection: "row", alignItems: "center", gap: 10 },
   toggleTrack: {
     width: 42, height: 24, borderRadius: 12, backgroundColor: "#334155",
     justifyContent: "center", paddingHorizontal: 2,
   },
   toggleTrackOn: { backgroundColor: "#2563eb" },
-  toggleThumb: {
-    width: 20, height: 20, borderRadius: 10, backgroundColor: "#94a3b8",
-  },
+  toggleThumb: { width: 20, height: 20, borderRadius: 10, backgroundColor: "#94a3b8" },
   toggleThumbOn: { backgroundColor: "#fff", alignSelf: "flex-end" },
   dayLabel: { fontSize: 15, fontWeight: "500", color: "#64748b" },
   dayLabelOn: { color: "#f1f5f9" },
   timePickers: { flexDirection: "row", alignItems: "center", gap: 8, paddingLeft: 52 },
   timeSep: { color: "#64748b", fontSize: 13 },
-  timeBtn: {
-    backgroundColor: "#334155", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6,
-  },
+  timeBtn: { backgroundColor: "#334155", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
   timeBtnText: { color: "#f1f5f9", fontSize: 14, fontWeight: "500" },
   picker: { maxHeight: 150, backgroundColor: "#334155", borderRadius: 8, marginLeft: 52 },
   pickerItem: { paddingHorizontal: 12, paddingVertical: 8 },

@@ -1,16 +1,8 @@
 import { apiFetch } from "./client";
 
-export interface OrganizationHours {
-  id: string;
-  organizationId: string;
-  dayOfWeek: number;
-  startTime: string | null;
-  endTime: string | null;
-  isClosed: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
+// Keys are day-of-week strings "0"–"6". A missing key means the day is closed.
+export type HoursSchedule = Record<string, { startTime: string; endTime: string }>;
 
-export function getOrganizationHours(): Promise<OrganizationHours[]> {
+export function getOrganizationHours(): Promise<HoursSchedule> {
   return apiFetch("/api/settings/hours");
 }

@@ -1,29 +1,28 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { organizationHours } from "@scheduler/database/schema";
-import { getApiUser as getUser } from "@/lib/auth/getUser"
+import { organizations } from "@scheduler/database/schema";
+import { getApiUser as getUser } from "@/lib/auth/getUser";
 import { withAuth } from "@/lib/auth/withAuth";
 import { eq } from "drizzle-orm";
 
-const slotSchema = z.object({
-  dayOfWeek: z.number().int().min(0).max(6),
-  startTime: z.string().regex(/^\d{2}:\d{2}$/).nullable(),
-  endTime: z.string().regex(/^\d{2}:\d{2}$/).nullable(),
-  isClosed: z.boolean(),
-});
-
-const putSchema = z.array(slotSchema).length(7);
+const timeRegex = /^\d{2}:\d{2}$/;
+const scheduleSchema = z.record(
+  z.string().regex(/^[0-6]$/),
+  z.object({
+    startTime: z.string().regex(timeRegex),
+    endTime: z.string().regex(timeRegex),
+  })
+);
 
 export const GET = withAuth(async function GET() {
   const user = await getUser();
-
-  const rows = await db
-    .select()
-    .from(organizationHours)
-    .where(eq(organizationHours.organizationId, user.organizationId));
-
-  return NextResponse.json(rows);
+  const [org] = await db
+    .select({ hoursSchedule: organizations.hoursSchedule })
+    .from(organizations)
+    .where(eq(organizations.id, user.organizationId))
+    .limit(1);
+  return NextResponse.json(org?.hoursSchedule ?? {});
 });
 
 export const PUT = withAuth(async function PUT(request: Request) {
@@ -33,37 +32,24 @@ export const PUT = withAuth(async function PUT(request: Request) {
   }
 
   const body = await request.json();
-  const parsed = putSchema.safeParse(body);
+  const parsed = scheduleSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const invalid = parsed.data.find(
-    (s) => !s.isClosed && (s.startTime === null || s.endTime === null || s.startTime >= s.endTime)
-  );
+  const invalid = Object.values(parsed.data).find((s) => s.startTime >= s.endTime);
   if (invalid) {
     return NextResponse.json(
-      { error: "Open days must have a valid start time before end time" },
+      { error: "Start time must be before end time for all open days" },
       { status: 400 }
     );
   }
 
-  await db.delete(organizationHours).where(
-    eq(organizationHours.organizationId, user.organizationId)
-  );
+  const [updated] = await db
+    .update(organizations)
+    .set({ hoursSchedule: parsed.data })
+    .where(eq(organizations.id, user.organizationId))
+    .returning({ hoursSchedule: organizations.hoursSchedule });
 
-  const inserted = await db
-    .insert(organizationHours)
-    .values(
-      parsed.data.map((slot) => ({
-        organizationId: user.organizationId,
-        dayOfWeek: slot.dayOfWeek,
-        startTime: slot.isClosed ? null : slot.startTime,
-        endTime: slot.isClosed ? null : slot.endTime,
-        isClosed: slot.isClosed,
-      }))
-    )
-    .returning();
-
-  return NextResponse.json(inserted);
+  return NextResponse.json(updated.hoursSchedule);
 });
