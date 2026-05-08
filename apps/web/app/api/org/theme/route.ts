@@ -6,6 +6,16 @@ import { db } from "@/lib/db";
 import { organizations } from "@scheduler/database/schema";
 import { eq } from "drizzle-orm";
 
+export const GET = withAuth(async function GET() {
+  const user = await getUser();
+  const [org] = await db
+    .select({ theme: organizations.theme })
+    .from(organizations)
+    .where(eq(organizations.id, user.organizationId))
+    .limit(1);
+  return NextResponse.json(org?.theme ?? null);
+});
+
 const themeSchema = z.object({
   primary: z.string().regex(/^#[0-9a-f]{6}$/i),
   secondary: z.string().regex(/^#[0-9a-f]{6}$/i),

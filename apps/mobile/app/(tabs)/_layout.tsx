@@ -1,19 +1,21 @@
 import { Tabs } from "expo-router";
 import { Calendar, Clock, ArrowLeftRight, User } from "lucide-react-native";
+import { useAppTheme } from "@/lib/useAppTheme";
 
 export default function TabLayout() {
+  const theme = useAppTheme();
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: "#0f172a",
-          borderTopColor: "#1e293b",
+          backgroundColor: theme.bg,
+          borderTopColor: theme.surface,
           borderTopWidth: 1,
           paddingBottom: 4,
         },
-        tabBarActiveTintColor: "#3b82f6",
-        tabBarInactiveTintColor: "#64748b",
+        tabBarActiveTintColor: theme.primary,
+        tabBarInactiveTintColor: theme.secondary,
         tabBarLabelStyle: { fontSize: 11, fontWeight: "500" },
       }}
     >

@@ -4,3 +4,4 @@ export * from "./availability";
 export * from "./timeOff";
 export * from "./employees";
 export * from "./organization-hours";
+export * from "./organization-theme";

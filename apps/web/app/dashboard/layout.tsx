@@ -1,5 +1,6 @@
 import { getUser } from "@/lib/auth/getUser";
 import { OrgContextProvider } from "@/components/providers/OrgContext";
+import { ThemeInjector } from "@/components/providers/ThemeInjector";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { db } from "@/lib/db";
 import { employees, organizations } from "@scheduler/database/schema";
@@ -29,6 +30,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <OrgContextProvider user={user} organization={org as any}>
+      <ThemeInjector />
       {/* Next.js hoists bare <link> tags to <head> automatically */}
       <link rel="apple-touch-icon" href={appleTouchIcon} />
       <DashboardShell

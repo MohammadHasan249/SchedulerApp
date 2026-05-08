@@ -3,9 +3,12 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/lib/authStore";
+import { useThemeStore } from "@/lib/themeStore";
+import { getOrganizationTheme } from "@/lib/api";
 
 export default function RootLayout() {
   const { session, setSession } = useAuthStore();
+  const { setTheme } = useThemeStore();
   const router = useRouter();
   const segments = useSegments();
   const isMountedRef = useRef(false);
@@ -19,6 +22,11 @@ export default function RootLayout() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!session) return;
+    getOrganizationTheme().then(setTheme).catch(() => {});
+  }, [session]);
 
   useEffect(() => {
     if (!isMountedRef.current) {

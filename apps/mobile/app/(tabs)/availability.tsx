@@ -21,6 +21,8 @@ const DEFAULT_START = "09:00";
 const DEFAULT_END = "17:00";
 
 export default function AvailabilityScreen() {
+  const theme = useAppTheme();
+  const styles = makeStyles(theme);
   const { session } = useAuthStore();
   const [slots, setSlots] = useState<DaySlot[]>(
     DAYS.map(() => ({ enabled: true, startTime: DEFAULT_START, endTime: DEFAULT_END }))
@@ -98,7 +100,7 @@ export default function AvailabilityScreen() {
 
   if (loading) return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <ActivityIndicator color="#3b82f6" style={{ marginTop: 40 }} />
+      <ActivityIndicator color={theme.primary} style={{ marginTop: 40 }} />
     </SafeAreaView>
   );
 
@@ -126,11 +128,13 @@ export default function AvailabilityScreen() {
                 <TimeSelect
                   value={slots[i].startTime}
                   onChange={(v) => setTime(i, "startTime", v)}
+                  theme={theme}
                 />
                 <Text style={styles.timeSep}>to</Text>
                 <TimeSelect
                   value={slots[i].endTime}
                   onChange={(v) => setTime(i, "endTime", v)}
+                  theme={theme}
                 />
               </View>
             ) : (
@@ -154,7 +158,8 @@ export default function AvailabilityScreen() {
   );
 }
 
-function TimeSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function TimeSelect({ value, onChange, theme }: { value: string; onChange: (v: string) => void; theme: ReturnType<typeof useAppTheme> }) {
+  const styles = makeStyles(theme);
   const [open, setOpen] = useState(false);
   if (open) {
     return (
@@ -180,41 +185,43 @@ function TimeSelect({ value, onChange }: { value: string; onChange: (v: string) 
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0f172a" },
-  header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 },
-  title: { fontSize: 26, fontWeight: "700", color: "#f8fafc" },
-  subtitle: { fontSize: 13, color: "#64748b", marginTop: 2 },
-  orgHoursInfo: { marginTop: 12, backgroundColor: "#1e293b", borderRadius: 8, padding: 10 },
-  orgHoursLabel: { fontSize: 12, fontWeight: "600", color: "#94a3b8", marginBottom: 4 },
-  orgHoursText: { fontSize: 12, color: "#cbd5e1" },
-  list: { flex: 1 },
-  listContent: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32, gap: 8 },
-  row: { backgroundColor: "#1e293b", borderRadius: 12, padding: 14, gap: 10 },
-  toggle: { flexDirection: "row", alignItems: "center", gap: 10 },
-  toggleTrack: {
-    width: 42, height: 24, borderRadius: 12, backgroundColor: "#334155",
-    justifyContent: "center", paddingHorizontal: 2,
-  },
-  toggleTrackOn: { backgroundColor: "#2563eb" },
-  toggleThumb: { width: 20, height: 20, borderRadius: 10, backgroundColor: "#94a3b8" },
-  toggleThumbOn: { backgroundColor: "#fff", alignSelf: "flex-end" },
-  dayLabel: { fontSize: 15, fontWeight: "500", color: "#64748b" },
-  dayLabelOn: { color: "#f1f5f9" },
-  timePickers: { flexDirection: "row", alignItems: "center", gap: 8, paddingLeft: 52 },
-  timeSep: { color: "#64748b", fontSize: 13 },
-  timeBtn: { backgroundColor: "#334155", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
-  timeBtnText: { color: "#f1f5f9", fontSize: 14, fontWeight: "500" },
-  picker: { maxHeight: 150, backgroundColor: "#334155", borderRadius: 8, marginLeft: 52 },
-  pickerItem: { paddingHorizontal: 12, paddingVertical: 8 },
-  pickerItemSelected: { backgroundColor: "#1e40af" },
-  pickerItemText: { color: "#cbd5e1", fontSize: 14 },
-  pickerItemTextSelected: { color: "#fff", fontWeight: "600" },
-  unavailable: { color: "#475569", fontSize: 13, paddingLeft: 52 },
-  saveBtn: {
-    backgroundColor: "#3b82f6", borderRadius: 12, paddingVertical: 14,
-    alignItems: "center", marginTop: 8,
-  },
-  saveBtnDisabled: { opacity: 0.6 },
-  saveBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
-});
+function makeStyles(theme: ReturnType<typeof useAppTheme>) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: theme.bg },
+    header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 },
+    title: { fontSize: 26, fontWeight: "700", color: theme.text },
+    subtitle: { fontSize: 13, color: theme.secondary, marginTop: 2 },
+    orgHoursInfo: { marginTop: 12, backgroundColor: theme.surface, borderRadius: 8, padding: 10 },
+    orgHoursLabel: { fontSize: 12, fontWeight: "600", color: theme.muted, marginBottom: 4 },
+    orgHoursText: { fontSize: 12, color: theme.textSecondary },
+    list: { flex: 1 },
+    listContent: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32, gap: 8 },
+    row: { backgroundColor: theme.surface, borderRadius: 12, padding: 14, gap: 10 },
+    toggle: { flexDirection: "row", alignItems: "center", gap: 10 },
+    toggleTrack: {
+      width: 42, height: 24, borderRadius: 12, backgroundColor: theme.surface2,
+      justifyContent: "center", paddingHorizontal: 2,
+    },
+    toggleTrackOn: { backgroundColor: theme.primary },
+    toggleThumb: { width: 20, height: 20, borderRadius: 10, backgroundColor: theme.muted },
+    toggleThumbOn: { backgroundColor: "#fff", alignSelf: "flex-end" },
+    dayLabel: { fontSize: 15, fontWeight: "500", color: theme.secondary },
+    dayLabelOn: { color: theme.textSecondary },
+    timePickers: { flexDirection: "row", alignItems: "center", gap: 8, paddingLeft: 52 },
+    timeSep: { color: theme.secondary, fontSize: 13 },
+    timeBtn: { backgroundColor: theme.surface2, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
+    timeBtnText: { color: theme.textSecondary, fontSize: 14, fontWeight: "500" },
+    picker: { maxHeight: 150, backgroundColor: theme.surface2, borderRadius: 8, marginLeft: 52 },
+    pickerItem: { paddingHorizontal: 12, paddingVertical: 8 },
+    pickerItemSelected: { backgroundColor: theme.primary + "44" },
+    pickerItemText: { color: theme.textSecondary, fontSize: 14 },
+    pickerItemTextSelected: { color: "#fff", fontWeight: "600" },
+    unavailable: { color: theme.inactive, fontSize: 13, paddingLeft: 52 },
+    saveBtn: {
+      backgroundColor: theme.primary, borderRadius: 12, paddingVertical: 14,
+      alignItems: "center", marginTop: 8,
+    },
+    saveBtnDisabled: { opacity: 0.6 },
+    saveBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
+  });
+}

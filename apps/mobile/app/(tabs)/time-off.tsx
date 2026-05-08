@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { format } from "date-fns";
 import { getTimeOffRequests, createTimeOffRequest } from "@/lib/api";
+import { useAppTheme } from "@/lib/useAppTheme";
 import type { TimeOffRequest } from "@scheduler/types";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -15,6 +16,8 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function TimeOffScreen() {
+  const theme = useAppTheme();
+  const styles = makeStyles(theme);
   const [requests, setRequests] = useState<TimeOffRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -116,13 +119,13 @@ export default function TimeOffScreen() {
       )}
 
       {loading ? (
-        <ActivityIndicator color="#3b82f6" style={{ marginTop: 32 }} />
+        <ActivityIndicator color={theme.primary} style={{ marginTop: 32 }} />
       ) : (
         <ScrollView
           style={styles.list}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor="#3b82f6" />
+            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={theme.primary} />
           }
         >
           {requests.length === 0 ? (
@@ -152,30 +155,32 @@ export default function TimeOffScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0f172a" },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 },
-  title: { fontSize: 26, fontWeight: "700", color: "#f8fafc" },
-  subtitle: { fontSize: 13, color: "#64748b", marginTop: 2 },
-  newBtn: { backgroundColor: "#1e40af", borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8, marginTop: 4 },
-  newBtnText: { color: "#93c5fd", fontSize: 13, fontWeight: "600" },
-  form: { marginHorizontal: 16, backgroundColor: "#1e293b", borderRadius: 12, padding: 14, gap: 10, marginBottom: 8 },
-  formRow: { flexDirection: "row", gap: 10 },
-  formField: { flex: 1, gap: 4 },
-  label: { fontSize: 13, fontWeight: "500", color: "#94a3b8" },
-  input: { backgroundColor: "#0f172a", borderWidth: 1, borderColor: "#334155", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: 14, color: "#f1f5f9" },
-  inputMulti: { height: 60, textAlignVertical: "top" },
-  submitBtn: { backgroundColor: "#3b82f6", borderRadius: 8, paddingVertical: 12, alignItems: "center", marginTop: 4 },
-  submitBtnDisabled: { opacity: 0.6 },
-  submitBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
-  list: { flex: 1 },
-  listContent: { paddingHorizontal: 16, paddingBottom: 32, gap: 8 },
-  empty: { alignItems: "center", paddingVertical: 48 },
-  emptyText: { color: "#475569", fontSize: 14 },
-  card: { backgroundColor: "#1e293b", borderRadius: 12, padding: 14, gap: 6 },
-  cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  cardDates: { fontSize: 15, fontWeight: "600", color: "#f1f5f9" },
-  badge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  badgeText: { fontSize: 12, fontWeight: "600" },
-  cardReason: { fontSize: 13, color: "#94a3b8" },
-});
+function makeStyles(theme: ReturnType<typeof useAppTheme>) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: theme.bg },
+    headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 },
+    title: { fontSize: 26, fontWeight: "700", color: theme.text },
+    subtitle: { fontSize: 13, color: theme.secondary, marginTop: 2 },
+    newBtn: { backgroundColor: theme.primary + "33", borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8, marginTop: 4 },
+    newBtnText: { color: theme.primary, fontSize: 13, fontWeight: "600" },
+    form: { marginHorizontal: 16, backgroundColor: theme.surface, borderRadius: 12, padding: 14, gap: 10, marginBottom: 8 },
+    formRow: { flexDirection: "row", gap: 10 },
+    formField: { flex: 1, gap: 4 },
+    label: { fontSize: 13, fontWeight: "500", color: theme.muted },
+    input: { backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.surface2, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: 14, color: theme.textSecondary },
+    inputMulti: { height: 60, textAlignVertical: "top" },
+    submitBtn: { backgroundColor: theme.primary, borderRadius: 8, paddingVertical: 12, alignItems: "center", marginTop: 4 },
+    submitBtnDisabled: { opacity: 0.6 },
+    submitBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+    list: { flex: 1 },
+    listContent: { paddingHorizontal: 16, paddingBottom: 32, gap: 8 },
+    empty: { alignItems: "center", paddingVertical: 48 },
+    emptyText: { color: theme.inactive, fontSize: 14 },
+    card: { backgroundColor: theme.surface, borderRadius: 12, padding: 14, gap: 6 },
+    cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    cardDates: { fontSize: 15, fontWeight: "600", color: theme.textSecondary },
+    badge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+    badgeText: { fontSize: 12, fontWeight: "600" },
+    cardReason: { fontSize: 13, color: theme.muted },
+  });
+}

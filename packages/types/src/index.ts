@@ -69,3 +69,11 @@ export interface Organization {
   logoUrl: string | null;
   primaryColor: string | null;
 }
+
+export type OrganizationTheme = {
+  primary: string;
+  secondary: string;
+  accent: string;
+  background: string;
+  foreground: string;
+};
