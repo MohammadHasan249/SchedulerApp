@@ -16,10 +16,12 @@ export function ThemeInjector() {
     root.style.setProperty("--sidebar-primary", theme.primary);
     root.style.setProperty("--sidebar-ring", theme.primary);
     root.style.setProperty("--chart-1", theme.primary);
-    // Sidebar — dark tints derived from the primary brand color
-    root.style.setProperty("--sidebar", `color-mix(in srgb, ${theme.primary} 18%, #000000)`);
-    root.style.setProperty("--sidebar-accent", `color-mix(in srgb, ${theme.primary} 28%, #000000)`);
-    root.style.setProperty("--sidebar-border", `color-mix(in srgb, ${theme.primary} 25%, #000000)`);
+    // Sidebar — solid brand color with white text
+    root.style.setProperty("--sidebar", theme.primary);
+    root.style.setProperty("--sidebar-foreground", "#ffffff");
+    root.style.setProperty("--sidebar-accent-foreground", "#ffffff");
+    root.style.setProperty("--sidebar-accent", `color-mix(in srgb, white 20%, ${theme.primary})`);
+    root.style.setProperty("--sidebar-border", `color-mix(in srgb, black 15%, ${theme.primary})`);
   }, [theme]);
 
   return null;

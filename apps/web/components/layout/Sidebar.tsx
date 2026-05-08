@@ -75,8 +75,8 @@ export function Sidebar({ role, orgName, isOpen = false, onClose }: Props) {
       {/* Logo + mobile close */}
       <div className="h-14 flex items-center px-5 shrink-0 border-b border-sidebar-border">
         <div className="flex items-center gap-2.5 flex-1">
-          <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center">
-            <CalendarDays className="h-4 w-4 text-primary-foreground" />
+          <div className="h-7 w-7 rounded-lg bg-white/20 flex items-center justify-center">
+            <CalendarDays className="h-4 w-4 text-white" />
           </div>
           <span className="font-bold text-sm tracking-wide text-sidebar-foreground">
             {orgName ?? "Scheduler"}
@@ -84,7 +84,7 @@ export function Sidebar({ role, orgName, isOpen = false, onClose }: Props) {
         </div>
         <button
           onClick={onClose}
-          className="lg:hidden p-1 rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+          className="lg:hidden p-1 rounded-md text-white/60 hover:text-white hover:bg-white/20"
           aria-label="Close menu"
         >
           <X className="h-5 w-5" />
@@ -98,7 +98,7 @@ export function Sidebar({ role, orgName, isOpen = false, onClose }: Props) {
           if (!items.length) return null;
           return (
             <div key={group}>
-              <p className="px-2 mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
+              <p className="px-2 mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-white/40">
                 {GROUP_LABELS[group]}
               </p>
               <div className="space-y-0.5">
@@ -110,8 +110,8 @@ export function Sidebar({ role, orgName, isOpen = false, onClose }: Props) {
                     className={cn(
                       "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
                       isActive(href, pathname)
-                        ? "bg-primary text-primary-foreground shadow-sm shadow-primary/30"
-                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                        ? "bg-white/20 text-white shadow-sm"
+                        : "text-white/70 hover:bg-sidebar-accent hover:text-white"
                     )}
                   >
                     <Icon className="h-4 w-4 shrink-0" />
