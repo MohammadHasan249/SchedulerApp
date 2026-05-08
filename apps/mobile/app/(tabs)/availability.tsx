@@ -99,17 +99,14 @@ export default function AvailabilityScreen() {
   }
 
   if (loading) return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={[]}>
       <ActivityIndicator color={theme.primary} style={{ marginTop: 40 }} />
     </SafeAreaView>
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Availability</Text>
-        <Text style={styles.subtitle}>Set your weekly schedule</Text>
-      </View>
+    <SafeAreaView style={styles.container} edges={[]}>
+      <View style={styles.header} />
 
       <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
         {DAYS.map((day, i) => (
@@ -188,9 +185,7 @@ function TimeSelect({ value, onChange, theme }: { value: string; onChange: (v: s
 function makeStyles(theme: ReturnType<typeof useAppTheme>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.bg },
-    header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 },
-    title: { fontSize: 26, fontWeight: "700", color: theme.text },
-    subtitle: { fontSize: 13, color: theme.secondary, marginTop: 2 },
+    header: { paddingBottom: 4 },
     orgHoursInfo: { marginTop: 12, backgroundColor: theme.surface, borderRadius: 8, padding: 10 },
     orgHoursLabel: { fontSize: 12, fontWeight: "600", color: theme.muted, marginBottom: 4 },
     orgHoursText: { fontSize: 12, color: theme.textSecondary },

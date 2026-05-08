@@ -60,12 +60,8 @@ export default function TimeOffScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={[]}>
       <View style={styles.headerRow}>
-        <View>
-          <Text style={styles.title}>Time Off</Text>
-          <Text style={styles.subtitle}>Manage your requests</Text>
-        </View>
         <TouchableOpacity style={styles.newBtn} onPress={() => setShowForm((v) => !v)}>
           <Text style={styles.newBtnText}>{showForm ? "Cancel" : "+ Request"}</Text>
         </TouchableOpacity>
@@ -158,9 +154,7 @@ export default function TimeOffScreen() {
 function makeStyles(theme: ReturnType<typeof useAppTheme>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.bg },
-    headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 },
-    title: { fontSize: 26, fontWeight: "700", color: theme.text },
-    subtitle: { fontSize: 13, color: theme.secondary, marginTop: 2 },
+    headerRow: { flexDirection: "row", justifyContent: "flex-end", paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 },
     newBtn: { backgroundColor: theme.primary + "33", borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8, marginTop: 4 },
     newBtnText: { color: theme.primary, fontSize: 13, fontWeight: "600" },
     form: { marginHorizontal: 16, backgroundColor: theme.surface, borderRadius: 12, padding: 14, gap: 10, marginBottom: 8 },

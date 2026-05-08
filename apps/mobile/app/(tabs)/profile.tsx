@@ -46,12 +46,8 @@ export default function ProfileScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={[]}>
       <ScrollView>
-        <View style={styles.header}>
-          <Text style={styles.title}>Profile</Text>
-        </View>
-
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>
             {(user?.user_metadata?.full_name as string | undefined)?.[0]?.toUpperCase() ?? "?"}
@@ -113,14 +109,12 @@ export default function ProfileScreen() {
 function makeStyles(theme: ReturnType<typeof useAppTheme>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.bg, paddingHorizontal: 20 },
-    header: { paddingTop: 8, paddingBottom: 24 },
-    title: { fontSize: 26, fontWeight: "700", color: theme.text },
     avatar: {
       width: 80, height: 80, borderRadius: 40, backgroundColor: theme.primary + "44",
-      alignSelf: "center", justifyContent: "center", alignItems: "center", marginBottom: 12,
+      alignSelf: "center", justifyContent: "center", alignItems: "center", marginTop: 16, marginBottom: 12,
     },
     avatarText: { fontSize: 32, fontWeight: "700", color: theme.primary },
-    name: { fontSize: 20, fontWeight: "700", color: theme.textSecondary, textAlign: "center", marginBottom: 24 },
+    name: { fontSize: 20, fontWeight: "700", color: theme.text, textAlign: "center", marginBottom: 24 },
     section: { backgroundColor: theme.surface, borderRadius: 12, overflow: "hidden" },
     row: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderBottomWidth: 1, borderBottomColor: theme.bg },
     rowLast: { borderBottomWidth: 0 },

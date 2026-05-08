@@ -58,10 +58,8 @@ export default function ScheduleScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      {/* Header */}
+    <SafeAreaView style={styles.container} edges={[]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Schedule</Text>
         <Text style={styles.subtitle}>
           {format(weekStart, "MMM d")} – {format(addDays(weekStart, 6), "MMM d, yyyy")}
         </Text>
@@ -160,8 +158,7 @@ function makeStyles(theme: ReturnType<typeof useAppTheme>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.bg },
     header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 },
-    title: { fontSize: 26, fontWeight: "700", color: theme.text },
-    subtitle: { fontSize: 13, color: theme.secondary, marginTop: 2 },
+    subtitle: { fontSize: 13, color: theme.secondary },
     weekNav: { flexDirection: "row", alignItems: "center", paddingHorizontal: 4 },
     navBtn: { padding: 8 },
     dayStrip: { flexGrow: 0 },

@@ -1,13 +1,26 @@
 import { Tabs } from "expo-router";
+import { useEffect } from "react";
 import { Calendar, Clock, ArrowLeftRight, User } from "lucide-react-native";
 import { useAppTheme } from "@/lib/useAppTheme";
+import { useAuthStore } from "@/lib/authStore";
+import { useOrgStore } from "@/lib/orgStore";
+import { OrgTabHeader } from "@/components/OrgTabHeader";
 
 export default function TabLayout() {
   const theme = useAppTheme();
+  const { session } = useAuthStore();
+  const { fetchOrgInfo } = useOrgStore();
+  const employeeName = (session?.user?.user_metadata?.full_name as string | undefined) ?? "Profile";
+
+  useEffect(() => {
+    if (session) fetchOrgInfo();
+  }, [session]);
+
   return (
     <Tabs
       screenOptions={{
-        headerShown: false,
+        headerShown: true,
+        header: ({ options }) => <OrgTabHeader title={options.title ?? ""} />,
         tabBarStyle: {
           backgroundColor: theme.bg,
           borderTopColor: theme.surface,
@@ -43,7 +56,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
+          title: employeeName,
+          tabBarLabel: "Profile",
           tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
         }}
       />
