@@ -7,6 +7,7 @@ import {
   User,
   LayoutDashboard,
   Timer,
+  Users,
 } from "lucide-react-native";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useAuthStore } from "@/lib/authStore";
@@ -17,12 +18,10 @@ import { useKioskStore } from "@/lib/kioskStore";
 
 export default function TabLayout() {
   const theme = useAppTheme();
-  const { session } = useAuthStore();
+  const { session, employeeName } = useAuthStore();
   const { fetchOrgInfo } = useOrgStore();
   const isAdmin = useIsAdmin();
   const { isLocked, loadBranchSlug } = useKioskStore();
-  const employeeName =
-    (session?.user?.user_metadata?.full_name as string | undefined) ?? "Profile";
 
   useEffect(() => {
     if (session) {
@@ -96,9 +95,17 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="employees"
+        options={{
+          title: "Employees",
+          href: isAdmin ? undefined : null,
+          tabBarIcon: ({ color, size }) => <Users size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
-          title: employeeName,
+          title: employeeName ?? "Profile",
           tabBarLabel: "Profile",
           tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
         }}

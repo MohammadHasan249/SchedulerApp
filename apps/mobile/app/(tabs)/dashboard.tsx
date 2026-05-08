@@ -91,7 +91,6 @@ export default function DashboardScreen() {
         }
       >
         <View style={styles.header}>
-          <Text style={styles.title}>Dashboard</Text>
           <Text style={styles.subtitle}>
             {new Date().toLocaleDateString([], {
               weekday: "long",

@@ -1,7 +1,6 @@
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
@@ -10,62 +9,47 @@ import {
 } from "react-native";
 import { Stack } from "expo-router";
 import { useEffect, useState } from "react";
+import { Check } from "lucide-react-native";
 import { getOrganizationTheme, updateOrganizationTheme } from "@/lib/api";
 import { useThemeStore } from "@/lib/themeStore";
 import { useAppTheme } from "@/lib/useAppTheme";
-import type { OrganizationTheme } from "@scheduler/types";
+import { THEME_PRESETS } from "@scheduler/types";
 
-const HEX_RE = /^#[0-9a-fA-F]{6}$/;
-
-const COLOR_FIELDS: Array<{ key: keyof OrganizationTheme; label: string }> = [
-  { key: "primary", label: "Primary" },
-  { key: "secondary", label: "Secondary" },
-  { key: "accent", label: "Accent" },
-  { key: "background", label: "Background" },
-  { key: "foreground", label: "Foreground" },
-];
-
-const DEFAULTS: OrganizationTheme = {
-  primary: "#3b82f6",
+const FIXED_THEME = {
   secondary: "#64748b",
   accent: "#06b6d4",
   background: "#ffffff",
   foreground: "#000000",
-};
+} as const;
 
 export default function SettingsThemeScreen() {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
   const { setTheme } = useThemeStore();
-  const [colors, setColors] = useState<OrganizationTheme>(DEFAULTS);
+  const [selected, setSelected] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     getOrganizationTheme()
-      .then((t) => { if (t) setColors(t); })
+      .then((t) => {
+        if (t) {
+          const match = THEME_PRESETS.find((p) => p.primary === t.primary);
+          setSelected(match?.key ?? null);
+        }
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
-  function updateColor(key: keyof OrganizationTheme, value: string) {
-    setColors((prev) => ({ ...prev, [key]: value }));
-  }
-
-  function isValid() {
-    return COLOR_FIELDS.every(({ key }) => HEX_RE.test(colors[key]));
-  }
-
   async function handleSave() {
-    if (!isValid()) {
-      Alert.alert("Invalid colors", "All colors must be valid hex codes (e.g. #3b82f6).");
-      return;
-    }
+    const preset = THEME_PRESETS.find((p) => p.key === selected);
+    if (!preset) return;
     setSaving(true);
     try {
-      const updated = await updateOrganizationTheme(colors);
+      const updated = await updateOrganizationTheme({ primary: preset.primary, ...FIXED_THEME });
       setTheme(updated);
-      Alert.alert("Saved", "Theme colors updated.");
+      Alert.alert("Saved", "Theme updated.");
     } catch {
       Alert.alert("Error", "Failed to save. Please try again.");
     } finally {
@@ -85,49 +69,47 @@ export default function SettingsThemeScreen() {
     <>
       <Stack.Screen options={{ title: "Theme Colors" }} />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <View style={styles.card}>
-          {COLOR_FIELDS.map(({ key, label }, i) => {
-            const valid = HEX_RE.test(colors[key]);
+        <View style={styles.grid}>
+          {THEME_PRESETS.map((preset) => {
+            const isSelected = selected === preset.key;
             return (
-              <View
-                key={key}
-                style={[styles.fieldRow, i < COLOR_FIELDS.length - 1 && styles.fieldBorder]}
+              <TouchableOpacity
+                key={preset.key}
+                style={styles.presetItem}
+                onPress={() => setSelected(preset.key)}
+                activeOpacity={0.8}
               >
-                <View style={styles.fieldLeft}>
-                  <View
-                    style={[
-                      styles.swatch,
-                      { backgroundColor: valid ? colors[key] : theme.surface2 },
-                    ]}
-                  />
-                  <Text style={styles.fieldLabel}>{label}</Text>
-                </View>
-                <TextInput
+                <View
                   style={[
-                    styles.hexInput,
-                    {
-                      color: theme.text,
-                      borderColor: valid ? theme.surface2 : theme.destructive,
-                      backgroundColor: theme.bg,
+                    styles.swatch,
+                    { backgroundColor: preset.primary },
+                    isSelected && {
+                      shadowColor: preset.primary,
+                      shadowOffset: { width: 0, height: 0 },
+                      shadowOpacity: 0.7,
+                      shadowRadius: 8,
+                      elevation: 6,
+                      borderWidth: 3,
+                      borderColor: "#ffffff",
                     },
                   ]}
-                  value={colors[key]}
-                  onChangeText={(v) => updateColor(key, v)}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  placeholder="#000000"
-                  placeholderTextColor={theme.muted}
-                  maxLength={7}
-                />
-              </View>
+                >
+                  {isSelected && (
+                    <Check size={20} color="#ffffff" strokeWidth={3} />
+                  )}
+                </View>
+                <Text style={[styles.presetLabel, isSelected && { color: theme.text }]}>
+                  {preset.label}
+                </Text>
+              </TouchableOpacity>
             );
           })}
         </View>
 
         <TouchableOpacity
-          style={[styles.saveBtn, (saving || !isValid()) && { opacity: 0.6 }]}
+          style={[styles.saveBtn, (!selected || saving) && { opacity: 0.5 }]}
           onPress={handleSave}
-          disabled={saving || !isValid()}
+          disabled={!selected || saving}
         >
           <Text style={styles.saveBtnText}>
             {saving ? "Saving…" : "Save Theme"}
@@ -141,32 +123,29 @@ export default function SettingsThemeScreen() {
 function makeStyles(theme: ReturnType<typeof useAppTheme>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.bg },
-    content: { padding: 20, gap: 20 },
-    card: {
-      backgroundColor: theme.surface,
-      borderRadius: 12,
-      overflow: "hidden",
-    },
-    fieldRow: {
+    content: { padding: 24, gap: 32 },
+    grid: {
       flexDirection: "row",
-      alignItems: "center",
-      paddingHorizontal: 14,
-      paddingVertical: 12,
-      gap: 12,
+      flexWrap: "wrap",
+      gap: 20,
+      justifyContent: "space-between",
     },
-    fieldBorder: { borderBottomWidth: 1, borderBottomColor: theme.bg },
-    fieldLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
-    swatch: { width: 28, height: 28, borderRadius: 6 },
-    fieldLabel: { fontSize: 14, color: theme.textSecondary },
-    hexInput: {
-      borderWidth: 1,
-      borderRadius: 8,
-      paddingHorizontal: 10,
-      paddingVertical: 8,
-      fontSize: 13,
-      width: 100,
-      textAlign: "center",
-      fontFamily: "monospace",
+    presetItem: {
+      alignItems: "center",
+      gap: 8,
+      width: "30%",
+    },
+    swatch: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    presetLabel: {
+      fontSize: 12,
+      fontWeight: "500",
+      color: theme.muted,
     },
     saveBtn: {
       backgroundColor: theme.primary,

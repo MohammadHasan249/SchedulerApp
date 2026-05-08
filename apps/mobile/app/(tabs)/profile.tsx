@@ -14,8 +14,10 @@ import {
   Mail,
   Clock,
   ChevronRight,
+  ChevronDown,
   Palette,
   KeyRound,
+  GitBranch,
 } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
@@ -39,14 +41,15 @@ export default function ProfileScreen() {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
   const router = useRouter();
-  const { session } = useAuthStore();
+  const { session, employeeName, setEmployeeName } = useAuthStore();
   const isAdmin = useIsAdmin();
   const user = session?.user;
   const [orgHours, setOrgHours] = useState<HoursSchedule | null>(null);
   const [loadingHours, setLoadingHours] = useState(true);
+  const [hoursExpanded, setHoursExpanded] = useState(false);
 
   useEffect(() => {
-    async function loadHours() {
+    async function loadData() {
       try {
         const hours = await getOrganizationHours();
         setOrgHours(hours);
@@ -54,9 +57,29 @@ export default function ProfileScreen() {
       } finally {
         setLoadingHours(false);
       }
+
+      if (!employeeName) {
+        const fullName = session?.user?.user_metadata?.full_name as string | undefined;
+        if (fullName) {
+          setEmployeeName(fullName);
+        } else {
+          const employeeId = session?.user?.user_metadata?.employee_id as string | undefined;
+          if (employeeId) {
+            try {
+              const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/employees/${employeeId}`, {
+                headers: { Authorization: `Bearer ${session?.access_token}` },
+              });
+              if (res.ok) {
+                const emp = await res.json();
+                if (emp?.name) setEmployeeName(emp.name);
+              }
+            } catch {}
+          }
+        }
+      }
     }
     if (session) {
-      loadHours();
+      loadData();
     } else {
       setLoadingHours(false);
     }
@@ -80,14 +103,12 @@ export default function ProfileScreen() {
       <ScrollView>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>
-            {(
-              user?.user_metadata?.full_name as string | undefined
-            )?.[0]?.toUpperCase() ?? "?"}
+            {employeeName?.[0]?.toUpperCase() ?? "?"}
           </Text>
         </View>
 
         <Text style={styles.name}>
-          {(user?.user_metadata?.full_name as string | undefined) ?? "Employee"}
+          {employeeName ?? "—"}
         </Text>
 
         <View style={styles.section}>
@@ -111,27 +132,37 @@ export default function ProfileScreen() {
           <ActivityIndicator color={theme.primary} style={{ marginTop: 24 }} />
         ) : orgHours && Object.keys(orgHours).length > 0 ? (
           <View style={styles.orgSection}>
-            <View style={styles.orgHeader}>
+            <TouchableOpacity
+              style={[styles.orgHeader, !hoursExpanded && { borderBottomWidth: 0 }]}
+              onPress={() => setHoursExpanded((v) => !v)}
+              activeOpacity={0.7}
+            >
               <Clock size={18} color={theme.primary} />
-              <Text style={styles.orgTitle}>Organization Hours</Text>
-            </View>
-            {DAYS.map((day, i) => {
-              const slot = orgHours[i.toString()];
-              return (
-                <View
-                  key={i}
-                  style={[
-                    styles.orgRow,
-                    i === DAYS.length - 1 && styles.orgRowLast,
-                  ]}
-                >
-                  <Text style={styles.orgDay}>{day}</Text>
-                  <Text style={styles.orgTime}>
-                    {slot ? `${slot.startTime} – ${slot.endTime}` : "Closed"}
-                  </Text>
-                </View>
-              );
-            })}
+              <Text style={[styles.orgTitle, { flex: 1 }]}>Organization Hours</Text>
+              {hoursExpanded ? (
+                <ChevronDown size={16} color={theme.muted} />
+              ) : (
+                <ChevronRight size={16} color={theme.muted} />
+              )}
+            </TouchableOpacity>
+            {hoursExpanded &&
+              DAYS.map((day, i) => {
+                const slot = orgHours[i.toString()];
+                return (
+                  <View
+                    key={i}
+                    style={[
+                      styles.orgRow,
+                      i === DAYS.length - 1 && styles.orgRowLast,
+                    ]}
+                  >
+                    <Text style={styles.orgDay}>{day}</Text>
+                    <Text style={styles.orgTime}>
+                      {slot ? `${slot.startTime} – ${slot.endTime}` : "Closed"}
+                    </Text>
+                  </View>
+                );
+              })}
           </View>
         ) : null}
 
@@ -147,6 +178,14 @@ export default function ProfileScreen() {
             >
               <Clock size={18} color={theme.secondary} />
               <Text style={styles.settingsRowText}>Organization Hours</Text>
+              <ChevronRight size={16} color={theme.muted} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.settingsRow}
+              onPress={() => router.push("/(admin)/settings-branches")}
+            >
+              <GitBranch size={18} color={theme.secondary} />
+              <Text style={styles.settingsRowText}>Branches</Text>
               <ChevronRight size={16} color={theme.muted} />
             </TouchableOpacity>
             <TouchableOpacity
