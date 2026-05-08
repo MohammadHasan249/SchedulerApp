@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { notifications, employees } from "@scheduler/database/schema";
-import { getUserForApi as getUser } from "@/lib/auth/getUser"
+import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { eq, and, desc } from "drizzle-orm";
 

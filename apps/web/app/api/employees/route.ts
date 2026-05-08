@@ -3,7 +3,7 @@ import { z } from "zod";
 import bcryptjs from "bcryptjs";
 import { db } from "@/lib/db";
 import { employees, branches, jobRoles } from "@scheduler/database/schema";
-import { getUserForApi as getUser } from "@/lib/auth/getUser"
+import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { sendEmployeeInvitationEmail } from "@/lib/email/send-employee-invitation";
 import { eq, and } from "drizzle-orm";

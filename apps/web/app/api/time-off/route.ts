@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { timeOffRequests, employees } from "@scheduler/database/schema";
-import { getUserForApi as getUser } from "@/lib/auth/getUser"
+import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { sendTimeOffNotification } from "@/lib/email/send-time-off-notification";
 import { eq, and, inArray } from "drizzle-orm";

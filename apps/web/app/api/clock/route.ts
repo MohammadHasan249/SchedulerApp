@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { clockEvents, employees, branches } from "@scheduler/database/schema";
 import { eq, and, desc, gte, lte, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
-import { getUserForApi as getUser } from "@/lib/auth/getUser"
+import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 
 export const GET = withAuth(async function GET(request: Request) {

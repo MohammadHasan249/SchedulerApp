@@ -25,8 +25,10 @@ function parseAppUser(user: { id: string; email?: string; app_metadata: Record<s
   };
 }
 
-// Used by API routes — supports both cookie sessions and Bearer token auth (mobile)
-export async function getUserForApi(): Promise<AppUser> {
+// For API route handlers — supports Bearer token (mobile) and cookie session (web).
+// Throws ApiAuthError on failure; use withAuth to convert that to a 401 response.
+// For Server Components and page layouts, use getUser() instead.
+export async function getApiUser(): Promise<AppUser> {
   const headerStore = await headers();
   const authorization = headerStore.get("authorization");
 

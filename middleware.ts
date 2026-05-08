@@ -7,11 +7,6 @@ export async function middleware(request: NextRequest) {
   const { supabase, response } = createMiddlewareClient(request);
   const { pathname, hostname } = request.nextUrl;
 
-  // Refresh session on every request (required by @supabase/ssr)
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
   // Extract org slug from subdomain (prod) or ?org= query param (dev)
   const orgSlug = resolveOrgSlug(hostname, request);
   if (orgSlug) {
@@ -23,27 +18,35 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  // API routes handle their own auth — pass through without a session check
+  if (pathname.startsWith("/api/")) {
+    return response;
+  }
+
+  // Refresh session for page routes (required by @supabase/ssr)
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
   // Public paths
   if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
-    // Redirect authenticated users from root landing page to dashboard
     if (session && pathname === "/") {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
-    // Redirect authenticated users from auth pages to dashboard
     if (session && (pathname.startsWith("/login") || pathname.startsWith("/signup"))) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
     return response;
   }
 
-  // All other routes require a session
+  // All other page routes require a session
   if (!session) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirectTo", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // Settings are org_admin only
+  // Settings pages are org_admin only
   if (pathname.startsWith("/settings") && session.user.app_metadata?.role !== "org_admin") {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
@@ -53,16 +56,14 @@ export async function middleware(request: NextRequest) {
 
 function resolveOrgSlug(hostname: string, request: NextRequest): string | null {
   const parts = hostname.split(".");
-  // Production subdomain: acme.yourapp.com
   if (parts.length >= 3 && parts[0] !== "www" && parts[0] !== "app") {
     return parts[0];
   }
-  // Dev fallback: ?org=acme
   return request.nextUrl.searchParams.get("org");
 }
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
