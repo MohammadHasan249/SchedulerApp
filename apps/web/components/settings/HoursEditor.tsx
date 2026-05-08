@@ -36,13 +36,11 @@ function toSchedule(rows: DayRow[]): HoursSchedule {
 type Props = {
   initial: HoursSchedule;
   onSave: (schedule: HoursSchedule) => Promise<void>;
-  onApply: () => Promise<{ applied: number }>;
 };
 
-export function HoursEditor({ initial, onSave, onApply }: Props) {
+export function HoursEditor({ initial, onSave }: Props) {
   const [rows, setRows] = useState<DayRow[]>(toRows(initial));
   const [saving, setSaving] = useState(false);
-  const [applying, setApplying] = useState(false);
   const [status, setStatus] = useState<{ type: "ok" | "err"; msg: string } | null>(null);
 
   function setRow(i: number, patch: Partial<DayRow>) {
@@ -59,18 +57,6 @@ export function HoursEditor({ initial, onSave, onApply }: Props) {
       setStatus({ type: "err", msg: "Failed to save hours of operation" });
     }
     setSaving(false);
-  }
-
-  async function handleApply() {
-    setApplying(true);
-    setStatus(null);
-    try {
-      const { applied } = await onApply();
-      setStatus({ type: "ok", msg: `Applied to ${applied} employees` });
-    } catch {
-      setStatus({ type: "err", msg: "Failed to apply defaults" });
-    }
-    setApplying(false);
   }
 
   return (
@@ -109,11 +95,8 @@ export function HoursEditor({ initial, onSave, onApply }: Props) {
         </div>
       ))}
       <div className="flex flex-wrap items-center gap-3 pt-3">
-        <Button size="sm" onClick={handleSave} disabled={saving || applying}>
+        <Button size="sm" onClick={handleSave} disabled={saving}>
           {saving ? "Saving…" : "Save Hours"}
-        </Button>
-        <Button size="sm" variant="outline" onClick={handleApply} disabled={saving || applying}>
-          {applying ? "Applying…" : "Apply to All Employees"}
         </Button>
         {status && (
           <span className={`text-sm ${status.type === "ok" ? "text-green-600" : "text-destructive"}`}>

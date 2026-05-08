@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getAvailability, saveAvailability, getOrganizationHours } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
+import { useAppTheme } from "@/lib/useAppTheme";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const TIME_OPTIONS = Array.from({ length: 24 * 2 }, (_, i) => {
@@ -59,7 +60,6 @@ export default function AvailabilityScreen() {
           })
         );
       } catch (err) {
-        console.error("[Availability] Error:", err);
       } finally {
         setLoading(false);
       }

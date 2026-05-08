@@ -14,15 +14,7 @@ export async function apiFetch<T>(
   init: RequestInit = {}
 ): Promise<T> {
   const token = _getToken ? await _getToken() : null;
-  console.log("[apiFetch] Token available:", !!token, "Token length:", token?.length ?? 0);
   const url = `${_baseUrl}${path}`;
-  console.log("[apiFetch] Requesting:", url);
-  const headers = {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token.slice(0, 20)}...` } : { Authorization: "NONE" }),
-    ...init.headers,
-  };
-  console.log("[apiFetch] Headers:", headers);
   const res = await fetch(url, {
     ...init,
     headers: {
@@ -31,12 +23,9 @@ export async function apiFetch<T>(
       ...init.headers,
     },
   });
-  console.log("[apiFetch] Response status:", res.status, "ok:", res.ok);
-  console.log("[apiFetch] Response headers:", res.headers);
 
   if (!res.ok) {
     const text = await res.text();
-    console.log("[apiFetch] Error response body:", text.slice(0, 500));
     try {
       const err = JSON.parse(text);
       throw new Error(err.error ?? `Request failed: ${res.status}`);
@@ -46,6 +35,5 @@ export async function apiFetch<T>(
   }
 
   const text = await res.text();
-  console.log("[apiFetch] Response body (first 500 chars):", text.slice(0, 500));
   return JSON.parse(text);
 }

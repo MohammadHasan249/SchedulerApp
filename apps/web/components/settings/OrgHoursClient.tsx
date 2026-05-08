@@ -17,11 +17,5 @@ export function OrgHoursClient({ initialHours }: Props) {
     if (!res.ok) throw new Error("Failed to save");
   }
 
-  async function handleApply() {
-    const res = await fetch("/api/settings/hours/apply", { method: "POST" });
-    if (!res.ok) throw new Error("Failed to apply");
-    return res.json() as Promise<{ applied: number }>;
-  }
-
-  return <HoursEditor initial={initialHours} onSave={handleSave} onApply={handleApply} />;
+  return <HoursEditor initial={initialHours} onSave={handleSave} />;
 }

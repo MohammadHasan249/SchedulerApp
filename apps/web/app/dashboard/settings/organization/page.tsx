@@ -49,10 +49,7 @@ export default async function OrganizationSettingsPage() {
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold mb-1">Hours of Operation</h2>
-          <p className="text-muted-foreground text-sm mb-4">
-            Set your organization's open hours per day. Use "Apply to All Employees" to push these as default availability.
-          </p>
+          <h2 className="text-lg font-semibold mb-4">Hours of Operation</h2>
           <OrgHoursClient initialHours={org?.hoursSchedule ?? {}} />
         </div>
       </div>

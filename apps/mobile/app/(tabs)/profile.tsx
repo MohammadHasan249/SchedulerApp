@@ -20,7 +20,6 @@ export default function ProfileScreen() {
         const hours = await getOrganizationHours();
         setOrgHours(hours);
       } catch (err) {
-        console.error("Failed to load org hours:", err);
       } finally {
         setLoadingHours(false);
       }
