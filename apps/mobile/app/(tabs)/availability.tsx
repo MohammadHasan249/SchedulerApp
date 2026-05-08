@@ -4,7 +4,7 @@ import {
   ActivityIndicator, Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getAvailability, saveAvailability, getOrganizationHours, type HoursSchedule } from "@/lib/api";
+import { getAvailability, saveAvailability, getOrganizationHours } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -27,14 +27,12 @@ export default function AvailabilityScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [employeeId, setEmployeeId] = useState<string | null>(null);
-  const [orgHours, setOrgHours] = useState<HoursSchedule>({});
 
   useEffect(() => {
     async function load() {
       if (!session) return;
       try {
         const hours = await getOrganizationHours();
-        setOrgHours(hours);
 
         const empId = session.user.user_metadata?.employee_id as string | undefined;
         if (!empId) { setLoading(false); return; }
@@ -104,24 +102,11 @@ export default function AvailabilityScreen() {
     </SafeAreaView>
   );
 
-  const hasOrgHours = Object.keys(orgHours).length > 0;
-
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
         <Text style={styles.title}>Availability</Text>
         <Text style={styles.subtitle}>Set your weekly schedule</Text>
-        {hasOrgHours && (
-          <View style={styles.orgHoursInfo}>
-            <Text style={styles.orgHoursLabel}>Organization Hours:</Text>
-            <Text style={styles.orgHoursText}>
-              {DAYS.map((day, i) => {
-                const slot = orgHours[i.toString()];
-                return `${day}: ${slot ? `${slot.startTime}–${slot.endTime}` : "Closed"}`;
-              }).join(" • ")}
-            </Text>
-          </View>
-        )}
       </View>
 
       <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
