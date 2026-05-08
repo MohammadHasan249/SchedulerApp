@@ -29,6 +29,7 @@ export function DashboardShell({ user, employeeId, employeeName, orgName, childr
 
       <Sidebar
         role={user.role}
+        orgName={orgName}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
@@ -38,7 +39,6 @@ export function DashboardShell({ user, employeeId, employeeName, orgName, childr
           user={user}
           employeeId={employeeId}
           employeeName={employeeName}
-          orgName={orgName}
           onMenuClick={() => setSidebarOpen(true)}
         />
         <main className="flex-1 overflow-y-auto p-4 pb-20 md:p-6 md:pb-6">

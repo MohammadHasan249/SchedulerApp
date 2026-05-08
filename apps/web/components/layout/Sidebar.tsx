@@ -52,11 +52,12 @@ function isActive(href: string, pathname: string) {
 
 type Props = {
   role: AppUser["role"];
+  orgName?: string;
   isOpen?: boolean;
   onClose?: () => void;
 };
 
-export function Sidebar({ role, isOpen = false, onClose }: Props) {
+export function Sidebar({ role, orgName, isOpen = false, onClose }: Props) {
   const pathname = usePathname();
   const visible = NAV.filter((item) => item.roles.includes(role));
   const groups = ["main", "manage", "settings"] as const;
@@ -78,7 +79,7 @@ export function Sidebar({ role, isOpen = false, onClose }: Props) {
             <CalendarDays className="h-4 w-4 text-primary-foreground" />
           </div>
           <span className="font-bold text-sm tracking-wide text-sidebar-foreground">
-            Scheduler
+            {orgName ?? "Scheduler"}
           </span>
         </div>
         <button
