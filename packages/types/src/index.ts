@@ -77,3 +77,14 @@ export type OrganizationTheme = {
   background: string;
   foreground: string;
 };
+
+export const THEME_PRESETS = [
+  { key: "blue",    label: "Blue",    primary: "#2563eb" },
+  { key: "indigo",  label: "Indigo",  primary: "#4f46e5" },
+  { key: "violet",  label: "Violet",  primary: "#7c3aed" },
+  { key: "emerald", label: "Emerald", primary: "#059669" },
+  { key: "rose",    label: "Rose",    primary: "#e11d48" },
+  { key: "amber",   label: "Amber",   primary: "#d97706" },
+] as const;
+
+export type ThemePresetKey = typeof THEME_PRESETS[number]["key"];
