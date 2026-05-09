@@ -43,6 +43,7 @@ export const GET = withAuth(async function GET() {
       jobRoleId: employees.jobRoleId,
       maxHoursPerWeek: employees.maxHoursPerWeek,
       isActive: employees.isActive,
+      availabilitySchedule: employees.availabilitySchedule,
     })
     .from(employees)
     .where(and(...conditions));

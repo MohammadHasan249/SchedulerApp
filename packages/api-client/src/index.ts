@@ -11,3 +11,4 @@ export * from "./clock";
 export * from "./dashboard";
 export * from "./exitPin";
 export * from "./branches";
+export * from "./jobRoles";

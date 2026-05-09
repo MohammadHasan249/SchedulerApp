@@ -12,6 +12,7 @@ export interface Employee {
   jobRoleId: string | null;
   maxHoursPerWeek: number | null;
   isActive: boolean;
+  availabilitySchedule?: Record<string, { startTime: string; endTime: string }> | null;
 }
 
 export interface Shift {
