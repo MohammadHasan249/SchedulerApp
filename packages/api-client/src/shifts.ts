@@ -53,3 +53,7 @@ export function publishShifts(branchId: string, weekStart: string): Promise<void
     body: JSON.stringify({ branchId, weekStart }),
   });
 }
+
+export function getShiftAssignments(shiftId: string): Promise<ShiftAssignment[]> {
+  return apiFetch(`/api/shifts/${shiftId}/assign`);
+}

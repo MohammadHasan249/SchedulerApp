@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { shifts, branches } from "@scheduler/database/schema";
+import { shifts, branches, shiftAssignments, employees } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { eq, and, gte, lte, inArray } from "drizzle-orm";
@@ -61,7 +61,34 @@ export const GET = withAuth(async function GET(request: Request) {
     })
     .from(shifts)
     .where(and(...conditions));
-  return NextResponse.json(rows);
+
+  if (user.role === "employee" || rows.length === 0) {
+    return NextResponse.json(rows);
+  }
+
+  // For admins/managers, include assignments with employee names
+  const shiftIds = rows.map((s) => s.id);
+  const assignmentRows = await db
+    .select({
+      id: shiftAssignments.id,
+      shiftId: shiftAssignments.shiftId,
+      employeeId: shiftAssignments.employeeId,
+      employeeName: employees.name,
+      jobRoleId: shiftAssignments.jobRoleId,
+    })
+    .from(shiftAssignments)
+    .innerJoin(employees, eq(shiftAssignments.employeeId, employees.id))
+    .where(inArray(shiftAssignments.shiftId, shiftIds));
+
+  const byShift = new Map<string, typeof assignmentRows>();
+  for (const a of assignmentRows) {
+    if (!byShift.has(a.shiftId)) byShift.set(a.shiftId, []);
+    byShift.get(a.shiftId)!.push(a);
+  }
+
+  return NextResponse.json(
+    rows.map((s) => ({ ...s, assignments: byShift.get(s.id) ?? [] }))
+  );
 });
 
 export const POST = withAuth(async function POST(request: Request) {

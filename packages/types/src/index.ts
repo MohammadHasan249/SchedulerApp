@@ -15,12 +15,25 @@ export interface Employee {
   availabilitySchedule?: Record<string, { startTime: string; endTime: string }> | null;
 }
 
+export interface ShiftAssignmentDetail {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  jobRoleId: string | null;
+}
+
 export interface Shift {
   id: string;
   branchId: string;
   startTime: string;
   endTime: string;
   isPublished: boolean;
+  assignments?: ShiftAssignmentDetail[];
+}
+
+export interface ScheduleChatMessage {
+  role: "user" | "assistant";
+  content: string;
 }
 
 export interface ShiftAssignment {
