@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { format, addDays, startOfWeek, isSameDay } from "date-fns";
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { useDroppable } from "@dnd-kit/core";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Bot, Send, X } from "lucide-react";
 import { ShiftCard } from "./ShiftCard";
 import { ShiftCreateDialog } from "./ShiftCreateDialog";
 import { WeekNavigator } from "./WeekNavigator";
@@ -16,6 +16,14 @@ import type { Shift, ShiftAssignment, Employee, Branch } from "@scheduler/databa
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DAY_LABELS_FULL = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+type ChatMessage = { role: "user" | "assistant"; content: string };
+
+const GREETING: ChatMessage = {
+  role: "assistant",
+  content:
+    "Hi! I can help you assign employees to shifts. Tell me what you need — for example:\n\n• \"Assign 2 cooks and 1 waiter to Monday's morning shift\"\n• \"Who's available Friday afternoon?\"\n• \"Schedule the team for next week\"",
+};
 
 type ScheduleData = {
   shifts: Shift[];
@@ -74,16 +82,7 @@ function DayCell({
 }
 
 function MobileDayView({
-  day,
-  shifts,
-  assignments,
-  employees,
-  canEdit,
-  onEdit,
-  onDelete,
-  onAddShift,
-  onPrev,
-  onNext,
+  day, shifts, assignments, employees, canEdit, onEdit, onDelete, onAddShift, onPrev, onNext,
 }: {
   day: Date;
   shifts: Shift[];
@@ -107,7 +106,6 @@ function MobileDayView({
 
   return (
     <div className="space-y-4">
-      {/* Day navigator */}
       <div className="flex items-center justify-between bg-muted/50 rounded-lg px-4 py-3">
         <button
           onClick={onPrev}
@@ -116,14 +114,12 @@ function MobileDayView({
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
-
         <div className="text-center">
           <p className={`text-lg font-bold ${isToday ? "text-primary" : ""}`}>
             {format(day, "EEEE")}
           </p>
           <p className="text-sm text-muted-foreground">{format(day, "MMMM d, yyyy")}</p>
         </div>
-
         <button
           onClick={onNext}
           className="p-1.5 rounded-md hover:bg-accent transition-colors"
@@ -132,8 +128,6 @@ function MobileDayView({
           <ChevronRight className="h-5 w-5" />
         </button>
       </div>
-
-      {/* Shifts for this day */}
       <div className="space-y-2">
         {dayShifts.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground text-sm">
@@ -154,13 +148,8 @@ function MobileDayView({
           ))
         )}
       </div>
-
       {canEdit && !isPast && (
-        <Button
-          variant="outline"
-          className="w-full"
-          onClick={() => onAddShift(day)}
-        >
+        <Button variant="outline" className="w-full" onClick={() => onAddShift(day)}>
           + Add Shift
         </Button>
       )}
@@ -187,8 +176,14 @@ export function WeeklyScheduleGrid({
   const [defaultDate, setDefaultDate] = useState<Date | undefined>();
   const [publishing, setPublishing] = useState(false);
   const [autoAssigning, setAutoAssigning] = useState(false);
-  const [aiAssigning, setAiAssigning] = useState(false);
   const [mobileDay, setMobileDay] = useState(new Date());
+
+  // AI chat state
+  const [aiChatOpen, setAiChatOpen] = useState(false);
+  const [aiMessages, setAiMessages] = useState<ChatMessage[]>([GREETING]);
+  const [aiInput, setAiInput] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -196,6 +191,12 @@ export function WeeklyScheduleGrid({
     setShifts(initialShifts);
     setAssignments(initialAssignments);
   }, [initialShifts, initialAssignments]);
+
+  useEffect(() => {
+    if (aiChatOpen) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [aiMessages, aiChatOpen]);
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
@@ -225,7 +226,6 @@ export function WeeklyScheduleGrid({
       const origStart = new Date(shift.startTime);
       const origEnd = new Date(shift.endTime);
       const diffMs = origEnd.getTime() - origStart.getTime();
-
       const newStart = new Date(targetDate);
       newStart.setHours(origStart.getHours(), origStart.getMinutes());
       const newEnd = new Date(newStart.getTime() + diffMs);
@@ -306,32 +306,41 @@ export function WeeklyScheduleGrid({
     }
   }
 
-  async function handleAiAssign() {
-    setAiAssigning(true);
-    const weekEnd = addDays(weekStart, 7);
+  async function sendAiMessage() {
+    const text = aiInput.trim();
+    if (!text || aiLoading) return;
+
+    const userMsg: ChatMessage = { role: "user", content: text };
+    const history = [...aiMessages.filter((m) => m !== GREETING), userMsg];
+
+    setAiMessages((prev) => [...prev, userMsg]);
+    setAiInput("");
+    setAiLoading(true);
+
     try {
-      const res = await fetch("/api/shifts/auto-assign-llm", {
+      const res = await fetch("/api/ai/schedule", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          branchId: currentBranchId,
-          fromDate: weekStart.toISOString(),
-          toDate: weekEnd.toISOString(),
-        }),
+        body: JSON.stringify({ messages: history }),
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "AI assign failed");
-      } else if (data.assignmentsCreated === 0) {
-        toast.info("No assignments made — make sure shifts are unpublished and employees have availability set");
+        setAiMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: data.error ?? "Something went wrong. Please try again." },
+        ]);
       } else {
-        toast.success(`AI assigned ${data.assignmentsCreated} employee${data.assignmentsCreated !== 1 ? "s" : ""} to shifts`);
+        setAiMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
+        // Refresh the schedule in case assignments were made
         refreshWeek();
       }
     } catch {
-      toast.error("AI assign failed — check your connection");
+      setAiMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Connection error. Please try again." },
+      ]);
     } finally {
-      setAiAssigning(false);
+      setAiLoading(false);
     }
   }
 
@@ -342,20 +351,27 @@ export function WeeklyScheduleGrid({
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  const canShowAdminControls = canEdit && (userRole === "org_admin" || userRole === "branch_manager");
+
   return (
     <div className="space-y-4">
       {/* Controls */}
       <div className="flex items-center gap-3 flex-wrap">
-        {/* Week navigator — hidden on mobile, shown on desktop */}
+        {/* Desktop controls */}
         <div className="hidden md:flex items-center gap-4 flex-wrap">
           <WeekNavigator weekStart={weekStart} onWeekChange={loadWeek} />
-          {canEdit && (userRole === "org_admin" || userRole === "branch_manager") && (
+          {canShowAdminControls && (
             <div className="flex gap-2">
               <Button size="sm" onClick={handleAutoAssign} disabled={autoAssigning} variant="secondary">
                 {autoAssigning ? "Auto-assigning…" : "Auto-assign"}
               </Button>
-              <Button size="sm" onClick={handleAiAssign} disabled={aiAssigning} variant="outline">
-                {aiAssigning ? "AI Assigning…" : "AI Assign"}
+              <Button
+                size="sm"
+                onClick={() => setAiChatOpen((o) => !o)}
+                variant={aiChatOpen ? "default" : "outline"}
+              >
+                <Bot className="h-3.5 w-3.5 mr-1.5" />
+                {aiChatOpen ? "Close AI" : "AI Assign"}
               </Button>
             </div>
           )}
@@ -369,7 +385,7 @@ export function WeeklyScheduleGrid({
           )}
         </div>
 
-        {/* Mobile week controls */}
+        {/* Mobile controls */}
         <div className="flex md:hidden items-center gap-2 w-full flex-wrap">
           <WeekNavigator weekStart={weekStart} onWeekChange={loadWeek} />
           {canEdit && unpublishedCount > 0 && (
@@ -377,18 +393,108 @@ export function WeeklyScheduleGrid({
               {publishing ? "Publishing…" : `Publish (${unpublishedCount})`}
             </Button>
           )}
-          {canEdit && (userRole === "org_admin" || userRole === "branch_manager") && (
+          {canShowAdminControls && (
             <>
               <Button size="sm" onClick={handleAutoAssign} disabled={autoAssigning} variant="secondary" className="flex-1">
                 {autoAssigning ? "Assigning…" : "Auto-assign"}
               </Button>
-              <Button size="sm" onClick={handleAiAssign} disabled={aiAssigning} variant="outline" className="flex-1">
-                {aiAssigning ? "AI…" : "AI Assign"}
+              <Button
+                size="sm"
+                onClick={() => setAiChatOpen((o) => !o)}
+                variant={aiChatOpen ? "default" : "outline"}
+                className="flex-1"
+              >
+                <Bot className="h-3.5 w-3.5 mr-1" />
+                {aiChatOpen ? "Close AI" : "AI Assign"}
               </Button>
             </>
           )}
         </div>
       </div>
+
+      {/* AI Chat Panel */}
+      {aiChatOpen && (
+        <div className="border rounded-xl overflow-hidden bg-background shadow-sm">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/40">
+            <div className="flex items-center gap-2">
+              <Bot className="h-4 w-4 text-primary" />
+              <span className="font-semibold text-sm">AI Schedule Assistant</span>
+            </div>
+            <button
+              onClick={() => setAiChatOpen(false)}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Messages */}
+          <div className="h-72 overflow-y-auto px-4 py-3 space-y-3">
+            {aiMessages.map((msg, i) => (
+              <div
+                key={i}
+                className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                {msg.role === "assistant" && (
+                  <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <Bot className="h-3.5 w-3.5 text-primary" />
+                  </div>
+                )}
+                <div
+                  className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
+                    msg.role === "user"
+                      ? "bg-primary text-primary-foreground rounded-br-sm"
+                      : "bg-muted rounded-bl-sm"
+                  }`}
+                >
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            {aiLoading && (
+              <div className="flex gap-2 justify-start">
+                <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <Bot className="h-3.5 w-3.5 text-primary" />
+                </div>
+                <div className="bg-muted rounded-2xl rounded-bl-sm px-4 py-2.5">
+                  <span className="flex gap-1 items-center h-5">
+                    <span className="w-1.5 h-1.5 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:0ms]" />
+                    <span className="w-1.5 h-1.5 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:150ms]" />
+                    <span className="w-1.5 h-1.5 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:300ms]" />
+                  </span>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input */}
+          <div className="flex items-end gap-2 px-3 py-3 border-t">
+            <textarea
+              className="flex-1 resize-none rounded-xl border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 min-h-[40px] max-h-32"
+              placeholder="Message the AI assistant…"
+              value={aiInput}
+              onChange={(e) => setAiInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  sendAiMessage();
+                }
+              }}
+              rows={1}
+            />
+            <Button
+              size="icon"
+              onClick={sendAiMessage}
+              disabled={!aiInput.trim() || aiLoading}
+              className="shrink-0 rounded-xl h-10 w-10"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Desktop: 7-column week grid */}
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
@@ -438,7 +544,6 @@ export function WeeklyScheduleGrid({
 
       {/* Mobile: single day view */}
       <div className="md:hidden">
-        {/* Day-of-week pill strip */}
         <div className="flex gap-1 overflow-x-auto pb-2 mb-2 scrollbar-hide">
           {weekDays.map((day, i) => {
             const isSelected = isSameDay(day, mobileDay);
@@ -469,7 +574,6 @@ export function WeeklyScheduleGrid({
             );
           })}
         </div>
-
         <MobileDayView
           day={mobileDay}
           shifts={visibleShifts}

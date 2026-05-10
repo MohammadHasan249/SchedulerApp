@@ -23,11 +23,12 @@ import { useAppTheme } from "@/lib/useAppTheme";
 
 type FormState = {
   name: string;
+  slug: string;
   address: string;
   timezone: string;
 };
 
-const EMPTY_FORM: FormState = { name: "", address: "", timezone: "UTC" };
+const EMPTY_FORM: FormState = { name: "", slug: "", address: "", timezone: "UTC" };
 
 export default function SettingsBranchesScreen() {
   const theme = useAppTheme();
@@ -66,6 +67,7 @@ export default function SettingsBranchesScreen() {
     setEditing(branch);
     setForm({
       name: branch.name,
+      slug: branch.slug,
       address: branch.address ?? "",
       timezone: branch.timezone,
     });
@@ -83,6 +85,7 @@ export default function SettingsBranchesScreen() {
     try {
       const payload = {
         name: form.name.trim(),
+        slug: form.slug.trim() || undefined,
         address: form.address.trim() || undefined,
         timezone: form.timezone.trim() || "UTC",
       };
@@ -163,6 +166,7 @@ export default function SettingsBranchesScreen() {
                 >
                   <View style={styles.rowInfo}>
                     <Text style={styles.branchName}>{branch.name}</Text>
+                    <Text style={styles.branchMeta}>{branch.slug}</Text>
                     {branch.address ? (
                       <Text style={styles.branchMeta}>{branch.address}</Text>
                     ) : null}
@@ -203,6 +207,19 @@ export default function SettingsBranchesScreen() {
                 onChangeText={(v) => setForm((f) => ({ ...f, name: v }))}
                 placeholder="e.g. Downtown"
                 placeholderTextColor={theme.muted}
+              />
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Slug</Text>
+              <TextInput
+                style={[styles.input, { color: theme.text, borderColor: theme.surface2, backgroundColor: theme.bg }]}
+                value={form.slug}
+                onChangeText={(v) => setForm((f) => ({ ...f, slug: v.toLowerCase().replace(/\s+/g, "-") }))}
+                placeholder="e.g. downtown"
+                placeholderTextColor={theme.muted}
+                autoCapitalize="none"
+                autoCorrect={false}
               />
             </View>
 

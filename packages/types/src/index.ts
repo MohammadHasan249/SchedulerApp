@@ -109,7 +109,7 @@ export const THEME_PRESETS = [
   { key: "indigo",  label: "Indigo",  primary: "#4f46e5" },
   { key: "violet",  label: "Violet",  primary: "#7c3aed" },
   { key: "emerald", label: "Emerald", primary: "#059669" },
-  { key: "rose",    label: "Rose",    primary: "#e11d48" },
+  { key: "crimson", label: "Crimson", primary: "#d8191f" },
   { key: "amber",   label: "Amber",   primary: "#d97706" },
 ] as const;
 
