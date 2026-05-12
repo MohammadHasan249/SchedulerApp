@@ -3,7 +3,6 @@ import { db } from "@/lib/db";
 import { employees, organizations } from "@scheduler/database/schema";
 import { eq, and } from "drizzle-orm";
 
-// Lazy initialize to avoid build errors if API key is missing
 let resend: Resend | null = null;
 
 function getResend(): Resend | null {
@@ -17,6 +16,15 @@ function getResend(): Resend | null {
   return resend;
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 export async function sendTimeOffNotification(
   employeeId: string,
   organizationId: string,
@@ -25,13 +33,9 @@ export async function sendTimeOffNotification(
   reason: string | undefined
 ) {
   const resendClient = getResend();
-  if (!resendClient) {
-    console.warn("Skipping email notification - RESEND_API_KEY not configured");
-    return;
-  }
+  if (!resendClient) return;
 
   try {
-    // Get employee info
     const [employee] = await db
       .select()
       .from(employees)
@@ -43,7 +47,6 @@ export async function sendTimeOffNotification(
       return;
     }
 
-    // Get organization info
     const [org] = await db
       .select()
       .from(organizations)
@@ -55,41 +58,54 @@ export async function sendTimeOffNotification(
       return;
     }
 
-    // TODO: When Resend domain is verified, update to send to branch manager or org admin
-    // For now, send to test email for development
-    // Original logic below (commented out):
-    /*
-    let managerEmail: string | null = null;
-    let recipientName = "";
+    // Prefer the employee's branch manager; fall back to any org admin
+    let recipientEmail: string | null = null;
+    let recipientName = "Manager";
 
     if (employee.branchId) {
       const [manager] = await db
-        .select({ name: employees.name, authUserId: employees.authUserId })
+        .select({ name: employees.name, email: employees.email })
         .from(employees)
         .where(
           and(
+            eq(employees.organizationId, organizationId),
             eq(employees.branchId, employee.branchId),
             eq(employees.role, "branch_manager"),
-            eq(employees.organizationId, organizationId)
+            eq(employees.isActive, true)
           )
         )
         .limit(1);
 
-      if (manager && manager.authUserId) {
-        managerEmail = null; // Will use org admin fallback
+      if (manager) {
+        recipientEmail = manager.email;
         recipientName = manager.name;
       }
     }
 
-    let recipientEmail = process.env.ADMIN_EMAIL || "admin@example.com";
-    if (!managerEmail) {
-      recipientName = "Manager";
-    }
-    */
-    const recipientEmail = "mohdhasan.dev@gmail.com";
-    const recipientName = "Team";
+    if (!recipientEmail) {
+      const [admin] = await db
+        .select({ name: employees.name, email: employees.email })
+        .from(employees)
+        .where(
+          and(
+            eq(employees.organizationId, organizationId),
+            eq(employees.role, "org_admin"),
+            eq(employees.isActive, true)
+          )
+        )
+        .limit(1);
 
-    // Format dates for display
+      if (admin) {
+        recipientEmail = admin.email;
+        recipientName = admin.name;
+      }
+    }
+
+    if (!recipientEmail) {
+      console.warn("No manager or admin found to notify for org:", organizationId);
+      return;
+    }
+
     const start = new Date(startDate).toLocaleDateString("en-US", {
       weekday: "short",
       month: "short",
@@ -102,6 +118,11 @@ export async function sendTimeOffNotification(
       day: "numeric",
       year: "numeric",
     });
+
+    const safeEmployeeName = escapeHtml(employee.name);
+    const safeOrgName = escapeHtml(org.name);
+    const safeRecipientName = escapeHtml(recipientName);
+    const safeReason = reason ? escapeHtml(reason) : null;
 
     const emailHtml = `
 <!DOCTYPE html>
@@ -122,19 +143,19 @@ export async function sendTimeOffNotification(
     <div class="container">
       <div class="header">
         <h2>New Time-Off Request</h2>
-        <p style="margin: 0; color: #666;">From ${org.name}</p>
+        <p style="margin: 0; color: #666;">From ${safeOrgName}</p>
       </div>
 
       <div class="content">
-        <p>Hi ${recipientName},</p>
+        <p>Hi ${safeRecipientName},</p>
 
-        <p><strong>${employee.name}</strong> has submitted a time-off request that requires your approval.</p>
+        <p><strong>${safeEmployeeName}</strong> has submitted a time-off request that requires your approval.</p>
 
         <div class="details">
-          <p><strong>Employee:</strong> ${employee.name}</p>
+          <p><strong>Employee:</strong> ${safeEmployeeName}</p>
           <p><strong>Start Date:</strong> ${start}</p>
           <p><strong>End Date:</strong> ${end}</p>
-          ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ""}
+          ${safeReason ? `<p><strong>Reason:</strong> ${safeReason}</p>` : ""}
         </div>
 
         <p>Please log in to your dashboard to review and approve or deny this request.</p>
@@ -164,6 +185,5 @@ export async function sendTimeOffNotification(
     }
   } catch (error) {
     console.error("Failed to send time-off notification:", error);
-    // Don't throw - email failure shouldn't block the request
   }
 }

@@ -56,7 +56,6 @@ const clockSchema = z.object({
   branchSlug: z.string().min(1),
 });
 
-// Public route — no auth, uses service role via direct DB access
 export const POST = withAuth(async function POST(request: Request) {
   const body = await request.json();
   const parsed = clockSchema.safeParse(body);

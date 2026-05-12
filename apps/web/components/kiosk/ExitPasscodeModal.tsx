@@ -10,21 +10,34 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onExitConfirmed: () => void;
-  exitPasscode: string;
 };
 
-export function ExitPasscodeModal({ open, onClose, onExitConfirmed, exitPasscode }: Props) {
+export function ExitPasscodeModal({ open, onClose, onExitConfirmed }: Props) {
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  function handleSubmit() {
-    if (pin === exitPasscode) {
-      onExitConfirmed();
-      setPin("");
-      setError("");
-    } else {
-      setError("Incorrect passcode");
-      setPin("");
+  async function handleSubmit() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/settings/exit-pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        onExitConfirmed();
+        setPin("");
+        setError("");
+      } else {
+        setError("Incorrect passcode");
+        setPin("");
+      }
+    } catch {
+      setError("Something went wrong");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -55,6 +68,7 @@ export function ExitPasscodeModal({ open, onClose, onExitConfirmed, exitPasscode
             type="password"
             placeholder="Enter passcode"
             value={pin}
+            disabled={loading}
             onChange={(e) => {
               setPin(e.target.value);
               setError("");
@@ -70,11 +84,11 @@ export function ExitPasscodeModal({ open, onClose, onExitConfirmed, exitPasscode
           {error && <p className="text-sm text-destructive">{error}</p>}
 
           <div className="flex gap-2 pt-2">
-            <Button variant="outline" onClick={onClose} className="flex-1">
+            <Button variant="outline" onClick={onClose} disabled={loading} className="flex-1">
               Cancel
             </Button>
-            <Button onClick={handleSubmit} className="flex-1">
-              Exit
+            <Button onClick={handleSubmit} disabled={loading} className="flex-1">
+              {loading ? "Verifying…" : "Exit"}
             </Button>
           </div>
         </div>

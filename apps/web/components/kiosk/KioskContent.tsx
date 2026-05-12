@@ -21,8 +21,6 @@ type Props = {
   needsPinSetup?: boolean;
 };
 
-const EXIT_PASSCODE = "9999";
-
 export function KioskContent({ branchSlug, adminEmployeeId, needsPinSetup = false }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -82,7 +80,6 @@ export function KioskContent({ branchSlug, adminEmployeeId, needsPinSetup = fals
         open={exitModalOpen}
         onClose={() => setExitModalOpen(false)}
         onExitConfirmed={handleExitConfirmed}
-        exitPasscode={EXIT_PASSCODE}
       />
 
       <div className="flex flex-col items-center gap-6">

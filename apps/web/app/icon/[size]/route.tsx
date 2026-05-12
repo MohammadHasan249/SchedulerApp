@@ -11,10 +11,18 @@ export async function GET(
   const { searchParams } = new URL(request.url);
   const color = searchParams.get("color") ?? "#3b82f6";
 
-  // If the org has uploaded a logo, redirect to it — the browser will use it as-is.
+  // If the org has uploaded a logo, redirect to it — validate host to prevent open redirect.
   const logo = searchParams.get("logo");
   if (logo) {
-    return Response.redirect(logo, 302);
+    try {
+      const supabaseHost = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).host;
+      const logoHost = new URL(logo).host;
+      if (logoHost === supabaseHost || logoHost.endsWith(`.${supabaseHost}`)) {
+        return Response.redirect(logo, 302);
+      }
+    } catch {
+      // malformed URL — fall through to generated icon
+    }
   }
   const radius = Math.round(size * 0.2);
 

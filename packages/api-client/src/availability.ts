@@ -5,7 +5,7 @@ export interface AvailabilitySlot {
   endTime: string;
 }
 
-export type AvailabilitySchedule = Record<number, AvailabilitySlot>;
+export type AvailabilitySchedule = Record<string, AvailabilitySlot>;
 
 export function getAvailability(employeeId: string): Promise<AvailabilitySchedule> {
   return apiFetch(`/api/availability/${employeeId}`);

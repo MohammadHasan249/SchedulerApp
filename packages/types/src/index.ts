@@ -52,14 +52,6 @@ export interface Branch {
   timezone: string;
 }
 
-export interface Availability {
-  id: string;
-  employeeId: string;
-  dayOfWeek: number;
-  startTime: string;
-  endTime: string;
-}
-
 export type SwapStatus = "pending" | "cover_accepted" | "manager_approved" | "denied";
 
 export interface ShiftSwapRequest {
