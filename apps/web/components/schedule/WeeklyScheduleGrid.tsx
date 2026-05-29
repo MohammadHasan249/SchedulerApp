@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { format, addDays, startOfWeek, isSameDay } from "date-fns";
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { useDroppable } from "@dnd-kit/core";
@@ -167,7 +166,6 @@ export function WeeklyScheduleGrid({
   currentBranchId,
   userRole,
 }: ScheduleData) {
-  const router = useRouter();
   const [weekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [shifts, setShifts] = useState<Shift[]>(initialShifts);
   const [assignments, setAssignments] = useState<ShiftAssignment[]>(initialAssignments);
@@ -344,8 +342,21 @@ export function WeeklyScheduleGrid({
     }
   }
 
-  function refreshWeek() {
-    router.refresh();
+  async function refreshWeek() {
+    const res = await fetch(`/api/shifts?weekStart=${weekStart.toISOString()}`);
+    if (!res.ok) return;
+    const data: Shift[] = await res.json();
+    setShifts(data);
+    setAssignments(
+      data.flatMap((s) =>
+        (s.assignments ?? []).map((a) => ({
+          id: a.id,
+          shiftId: s.id,
+          employeeId: a.employeeId,
+          jobRoleId: a.jobRoleId,
+        }))
+      )
+    );
   }
 
   const today = new Date();
