@@ -2,8 +2,6 @@ import { Resend } from "resend";
 import { db } from "@/lib/db";
 import { employees, organizations } from "@scheduler/database/schema";
 import { and, eq, isNotNull } from "drizzle-orm";
-import { createAdminClient } from "@/lib/supabase/admin";
-
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, "&amp;")
@@ -49,25 +47,17 @@ export async function sendEmployeeInvitationEmail(
       return { sent: false };
     }
 
-    // Cheap path first: if any employee row with this email is already linked to
-    // an auth user, treat as existing account. Only fall back to admin lookup if not.
-    let userExists = false;
+    // Determine whether the invitee already has an account using the cheapest
+    // signal: any employee row with this email already linked to an auth user.
+    // This avoids the slow listUsers() anti-pattern; in the rare case where a
+    // Supabase auth user exists without a matching employee row we'll send the
+    // "create account" template — they'll still be able to log in.
     const [existingLinked] = await db
       .select({ id: employees.id })
       .from(employees)
       .where(and(eq(employees.email, employeeEmail), isNotNull(employees.authUserId)))
       .limit(1);
-    if (existingLinked) {
-      userExists = true;
-    } else {
-      try {
-        const supabase = createAdminClient();
-        const { data, error } = await supabase.auth.admin.getUserByEmail(employeeEmail);
-        userExists = !error && !!data?.user;
-      } catch {
-        userExists = false;
-      }
-    }
+    const userExists = !!existingLinked;
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const safeOrgName = escapeHtml(org.name);
