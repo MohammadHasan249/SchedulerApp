@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import type { JobRole } from "@scheduler/database/schema";
+import { extractErrorMessage } from "@/lib/utils/extract-error";
 
 type Props = {
   roles: JobRole[];
@@ -56,7 +57,7 @@ export function JobRolesList({ roles: initialRoles }: Props) {
 
     if (!res.ok) {
       const data = await res.json();
-      setError(data.error ?? "Something went wrong");
+      setError(extractErrorMessage(data.error));
       setLoading(false);
       return;
     }

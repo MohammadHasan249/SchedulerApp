@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertCircle, CheckCircle } from "lucide-react";
+import { extractErrorMessage } from "@/lib/utils/extract-error";
 
 type Props = {
   open: boolean;
@@ -41,7 +42,7 @@ export function AdminPinSetup({ open, employeeId, onSuccess }: Props) {
 
     if (!res.ok) {
       const data = await res.json();
-      setError(data.error ?? "Failed to set PIN");
+      setError(extractErrorMessage(data.error, "Failed to set PIN"));
       setLoading(false);
       return;
     }

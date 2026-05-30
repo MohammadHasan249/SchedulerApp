@@ -5,6 +5,7 @@ import {
   ScrollView,
   RefreshControl,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useCallback, useEffect, useState } from "react";
@@ -58,12 +59,14 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  async function load() {
+  async function load(opts: { silent?: boolean } = {}) {
     try {
       const data = await getDashboardStats();
       setStats(data);
-    } catch {
-      // keep previous data on error
+    } catch (e) {
+      if (!opts.silent) {
+        Alert.alert("Couldn't load dashboard", e instanceof Error ? e.message : "Please try again.");
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);

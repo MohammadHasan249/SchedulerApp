@@ -117,7 +117,8 @@ export default function EmployeesScreen() {
       setEmployees(emps);
       setBranches(brs);
       setJobRoles(jrs);
-    } catch {
+    } catch (e) {
+      Alert.alert("Couldn't load employees", e instanceof Error ? e.message : "Please try again.");
     } finally {
       setLoading(false);
     }
@@ -143,7 +144,7 @@ export default function EmployeesScreen() {
     setInviteSaving(true);
     setInviteError("");
     try {
-      await inviteEmployee({
+      const result = await inviteEmployee({
         name: inviteForm.name.trim(),
         email: inviteForm.email.trim().toLowerCase(),
         role: inviteForm.role,
@@ -153,7 +154,12 @@ export default function EmployeesScreen() {
       });
       setInviteVisible(false);
       load();
-      Alert.alert("Invited", `An invitation email has been sent to ${inviteForm.email.trim()}.`);
+      Alert.alert(
+        "Invited",
+        result.emailSent
+          ? `An invitation email has been sent to ${inviteForm.email.trim()}.`
+          : `${inviteForm.name.trim()} was added, but the invitation email couldn't be sent. Share the signup link manually.`
+      );
     } catch (e: unknown) {
       setInviteError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {

@@ -8,6 +8,7 @@ import { PinPad } from "./PinPad";
 import { ClockConfirmation } from "./ClockConfirmation";
 import { ExitPasscodeModal } from "./ExitPasscodeModal";
 import { AdminPinSetup } from "./AdminPinSetup";
+import { extractErrorMessage } from "@/lib/utils/extract-error";
 
 type ClockResult = {
   employeeName: string;
@@ -43,7 +44,7 @@ export function KioskContent({ branchSlug, adminEmployeeId, needsPinSetup = fals
     const data = await res.json();
 
     if (!res.ok) {
-      setError(data.error ?? "Something went wrong");
+      setError(extractErrorMessage(data.error));
     } else {
       setResult(data);
       // Auto-reset after 5 seconds

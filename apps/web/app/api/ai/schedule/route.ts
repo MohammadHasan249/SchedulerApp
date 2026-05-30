@@ -111,7 +111,12 @@ export const POST = withAuth(async function POST(request: Request) {
   // ── helpers ────────────────────────────────────────────────────────────────
 
   async function getScopedBranchIds(): Promise<string[]> {
-    if (user.role === "branch_manager" && user.branchId) return [user.branchId];
+    if (user.role === "branch_manager") {
+      // A branch_manager whose branch was deleted has user.branchId === null;
+      // do NOT fall through to all-branches scope. Return empty so they can't
+      // see or modify any data until they're reassigned.
+      return user.branchId ? [user.branchId] : [];
+    }
     return (
       await db
         .select({ id: branches.id })
@@ -191,7 +196,9 @@ export const POST = withAuth(async function POST(request: Request) {
       eq(employees.organizationId, user.organizationId),
       eq(employees.isActive, true),
     ];
-    if (user.role === "branch_manager" && user.branchId) {
+    if (user.role === "branch_manager") {
+      // Same safeguard as getScopedBranchIds — no branch ⇒ no scope.
+      if (!user.branchId) return [];
       conditions.push(eq(employees.branchId, user.branchId));
     }
 
@@ -285,7 +292,8 @@ export const POST = withAuth(async function POST(request: Request) {
       eq(employees.id, input.employeeId),
       eq(employees.organizationId, user.organizationId),
     ];
-    if (user.role === "branch_manager" && user.branchId) {
+    if (user.role === "branch_manager") {
+      if (!user.branchId) return { error: "Branch manager has no branch assigned" };
       empConditions.push(eq(employees.branchId, user.branchId));
     }
     const [emp] = await db
