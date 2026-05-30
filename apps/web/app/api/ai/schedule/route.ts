@@ -7,10 +7,11 @@ import {
   employees,
   branches,
   jobRoles,
-  timeOffRequests,
 } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser";
 import { withAuth } from "@/lib/auth/withAuth";
+import { validateAssignment } from "@/lib/scheduling/assignment-validator";
+import { createNotification } from "@/lib/notifications/create";
 import { eq, and, gte, lte, inArray } from "drizzle-orm";
 
 const MAX_SHIFT_HOURS = 10;
@@ -266,7 +267,6 @@ export const POST = withAuth(async function POST(request: Request) {
   }) {
     const branchIds = await getScopedBranchIds();
 
-    // Fetch shift
     const [shiftRow] = await db
       .select()
       .from(shifts)
@@ -274,18 +274,13 @@ export const POST = withAuth(async function POST(request: Request) {
       .limit(1);
     if (!shiftRow) return { error: "Shift not found or out of scope" };
 
-    const start = new Date(shiftRow.startTime);
-    const end = new Date(shiftRow.endTime);
-    const hours = shiftHours(start, end);
-
-    // ── Constraint 1: 10-hour maximum ────────────────────────────────────────
+    const hours = shiftHours(new Date(shiftRow.startTime), new Date(shiftRow.endTime));
     if (hours > MAX_SHIFT_HOURS) {
       return {
         error: `Shift is ${Math.round(hours * 10) / 10}h, which exceeds the ${MAX_SHIFT_HOURS}-hour maximum. Cannot assign.`,
       };
     }
 
-    // Fetch employee
     const empConditions = [
       eq(employees.id, input.employeeId),
       eq(employees.organizationId, user.organizationId),
@@ -294,99 +289,17 @@ export const POST = withAuth(async function POST(request: Request) {
       empConditions.push(eq(employees.branchId, user.branchId));
     }
     const [emp] = await db
-      .select({
-        id: employees.id,
-        maxHoursPerWeek: employees.maxHoursPerWeek,
-        availabilitySchedule: employees.availabilitySchedule,
-      })
+      .select()
       .from(employees)
       .where(and(...empConditions))
       .limit(1);
     if (!emp) return { error: "Employee not found or out of scope" };
 
-    // ── Constraint 2: Availability window ────────────────────────────────────
-    const schedule = emp.availabilitySchedule as Record<
-      string,
-      { startTime: string; endTime: string }
-    > | null;
-
-    const dayOfWeek = start.getDay(); // 0=Sun…6=Sat
-    const slot = schedule?.[String(dayOfWeek)];
-
-    if (!slot) {
-      return { error: "Employee has no availability set for that day." };
+    const validation = await validateAssignment(shiftRow, emp);
+    if (!validation.ok) {
+      return { error: validation.message };
     }
 
-    // Compare HH:MM times
-    const toMinutes = (t: string) => {
-      const [h, m] = t.split(":").map(Number);
-      return h * 60 + m;
-    };
-    const shiftStartMin = start.getHours() * 60 + start.getMinutes();
-    const shiftEndMin = end.getHours() * 60 + end.getMinutes();
-    const availStartMin = toMinutes(slot.startTime);
-    const availEndMin = toMinutes(slot.endTime);
-
-    if (shiftStartMin < availStartMin || shiftEndMin > availEndMin) {
-      return {
-        error: `Employee is only available ${slot.startTime}–${slot.endTime} on that day. Shift is outside their availability window.`,
-      };
-    }
-
-    // ── Constraint 3: Approved time off ──────────────────────────────────────
-    const shiftDate = start.toISOString().split("T")[0];
-    const [timeOff] = await db
-      .select({ id: timeOffRequests.id })
-      .from(timeOffRequests)
-      .where(
-        and(
-          eq(timeOffRequests.employeeId, input.employeeId),
-          eq(timeOffRequests.status, "approved"),
-          lte(timeOffRequests.startDate, shiftDate),
-          gte(timeOffRequests.endDate, shiftDate)
-        )
-      )
-      .limit(1);
-
-    if (timeOff) {
-      return { error: "Employee has approved time off on that day." };
-    }
-
-    // ── Constraint 4: Weekly hour cap ─────────────────────────────────────────
-    const weekStart = new Date(start);
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-    weekStart.setHours(0, 0, 0, 0);
-    const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
-
-    const weekAssignments =
-      branchIds.length > 0
-        ? await db
-            .select({ startTime: shifts.startTime, endTime: shifts.endTime })
-            .from(shiftAssignments)
-            .innerJoin(shifts, eq(shiftAssignments.shiftId, shifts.id))
-            .where(
-              and(
-                eq(shiftAssignments.employeeId, input.employeeId),
-                inArray(shifts.branchId, branchIds),
-                gte(shifts.startTime, weekStart),
-                lte(shifts.startTime, weekEnd)
-              )
-            )
-        : [];
-
-    const currentHours = weekAssignments.reduce(
-      (sum, a) => sum + shiftHours(new Date(a.startTime), new Date(a.endTime)),
-      0
-    );
-    const maxHours = emp.maxHoursPerWeek ?? 40;
-
-    if (currentHours + hours > maxHours) {
-      return {
-        error: `Assigning this shift would bring employee to ${Math.round((currentHours + hours) * 10) / 10}h this week, exceeding their ${maxHours}h cap.`,
-      };
-    }
-
-    // ── All checks passed — insert ────────────────────────────────────────────
     const [assignment] = await db
       .insert(shiftAssignments)
       .values({
@@ -395,6 +308,12 @@ export const POST = withAuth(async function POST(request: Request) {
         jobRoleId: input.jobRoleId ?? null,
       })
       .returning();
+
+    createNotification({
+      employeeId: emp.id,
+      organizationId: user.organizationId,
+      message: `You've been assigned to a shift starting ${new Date(shiftRow.startTime).toLocaleString()}.`,
+    });
 
     return { success: true, assignmentId: assignment.id };
   }
@@ -493,7 +412,16 @@ Your job:
     if (choice.finish_reason === "tool_calls" && msg.tool_calls?.length) {
       const toolResults: DeepSeekMessage[] = await Promise.all(
         msg.tool_calls.map(async (tc: DeepSeekToolCall) => {
-          const args = JSON.parse(tc.function.arguments || "{}");
+          let args: Record<string, unknown> = {};
+          try {
+            args = JSON.parse(tc.function.arguments || "{}");
+          } catch {
+            return {
+              role: "tool" as const,
+              tool_call_id: tc.id,
+              content: JSON.stringify({ error: "Invalid tool arguments (malformed JSON)" }),
+            };
+          }
           const result = await executeTool(tc.function.name, args);
           return {
             role: "tool" as const,

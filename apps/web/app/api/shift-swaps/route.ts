@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { shiftSwapRequests, employees, shifts, branches, shiftAssignments } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
+import { createNotification } from "@/lib/notifications/create";
 import { eq, and, or, inArray } from "drizzle-orm";
 
 const createSchema = z.object({
@@ -123,6 +124,14 @@ export const POST = withAuth(async function POST(request: Request) {
     .insert(shiftSwapRequests)
     .values({ shiftId, requesterId: emp.id, coverId: coverId ?? null })
     .returning();
+
+  if (coverId) {
+    createNotification({
+      employeeId: coverId,
+      organizationId: user.organizationId,
+      message: `${emp.name} has asked you to cover one of their shifts.`,
+    });
+  }
 
   return NextResponse.json(swap, { status: 201 });
 });

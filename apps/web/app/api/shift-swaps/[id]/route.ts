@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { shiftSwapRequests, employees, shifts, branches } from "@scheduler/database/schema";
+import { shiftSwapRequests, employees, shifts, branches, shiftAssignments } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
+import { createNotifications } from "@/lib/notifications/create";
 import { eq, and } from "drizzle-orm";
 
 const patchSchema = z.discriminatedUnion("action", [
@@ -81,6 +82,14 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
       .where(eq(shiftSwapRequests.id, id))
       .returning();
 
+    createNotifications([
+      {
+        employeeId: updated.requesterId,
+        organizationId: user.organizationId,
+        message: `${emp.name} has accepted your shift swap. Awaiting manager approval.`,
+      },
+    ]);
+
     return NextResponse.json(updated);
   }
 
@@ -103,14 +112,80 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
 
     const managerEmp = await getEmployeeForUser(user.id, user.organizationId);
 
-    const [updated] = await db
-      .update(shiftSwapRequests)
-      .set({
-        status: action === "manager_approve" ? "manager_approved" : "denied",
-        managerId: managerEmp?.id ?? null,
-      })
-      .where(eq(shiftSwapRequests.id, id))
-      .returning();
+    if (action === "deny") {
+      const [updated] = await db
+        .update(shiftSwapRequests)
+        .set({ status: "denied", managerId: managerEmp?.id ?? null })
+        .where(eq(shiftSwapRequests.id, id))
+        .returning();
+      const notifyTargets = [updated.requesterId, updated.coverId].filter(
+        (x): x is string => !!x
+      );
+      createNotifications(
+        notifyTargets.map((employeeId) => ({
+          employeeId,
+          organizationId: user.organizationId,
+          message: "A shift swap request was denied by a manager.",
+        }))
+      );
+      return NextResponse.json(updated);
+    }
+
+    // manager_approve: actually perform the swap atomically.
+    if (!swap.coverId) {
+      return NextResponse.json(
+        { error: "Cannot approve a swap with no cover" },
+        { status: 409 }
+      );
+    }
+
+    const updated = await db.transaction(async (tx) => {
+      const [requesterAssignment] = await tx
+        .select()
+        .from(shiftAssignments)
+        .where(
+          and(
+            eq(shiftAssignments.shiftId, swap.shiftId),
+            eq(shiftAssignments.employeeId, swap.requesterId)
+          )
+        )
+        .limit(1);
+
+      if (!requesterAssignment) {
+        throw new Error("Requester is no longer assigned to this shift");
+      }
+
+      await tx
+        .delete(shiftAssignments)
+        .where(eq(shiftAssignments.id, requesterAssignment.id));
+
+      await tx.insert(shiftAssignments).values({
+        shiftId: swap.shiftId,
+        employeeId: swap.coverId!,
+        jobRoleId: requesterAssignment.jobRoleId,
+      });
+
+      const [row] = await tx
+        .update(shiftSwapRequests)
+        .set({ status: "manager_approved", managerId: managerEmp?.id ?? null })
+        .where(eq(shiftSwapRequests.id, id))
+        .returning();
+
+      return row;
+    });
+
+    createNotifications([
+      {
+        employeeId: updated.requesterId,
+        organizationId: user.organizationId,
+        message: "Your shift swap request was approved.",
+      },
+      {
+        employeeId: updated.coverId!,
+        organizationId: user.organizationId,
+        message: "You've been assigned a shift through an approved swap.",
+      },
+    ]);
 
     return NextResponse.json(updated);
   }

@@ -126,9 +126,13 @@ export const POST = withAuth(async function POST(request: Request) {
     })
     .returning();
 
-  sendEmployeeInvitationEmail(name, email, user.organizationId).catch((error) => {
+  let emailSent = false;
+  try {
+    const result = await sendEmployeeInvitationEmail(name, email, user.organizationId);
+    emailSent = result.sent;
+  } catch (error) {
     console.error("Failed to send invitation email:", error);
-  });
+  }
 
-  return NextResponse.json(employee, { status: 201 });
+  return NextResponse.json({ ...employee, emailSent }, { status: 201 });
 });
