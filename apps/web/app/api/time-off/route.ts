@@ -5,7 +5,9 @@ import { timeOffRequests, employees } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { sendTimeOffNotification } from "@/lib/email/send-time-off-notification";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, gte, lte, ne } from "drizzle-orm";
+
+const MAX_TIME_OFF_DAYS = 90;
 
 const createSchema = z.object({
   startDate: z.string().date(),
@@ -75,6 +77,43 @@ export const POST = withAuth(async function POST(request: Request) {
 
   if (startDate > endDate) {
     return NextResponse.json({ error: "Start date must be before end date" }, { status: 400 });
+  }
+
+  // Reject past requests (compared by ISO date string — safe lexicographically).
+  const today = new Date().toISOString().split("T")[0];
+  if (startDate < today) {
+    return NextResponse.json({ error: "Cannot request time off in the past" }, { status: 400 });
+  }
+
+  // Enforce a soft cap on duration.
+  const startMs = new Date(startDate).getTime();
+  const endMs = new Date(endDate).getTime();
+  const days = Math.round((endMs - startMs) / (1000 * 60 * 60 * 24)) + 1;
+  if (days > MAX_TIME_OFF_DAYS) {
+    return NextResponse.json(
+      { error: `Time off cannot exceed ${MAX_TIME_OFF_DAYS} days in a single request` },
+      { status: 400 }
+    );
+  }
+
+  // Reject overlap with this employee's existing pending or approved requests.
+  const overlapping = await db
+    .select({ id: timeOffRequests.id })
+    .from(timeOffRequests)
+    .where(
+      and(
+        eq(timeOffRequests.employeeId, emp.id),
+        ne(timeOffRequests.status, "denied"),
+        lte(timeOffRequests.startDate, endDate),
+        gte(timeOffRequests.endDate, startDate)
+      )
+    )
+    .limit(1);
+  if (overlapping.length > 0) {
+    return NextResponse.json(
+      { error: "You already have a pending or approved time-off request that overlaps these dates" },
+      { status: 409 }
+    );
   }
 
   const [req] = await db
