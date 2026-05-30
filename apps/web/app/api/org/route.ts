@@ -38,21 +38,10 @@ export async function POST(request: Request) {
     );
   }
 
-  // Create org
-  const [org] = await db
-    .insert(organizations)
-    .values({ name: orgName, slug: orgSlug })
-    .returning();
-
-  // Create default "Main" branch
-  await db.insert(branches).values({
-    organizationId: org.id,
-    name: "Main",
-    slug: "main",
-  });
-
-  // Create auth user with app_metadata pre-set (triggers DB row creation)
   const supabase = createAdminClient();
+
+  // 1. Create the Supabase auth user FIRST (the only step we can't put in a DB
+  //    transaction). If it fails we haven't touched the DB at all.
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({
     email,
     password,
@@ -60,23 +49,68 @@ export async function POST(request: Request) {
     user_metadata: { full_name: fullName },
     app_metadata: {
       role: "org_admin",
-      organization_id: org.id,
+      organization_id: "__pending__",
       branch_id: null,
     },
   });
 
   if (authError) {
-    await db.delete(organizations).where(eq(organizations.id, org.id));
     return NextResponse.json({ error: authError.message }, { status: 500 });
   }
 
-  await db.insert(employees).values({
-    organizationId: org.id,
-    authUserId: authData.user.id,
-    name: fullName,
-    email,
-    role: "org_admin",
-  });
+  const authUserId = authData.user.id;
 
-  return NextResponse.json({ orgId: org.id, userId: authData.user.id }, { status: 201 });
+  // 2. Create org + branch + employee in a single transaction. If any step
+  //    fails, nothing is persisted and we delete the orphan auth user.
+  let orgId: string;
+  try {
+    orgId = await db.transaction(async (tx) => {
+      const [org] = await tx
+        .insert(organizations)
+        .values({ name: orgName, slug: orgSlug })
+        .returning();
+
+      await tx.insert(branches).values({
+        organizationId: org.id,
+        name: "Main",
+        slug: "main",
+      });
+
+      await tx.insert(employees).values({
+        organizationId: org.id,
+        authUserId,
+        name: fullName,
+        email,
+        role: "org_admin",
+      });
+
+      return org.id;
+    });
+  } catch (e) {
+    // Roll back the orphan auth user so a retry can reuse the email.
+    try {
+      await supabase.auth.admin.deleteUser(authUserId);
+    } catch (deleteErr) {
+      console.error("Failed to clean up orphan auth user after org-create rollback:", deleteErr);
+    }
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Failed to create organization" },
+      { status: 500 }
+    );
+  }
+
+  // 3. Patch the real organization_id into the auth user's app_metadata.
+  const { error: syncError } = await supabase.auth.admin.updateUserById(authUserId, {
+    app_metadata: {
+      role: "org_admin",
+      organization_id: orgId,
+      branch_id: null,
+    },
+  });
+  if (syncError) {
+    console.error("Failed to sync org id into auth metadata after creation:", syncError);
+    // The DB row is correct; admin can repair metadata later. Don't roll back.
+  }
+
+  return NextResponse.json({ orgId, userId: authUserId }, { status: 201 });
 }
