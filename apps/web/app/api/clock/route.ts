@@ -100,25 +100,43 @@ export const POST = withAuth(async function POST(request: Request) {
     (e) => e.pinHash && (e.branchId === branch.id || e.role === "org_admin")
   );
 
-  // Find the matching employee/admin by bcrypt comparing
-  let matchedEmployee: (typeof allUsers)[number] | null = null;
+  // Find ALL matching employees/admins by bcrypt comparing — we walk the full
+  // list (no early break) so we can detect PIN collisions and refuse to clock
+  // anyone in if more than one person has the same PIN.
+  const matches: (typeof allUsers)[number][] = [];
   for (const emp of allUsers) {
     if (emp.pinHash && (await bcrypt.compare(pin, emp.pinHash))) {
-      matchedEmployee = emp;
-      break;
+      matches.push(emp);
     }
   }
 
   // Dummy compare to keep timing roughly constant when no candidates exist
-  if (!matchedEmployee && allUsers.length === 0) {
+  if (matches.length === 0 && allUsers.length === 0) {
     await bcrypt.compare(pin, "$2a$10$CwTycUXWue0Thq9StjUM0uJ8.QvE2mLQ9cqYQUoxWZqXOZkS/GeNi");
   }
 
-  if (!matchedEmployee) {
+  if (matches.length === 0) {
     // Artificial delay to slow brute-force; pair with infrastructure-level rate limiting
     await new Promise((r) => setTimeout(r, 1000));
     return NextResponse.json({ error: "Invalid PIN" }, { status: 401 });
   }
+
+  if (matches.length > 1) {
+    // Legacy data: two people collided. Refuse rather than guess.
+    console.error(
+      "PIN collision detected at clock-in",
+      matches.map((m) => m.id)
+    );
+    return NextResponse.json(
+      {
+        error:
+          "PIN matches multiple accounts. Ask a manager to reset one of them, then try again.",
+      },
+      { status: 409 }
+    );
+  }
+
+  const matchedEmployee = matches[0];
 
   // Determine clock type: if last event today is clock_in → clock_out, else clock_in
   const dayStart = new Date();

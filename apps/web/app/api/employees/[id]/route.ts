@@ -5,6 +5,7 @@ import { employees, branches, jobRoles } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { pinCollidesWithExisting } from "@/lib/employees/pin";
 import { eq, and } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
@@ -105,6 +106,14 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
   const updates: Partial<typeof employees.$inferInsert> = { ...rest };
 
   if (pin) {
+    const targetBranch = rest.branchId !== undefined ? rest.branchId : employee.branchId;
+    const collides = await pinCollidesWithExisting(pin, employee.id, employee.organizationId, targetBranch);
+    if (collides) {
+      return NextResponse.json(
+        { error: "Another employee at this branch already uses that PIN. Pick a different one." },
+        { status: 409 }
+      );
+    }
     updates.pinHash = await bcrypt.hash(pin, 10);
   }
 

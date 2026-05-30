@@ -35,8 +35,9 @@ export async function autoAssignShifts(
 ): Promise<AutoAssignResult[]> {
   const assignments: AutoAssignResult[] = [];
 
-  // Get all unassigned shifts in the date range for this branch
-  const unassignedShifts = await db
+  // Get all unpublished shifts in the date range for this branch.
+  // (We further filter below to exclude shifts that already meet their headcount.)
+  const candidateShifts = await db
     .select()
     .from(shifts)
     .where(
@@ -48,9 +49,30 @@ export async function autoAssignShifts(
       )
     );
 
-  if (unassignedShifts.length === 0) {
+  if (candidateShifts.length === 0) {
     return [];
   }
+
+  // Existing assignments on these shifts (to avoid stacking on top of prior runs).
+  const candidateShiftIds = candidateShifts.map((s) => s.id);
+  const existingByShift = new Map<string, { employeeId: string; jobRoleId: string | null }[]>();
+  if (candidateShiftIds.length > 0) {
+    const rows = await db
+      .select({
+        shiftId: shiftAssignments.shiftId,
+        employeeId: shiftAssignments.employeeId,
+        jobRoleId: shiftAssignments.jobRoleId,
+      })
+      .from(shiftAssignments)
+      .where(inArray(shiftAssignments.shiftId, candidateShiftIds));
+    for (const r of rows) {
+      if (!existingByShift.has(r.shiftId)) existingByShift.set(r.shiftId, []);
+      existingByShift.get(r.shiftId)!.push({ employeeId: r.employeeId, jobRoleId: r.jobRoleId });
+    }
+  }
+
+  // unassignedShifts: shifts that still need bodies (no assignments, or under headcount per role).
+  const unassignedShifts = candidateShifts;
 
   // Get all active employees in this organization
   const allEmployees = await db
@@ -138,15 +160,19 @@ export async function autoAssignShifts(
     roleRequirementsByShiftId.get(req.shiftId)!.push(req);
   });
 
-  // Track assigned employees to prevent double-assignment
-  const assignedEmployeeSet = new Set<string>();
-
-  // For each shift, try to assign employees
+  // For each shift, try to assign employees.
+  // We use a per-shift "already assigned" set seeded with existing assignments
+  // so re-running auto-assign on the same shift doesn't add the same employee twice
+  // or stack assignments past the headcount requirement.
   for (const shift of unassignedShifts) {
+    const existing = existingByShift.get(shift.id) ?? [];
+    const shiftAssignedSet = new Set<string>(existing.map((a) => a.employeeId));
     const roleRequirements = roleRequirementsByShiftId.get(shift.id) || [];
 
     if (roleRequirements.length === 0) {
-      // No role requirements: assign any available employee
+      // No role requirements: assign one employee if shift has zero current assignments.
+      if (existing.length > 0) continue;
+
       const candidate = findBestCandidate(
         shift,
         allEmployees,
@@ -154,7 +180,7 @@ export async function autoAssignShifts(
         hoursPerEmployee,
         timeOffByEmployeeId,
         availabilityByEmployeeId,
-        assignedEmployeeSet
+        shiftAssignedSet
       );
 
       if (candidate) {
@@ -164,7 +190,7 @@ export async function autoAssignShifts(
           jobRoleId: null,
         };
         assignments.push(newAssignment);
-        assignedEmployeeSet.add(candidate.employeeId);
+        shiftAssignedSet.add(candidate.employeeId);
 
         const shiftHours = getShiftHours(shift);
         hoursPerEmployee.set(
@@ -173,9 +199,11 @@ export async function autoAssignShifts(
         );
       }
     } else {
-      // Assign per role requirement
+      // Per-role requirement: only fill the remaining gap, never overshoot headcount.
       for (const req of roleRequirements) {
-        for (let i = 0; i < req.headcount; i++) {
+        const existingForRole = existing.filter((a) => a.jobRoleId === req.jobRoleId).length;
+        const remaining = Math.max(0, req.headcount - existingForRole);
+        for (let i = 0; i < remaining; i++) {
           const candidate = findBestCandidate(
             shift,
             allEmployees,
@@ -183,7 +211,7 @@ export async function autoAssignShifts(
             hoursPerEmployee,
             timeOffByEmployeeId,
             availabilityByEmployeeId,
-            assignedEmployeeSet
+            shiftAssignedSet
           );
 
           if (candidate) {
@@ -193,7 +221,7 @@ export async function autoAssignShifts(
               jobRoleId: req.jobRoleId,
             };
             assignments.push(newAssignment);
-            assignedEmployeeSet.add(candidate.employeeId);
+            shiftAssignedSet.add(candidate.employeeId);
 
             const shiftHours = getShiftHours(shift);
             hoursPerEmployee.set(
