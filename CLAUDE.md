@@ -31,23 +31,32 @@ cd apps/web && npx vitest run
 ```
 
 ## Supabase Project
-- **URL:** `https://zloueokwqntzrmckhneg.supabase.co`
-- **Publishable key:** `sb_publishable_3kU6rRaEGWHeaG6guLG-qA_rU59jMN5`
-- **Secret/service key:** ask Khaled — needs rotation (was exposed in chat)
-- **DATABASE_URL:** `postgresql://postgres:[PASSWORD]@db.zloueokwqntzrmckhneg.supabase.co:5432/postgres`
-  - Get password: Supabase Dashboard → Settings → Database → Reset password
+Credentials live in `apps/web/.env.local` (web) and `apps/mobile/.env.local` (mobile), not in source. Required env vars:
+
+**Web (`apps/web/.env.local`):**
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` (server-only, admin auth ops)
+- `DATABASE_URL` (Drizzle connection — reset DB password at Supabase → Settings → Database)
+- `NEXT_PUBLIC_APP_URL`
+
+**Mobile (`apps/mobile/.env.local`):**
+- `EXPO_PUBLIC_SUPABASE_URL`
+- `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `EXPO_PUBLIC_API_URL`
+
+Ask a maintainer for current values.
 
 ## Deployment
-- **Moh's Vercel:** `scheduler-dirdzawlx-mohammads-projects-ebb11006.vercel.app` — has Deployment Protection ON (blocks all mobile API calls → 401)
-- **Krayyan's Vercel:** `krayyan` account, CLI authenticated
-  - Deploy: `cd /tmp/SchedulerApp && vercel --cwd apps/web`
-  - Needs: DATABASE_URL, SUPABASE_SERVICE_ROLE_KEY, NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+Deploy with `vercel --cwd apps/web` from the repo root after `vercel link`. Required env vars on Vercel: `DATABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_APP_URL`.
+
+Note: if the production Vercel has Deployment Protection enabled, mobile API calls will return 401. Either deploy to a separate non-protected project for mobile testing or disable protection in Vercel project settings.
 
 ## Mobile App
 - Env file: `apps/mobile/.env.local`
 - `EXPO_PUBLIC_API_URL` must point to a non-protected deployment
 - Expo tunnel URL (current session): `exp://hn1yxns-anonymous-8081.exp.direct`
-- Test login: `khaledrayyan@outlook.com` / `Test1234!` (org_admin)
+- Test login: ask a maintainer (don't commit credentials to this file)
 
 ## Auth Architecture
 - **Web:** Supabase cookie-based auth via SSR (`@supabase/ssr`)

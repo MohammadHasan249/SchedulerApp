@@ -52,6 +52,12 @@ export interface ShiftAssignment {
   jobRoleId: string | null;
 }
 
+export interface AutoAssignResult {
+  shiftId: string;
+  employeeId: string;
+  jobRoleId: string | null;
+}
+
 export interface Branch {
   id: string;
   organizationId: string;

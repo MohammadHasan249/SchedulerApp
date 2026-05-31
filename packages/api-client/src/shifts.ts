@@ -1,5 +1,5 @@
 import { apiFetch } from "./client";
-import type { Shift, ShiftAssignment } from "@scheduler/types";
+import type { Shift, ShiftAssignment, AutoAssignResult } from "@scheduler/types";
 
 export function getShifts(weekStart: string): Promise<Shift[]> {
   return apiFetch(`/api/shifts?weekStart=${encodeURIComponent(weekStart)}`);
@@ -62,7 +62,7 @@ export function autoAssignShifts(
   branchId: string,
   fromDate: string,
   toDate: string
-): Promise<{ success: boolean; assignmentsCreated: number; assignments: ShiftAssignment[] }> {
+): Promise<{ success: boolean; assignmentsCreated: number; assignments: AutoAssignResult[] }> {
   return apiFetch("/api/shifts/auto-assign", {
     method: "POST",
     body: JSON.stringify({ branchId, fromDate, toDate }),
