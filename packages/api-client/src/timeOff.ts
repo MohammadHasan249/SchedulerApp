@@ -22,3 +22,7 @@ export function updateTimeOffRequest(
     body: JSON.stringify(data),
   });
 }
+
+export function cancelTimeOffRequest(id: string): Promise<void> {
+  return apiFetch(`/api/time-off/${id}`, { method: "DELETE" });
+}
