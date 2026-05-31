@@ -18,6 +18,8 @@ import {
   Palette,
   KeyRound,
   GitBranch,
+  Briefcase,
+  BarChart2,
 } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
@@ -128,9 +130,11 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {loadingHours ? (
+        {/* Non-admin: read-only org hours block. Admins skip this since their
+            Settings section already has an Organization Hours editor entry. */}
+        {!isAdmin && loadingHours ? (
           <ActivityIndicator color={theme.primary} style={{ marginTop: 24 }} />
-        ) : orgHours && Object.keys(orgHours).length > 0 ? (
+        ) : !isAdmin && orgHours && Object.keys(orgHours).length > 0 ? (
           <View style={styles.orgSection}>
             <TouchableOpacity
               style={[styles.orgHeader, !hoursExpanded && { borderBottomWidth: 0 }]}
@@ -170,8 +174,16 @@ export default function ProfileScreen() {
         {isAdmin && (
           <View style={[styles.orgSection]}>
             <View style={styles.orgHeader}>
-              <Text style={styles.orgTitle}>Settings</Text>
+              <Text style={styles.orgTitle}>Manage</Text>
             </View>
+            <TouchableOpacity
+              style={styles.settingsRow}
+              onPress={() => router.push("/(admin)/reports")}
+            >
+              <BarChart2 size={18} color={theme.secondary} />
+              <Text style={styles.settingsRowText}>Attendance Reports</Text>
+              <ChevronRight size={16} color={theme.muted} />
+            </TouchableOpacity>
             <TouchableOpacity
               style={styles.settingsRow}
               onPress={() => router.push("/(admin)/settings-hours")}
@@ -186,6 +198,14 @@ export default function ProfileScreen() {
             >
               <GitBranch size={18} color={theme.secondary} />
               <Text style={styles.settingsRowText}>Branches</Text>
+              <ChevronRight size={16} color={theme.muted} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.settingsRow}
+              onPress={() => router.push("/(admin)/settings-job-roles")}
+            >
+              <Briefcase size={18} color={theme.secondary} />
+              <Text style={styles.settingsRowText}>Job Roles</Text>
               <ChevronRight size={16} color={theme.muted} />
             </TouchableOpacity>
             <TouchableOpacity

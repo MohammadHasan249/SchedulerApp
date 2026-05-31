@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { shifts, shiftAssignments, branches, employees } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
+import { validateAssignment } from "@/lib/scheduling/assignment-validator";
+import { createNotification } from "@/lib/notifications/create";
 import { eq, and } from "drizzle-orm";
 
 const assignSchema = z.object({
@@ -72,7 +74,7 @@ export const POST = withAuth(async function POST(request: Request, { params }: {
 
   // Verify employee belongs to same org
   const [employee] = await db
-    .select({ id: employees.id, branchId: employees.branchId })
+    .select()
     .from(employees)
     .where(and(eq(employees.id, parsed.data.employeeId), eq(employees.organizationId, user.organizationId)))
     .limit(1);
@@ -84,6 +86,11 @@ export const POST = withAuth(async function POST(request: Request, { params }: {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const validation = await validateAssignment(row.shift, employee);
+  if (!validation.ok) {
+    return NextResponse.json({ error: validation.message, code: validation.code }, { status: 409 });
+  }
+
   const [assignment] = await db
     .insert(shiftAssignments)
     .values({
@@ -92,6 +99,12 @@ export const POST = withAuth(async function POST(request: Request, { params }: {
       jobRoleId: parsed.data.jobRoleId ?? null,
     })
     .returning();
+
+  createNotification({
+    employeeId: employee.id,
+    organizationId: user.organizationId,
+    message: `You've been assigned to a shift starting ${new Date(row.shift.startTime).toLocaleString()}.`,
+  });
 
   return NextResponse.json(assignment, { status: 201 });
 });

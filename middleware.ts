@@ -5,13 +5,7 @@ const PUBLIC_PATHS = ["/", "/login", "/signup", "/auth-error"];
 
 export async function middleware(request: NextRequest) {
   const { supabase, response } = createMiddlewareClient(request);
-  const { pathname, hostname } = request.nextUrl;
-
-  // Extract org slug from subdomain (prod) or ?org= query param (dev)
-  const orgSlug = resolveOrgSlug(hostname, request);
-  if (orgSlug) {
-    response.headers.set("x-org-slug", orgSlug);
-  }
+  const { pathname } = request.nextUrl;
 
   // Kiosk is public — no auth required
   if (pathname.startsWith("/kiosk")) {
@@ -52,14 +46,6 @@ export async function middleware(request: NextRequest) {
   }
 
   return response;
-}
-
-function resolveOrgSlug(hostname: string, request: NextRequest): string | null {
-  const parts = hostname.split(".");
-  if (parts.length >= 3 && parts[0] !== "www" && parts[0] !== "app") {
-    return parts[0];
-  }
-  return request.nextUrl.searchParams.get("org");
 }
 
 export const config = {

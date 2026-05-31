@@ -6,6 +6,8 @@ import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { eq, and, gte, lte, inArray } from "drizzle-orm";
 
+const MAX_SHIFT_DURATION_HOURS = 24;
+
 const createSchema = z.object({
   branchId: z.string().uuid(),
   startTime: z.string().datetime(),
@@ -104,6 +106,23 @@ export const POST = withAuth(async function POST(request: Request) {
   }
 
   const { branchId, startTime, endTime } = parsed.data;
+  const start = new Date(startTime);
+  const end = new Date(endTime);
+
+  if (!(start < end)) {
+    return NextResponse.json(
+      { error: "Shift end time must be after start time" },
+      { status: 400 }
+    );
+  }
+
+  const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+  if (durationHours > MAX_SHIFT_DURATION_HOURS) {
+    return NextResponse.json(
+      { error: `Shift duration cannot exceed ${MAX_SHIFT_DURATION_HOURS} hours` },
+      { status: 400 }
+    );
+  }
 
   // Verify branch ownership
   const [branch] = await db
@@ -118,12 +137,31 @@ export const POST = withAuth(async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // Reject exact-duplicate shift at the same branch (same start AND end time).
+  const [duplicate] = await db
+    .select({ id: shifts.id })
+    .from(shifts)
+    .where(
+      and(
+        eq(shifts.branchId, branchId),
+        eq(shifts.startTime, start),
+        eq(shifts.endTime, end)
+      )
+    )
+    .limit(1);
+  if (duplicate) {
+    return NextResponse.json(
+      { error: "An identical shift already exists at this branch" },
+      { status: 409 }
+    );
+  }
+
   const [shift] = await db
     .insert(shifts)
     .values({
       branchId,
-      startTime: new Date(startTime),
-      endTime: new Date(endTime),
+      startTime: start,
+      endTime: end,
     })
     .returning();
 

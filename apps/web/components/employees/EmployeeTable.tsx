@@ -46,16 +46,26 @@ export function EmployeeTable({ employees, branches, jobRoles, currentUserRole, 
   });
 
   async function handleDeactivate(id: string) {
-    await fetch(`/api/employees/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/employees/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error ?? "Failed to deactivate employee");
+      return;
+    }
     router.refresh();
   }
 
   async function handleActivate(id: string) {
-    await fetch(`/api/employees/${id}`, {
+    const res = await fetch(`/api/employees/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isActive: true }),
     });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error ?? "Failed to reactivate employee");
+      return;
+    }
     router.refresh();
   }
 

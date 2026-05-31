@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  ActivityIndicator, RefreshControl, Modal, FlatList, Pressable,
+  ActivityIndicator, RefreshControl, Modal, FlatList, Pressable, Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ChevronLeft, ChevronRight, Bot, X, Plus, UserMinus } from "lucide-react-native";
@@ -39,8 +39,8 @@ export default function ScheduleScreen() {
     try {
       const data = await getShifts(start.toISOString());
       setShifts(data);
-    } catch {
-      // silent
+    } catch (e) {
+      Alert.alert("Couldn't load shifts", e instanceof Error ? e.message : "Please try again.");
     }
   }, []);
 
@@ -49,8 +49,8 @@ export default function ScheduleScreen() {
       const [data, roles] = await Promise.all([getEmployees(), getJobRoles()]);
       setTeamEmployees(data);
       setRoleMap(new Map(roles.map((r) => [r.id, r.name])));
-    } catch {
-      // silent
+    } catch (e) {
+      Alert.alert("Couldn't load team", e instanceof Error ? e.message : "Please try again.");
     }
   }, []);
 
@@ -94,8 +94,8 @@ export default function ScheduleScreen() {
       const updated = await getShifts(weekStart.toISOString());
       setShifts(updated);
       setSelectedShift(updated.find((s) => s.id === shift.id) ?? null);
-    } catch {
-      // silent
+    } catch (e) {
+      Alert.alert("Couldn't assign", e instanceof Error ? e.message : "Please try again.");
     } finally {
       setModalAssigning(false);
     }
@@ -108,8 +108,8 @@ export default function ScheduleScreen() {
       const updated = await getShifts(weekStart.toISOString());
       setShifts(updated);
       setSelectedShift(updated.find((s) => s.id === shift.id) ?? null);
-    } catch {
-      // silent
+    } catch (e) {
+      Alert.alert("Couldn't unassign", e instanceof Error ? e.message : "Please try again.");
     } finally {
       setModalAssigning(false);
     }

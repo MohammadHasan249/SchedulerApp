@@ -1,8 +1,15 @@
 import { Resend } from "resend";
 import { db } from "@/lib/db";
-import { organizations } from "@scheduler/database/schema";
-import { eq } from "drizzle-orm";
-import { createClient } from "@/lib/supabase/server";
+import { employees, organizations } from "@scheduler/database/schema";
+import { and, eq, isNotNull } from "drizzle-orm";
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
 let resend: Resend | null = null;
 
@@ -21,11 +28,11 @@ export async function sendEmployeeInvitationEmail(
   employeeName: string,
   employeeEmail: string,
   organizationId: string
-) {
+): Promise<{ sent: boolean }> {
   const resendClient = getResend();
   if (!resendClient) {
     console.warn("Skipping email notification - RESEND_API_KEY not configured");
-    return;
+    return { sent: false };
   }
 
   try {
@@ -37,26 +44,29 @@ export async function sendEmployeeInvitationEmail(
 
     if (!org) {
       console.error("Organization not found:", organizationId);
-      return;
+      return { sent: false };
     }
 
-    // Check if user exists in Supabase auth
-    const supabase = await createClient();
-    let userExists = false;
-    try {
-      const { data: users } = await supabase.auth.admin.listUsers();
-      userExists = users.users.some((u) => u.email === employeeEmail);
-    } catch (error) {
-      userExists = false;
-    }
+    // Determine whether the invitee already has an account using the cheapest
+    // signal: any employee row with this email already linked to an auth user.
+    // This avoids the slow listUsers() anti-pattern; in the rare case where a
+    // Supabase auth user exists without a matching employee row we'll send the
+    // "create account" template — they'll still be able to log in.
+    const [existingLinked] = await db
+      .select({ id: employees.id })
+      .from(employees)
+      .where(and(eq(employees.email, employeeEmail), isNotNull(employees.authUserId)))
+      .limit(1);
+    const userExists = !!existingLinked;
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const safeOrgName = escapeHtml(org.name);
+    const safeEmployeeName = escapeHtml(employeeName);
 
     let emailHtml: string;
     let subject: string;
 
     if (userExists) {
-      // User already has an account
       subject = `You've been invited to join ${org.name}`;
       emailHtml = `
 <!DOCTYPE html>
@@ -76,25 +86,18 @@ export async function sendEmployeeInvitationEmail(
   <body>
     <div class="container">
       <div class="header">
-        <h2>Welcome to ${org.name}!</h2>
+        <h2>Welcome to ${safeOrgName}!</h2>
         <p style="margin: 0; color: #666;">You've been invited to join our team</p>
       </div>
-
       <div class="content">
-        <p>Hi ${employeeName},</p>
-
-        <p>You've been invited to join <strong>${org.name}</strong> on Scheduler App. Your account is ready to use!</p>
-
+        <p>Hi ${safeEmployeeName},</p>
+        <p>You've been invited to join <strong>${safeOrgName}</strong> on Scheduler App. Your account is ready to use!</p>
         <div class="details">
-          <p><strong>Organization:</strong> ${org.name}</p>
-          <p><strong>Next Steps:</strong> Log in to your account to get started with scheduling and team management.</p>
+          <p><strong>Organization:</strong> ${safeOrgName}</p>
+          <p><strong>Next Steps:</strong> Log in to your account to get started.</p>
         </div>
-
-        <p>Click the button below to access your dashboard:</p>
-
         <a href="${appUrl}/dashboard" class="button">Go to Dashboard</a>
       </div>
-
       <div class="footer">
         <p>This is an automated message from Scheduler App. Please do not reply to this email.</p>
       </div>
@@ -103,7 +106,6 @@ export async function sendEmployeeInvitationEmail(
 </html>
       `;
     } else {
-      // User doesn't have an account - send signup invitation
       subject = `Join ${org.name} on Scheduler App`;
       emailHtml = `
 <!DOCTYPE html>
@@ -123,25 +125,18 @@ export async function sendEmployeeInvitationEmail(
   <body>
     <div class="container">
       <div class="header">
-        <h2>Join ${org.name}!</h2>
+        <h2>Join ${safeOrgName}!</h2>
         <p style="margin: 0; color: #666;">You've been invited to use Scheduler App</p>
       </div>
-
       <div class="content">
-        <p>Hi ${employeeName},</p>
-
-        <p>You've been invited to join <strong>${org.name}</strong> on Scheduler App, a modern workforce scheduling platform.</p>
-
+        <p>Hi ${safeEmployeeName},</p>
+        <p>You've been invited to join <strong>${safeOrgName}</strong> on Scheduler App, a modern workforce scheduling platform.</p>
         <div class="details">
-          <p><strong>Organization:</strong> ${org.name}</p>
+          <p><strong>Organization:</strong> ${safeOrgName}</p>
           <p><strong>Next Steps:</strong> Create your account to start managing schedules and time off.</p>
         </div>
-
-        <p>Click the button below to create your account and get started:</p>
-
         <a href="${appUrl}/signup/employee" class="button">Create Account</a>
       </div>
-
       <div class="footer">
         <p>This is an automated message from Scheduler App. Please do not reply to this email.</p>
       </div>
@@ -160,10 +155,12 @@ export async function sendEmployeeInvitationEmail(
 
     if (result.error) {
       console.error("Error sending email:", result.error);
-    } else {
-      console.log("Invitation email sent successfully:", result.data?.id);
+      return { sent: false };
     }
+    console.log("Invitation email sent successfully:", result.data?.id);
+    return { sent: true };
   } catch (error) {
     console.error("Failed to send employee invitation:", error);
+    return { sent: false };
   }
 }

@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { timeOffRequests, employees } from "@scheduler/database/schema";
+import { timeOffRequests, employees, shifts, shiftAssignments } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
-import { eq, and } from "drizzle-orm";
+import { createNotification } from "@/lib/notifications/create";
+import { eq, and, gte, lte } from "drizzle-orm";
 
 const patchSchema = z.object({
   status: z.enum(["approved", "denied"]),
@@ -39,11 +40,50 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const [updated] = await db
-    .update(timeOffRequests)
-    .set({ status: parsed.data.status })
-    .where(eq(timeOffRequests.id, id))
-    .returning();
+  const updated = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(timeOffRequests)
+      .set({ status: parsed.data.status })
+      .where(eq(timeOffRequests.id, id))
+      .returning();
+
+    // On approval, unassign the employee from any conflicting shifts in the date range.
+    if (parsed.data.status === "approved") {
+      const start = new Date(row.startDate);
+      const end = new Date(row.endDate);
+      end.setHours(23, 59, 59, 999);
+
+      const conflictingAssignments = await tx
+        .select({ id: shiftAssignments.id })
+        .from(shiftAssignments)
+        .innerJoin(shifts, eq(shiftAssignments.shiftId, shifts.id))
+        .where(
+          and(
+            eq(shiftAssignments.employeeId, row.employeeId),
+            gte(shifts.startTime, start),
+            lte(shifts.startTime, end)
+          )
+        );
+
+      if (conflictingAssignments.length > 0) {
+        for (const a of conflictingAssignments) {
+          await tx.delete(shiftAssignments).where(eq(shiftAssignments.id, a.id));
+        }
+      }
+    }
+
+    return row;
+  });
+
+  // Notify the employee of the decision (non-blocking).
+  createNotification({
+    employeeId: updated.employeeId,
+    organizationId: user.organizationId,
+    message:
+      parsed.data.status === "approved"
+        ? `Your time-off request for ${updated.startDate} – ${updated.endDate} was approved.`
+        : `Your time-off request for ${updated.startDate} – ${updated.endDate} was denied.`,
+  });
 
   return NextResponse.json(updated);
 });

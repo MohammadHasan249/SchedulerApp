@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Employee, Branch, JobRole } from "@scheduler/database/schema";
+import { extractErrorMessage } from "@/lib/utils/extract-error";
 
 const roleLabel: Record<string, string> = {
   org_admin: "Org Admin",
@@ -92,7 +93,7 @@ export function EmployeeForm({ open, onOpenChange, employee, branches, jobRoles,
 
     if (!res.ok) {
       const data = await res.json();
-      setError(data.error?.formErrors?.[0] ?? data.error ?? "Something went wrong");
+      setError(extractErrorMessage(data.error));
       setLoading(false);
       return;
     }

@@ -6,6 +6,7 @@ import { employees, branches, jobRoles } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { sendEmployeeInvitationEmail } from "@/lib/email/send-employee-invitation";
+import { pinCollidesWithExisting } from "@/lib/employees/pin";
 import { eq, and } from "drizzle-orm";
 
 const inviteSchema = z.object({
@@ -102,6 +103,17 @@ export const POST = withAuth(async function POST(request: Request) {
     }
   }
 
+  if (pin) {
+    // Use a placeholder employeeId so the "other employees" filter still matches everyone.
+    const placeholderId = "00000000-0000-0000-0000-000000000000";
+    const collides = await pinCollidesWithExisting(pin, placeholderId, user.organizationId, targetBranchId);
+    if (collides) {
+      return NextResponse.json(
+        { error: "Another employee at this branch already uses that PIN. Pick a different one." },
+        { status: 409 }
+      );
+    }
+  }
   const pinHash = pin ? await bcryptjs.hash(pin, 10) : null;
 
   // Initialize default availability schedule for all 7 days (9am-11pm)
@@ -126,9 +138,13 @@ export const POST = withAuth(async function POST(request: Request) {
     })
     .returning();
 
-  sendEmployeeInvitationEmail(name, email, user.organizationId).catch((error) => {
+  let emailSent = false;
+  try {
+    const result = await sendEmployeeInvitationEmail(name, email, user.organizationId);
+    emailSent = result.sent;
+  } catch (error) {
     console.error("Failed to send invitation email:", error);
-  });
+  }
 
-  return NextResponse.json(employee, { status: 201 });
+  return NextResponse.json({ ...employee, emailSent }, { status: 201 });
 });

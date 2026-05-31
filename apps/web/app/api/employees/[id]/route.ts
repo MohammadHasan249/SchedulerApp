@@ -5,6 +5,7 @@ import { employees, branches, jobRoles } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { pinCollidesWithExisting } from "@/lib/employees/pin";
 import { eq, and } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
@@ -105,6 +106,14 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
   const updates: Partial<typeof employees.$inferInsert> = { ...rest };
 
   if (pin) {
+    const targetBranch = rest.branchId !== undefined ? rest.branchId : employee.branchId;
+    const collides = await pinCollidesWithExisting(pin, employee.id, employee.organizationId, targetBranch);
+    if (collides) {
+      return NextResponse.json(
+        { error: "Another employee at this branch already uses that PIN. Pick a different one." },
+        { status: 409 }
+      );
+    }
     updates.pinHash = await bcrypt.hash(pin, 10);
   }
 
@@ -112,7 +121,16 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
     return NextResponse.json(employee);
   }
 
-  // Sync app_metadata if role or branchId changed
+  // DB update first; then sync Supabase app_metadata. If metadata sync fails
+  // we roll the DB row back so the two stores can't diverge (previously they
+  // could — metadata went first and a DB failure left JWT claims pointing at
+  // permissions the DB never recorded).
+  const [updated] = await db
+    .update(employees)
+    .set(updates)
+    .where(eq(employees.id, id))
+    .returning();
+
   if ((rest.role || rest.branchId !== undefined) && employee.authUserId) {
     const supabase = createAdminClient();
     const syncResult = await supabase.auth.admin.updateUserById(employee.authUserId, {
@@ -123,15 +141,29 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
       },
     });
     if (syncResult.error) {
+      // Roll back to pre-update state so DB and auth metadata stay consistent.
+      await db
+        .update(employees)
+        .set({
+          role: employee.role,
+          branchId: employee.branchId,
+        })
+        .where(eq(employees.id, id));
       return NextResponse.json({ error: syncResult.error.message }, { status: 500 });
     }
   }
 
-  const [updated] = await db
-    .update(employees)
-    .set(updates)
-    .where(eq(employees.id, id))
-    .returning();
+  // Re-enable the auth user when an employee is reactivated.
+  if (rest.isActive === true && !employee.isActive && employee.authUserId) {
+    try {
+      const supabase = createAdminClient();
+      await supabase.auth.admin.updateUserById(employee.authUserId, {
+        ban_duration: "none",
+      });
+    } catch (e) {
+      console.error("Failed to unban reactivated employee's auth user:", e);
+    }
+  }
 
   return NextResponse.json(updated);
 });
@@ -147,12 +179,25 @@ export const DELETE = withAuth(async function DELETE(request: Request, { params 
   const employee = await getEmployee(id, user.organizationId);
   if (!employee) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // Deactivate rather than hard-delete
+  // Deactivate rather than hard-delete, and ban the Supabase auth user so any
+  // active JWT they hold stops working. Without this they'd retain their
+  // session and most API endpoints don't recheck isActive.
   const [updated] = await db
     .update(employees)
     .set({ isActive: false })
     .where(eq(employees.id, id))
     .returning();
+
+  if (employee.authUserId) {
+    try {
+      const supabase = createAdminClient();
+      await supabase.auth.admin.updateUserById(employee.authUserId, {
+        ban_duration: "876000h", // ~100 years
+      });
+    } catch (e) {
+      console.error("Failed to ban deactivated employee's auth user:", e);
+    }
+  }
 
   return NextResponse.json(updated);
 });

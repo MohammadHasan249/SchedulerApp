@@ -5,6 +5,7 @@ import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { db } from "@/lib/db";
 import { employees } from "@scheduler/database/schema";
+import { pinCollidesWithExisting } from "@/lib/employees/pin";
 import { eq, and } from "drizzle-orm";
 
 const pinSchema = z.object({
@@ -31,6 +32,19 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
 
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+
+  const collides = await pinCollidesWithExisting(
+    parsed.data.pin,
+    employee.id,
+    employee.organizationId,
+    employee.branchId
+  );
+  if (collides) {
+    return NextResponse.json(
+      { error: "Another employee at this branch already uses that PIN. Pick a different one." },
+      { status: 409 }
+    );
   }
 
   const pinHash = await bcryptjs.hash(parsed.data.pin, 10);
