@@ -62,6 +62,10 @@ export default function AvailabilityScreen() {
           })
         );
       } catch (err) {
+        Alert.alert(
+          "Couldn't load availability",
+          err instanceof Error ? err.message : "Please try again."
+        );
       } finally {
         setLoading(false);
       }
@@ -186,9 +190,6 @@ function makeStyles(theme: ReturnType<typeof useAppTheme>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.bg },
     header: { paddingBottom: 4 },
-    orgHoursInfo: { marginTop: 12, backgroundColor: theme.surface, borderRadius: 8, padding: 10 },
-    orgHoursLabel: { fontSize: 12, fontWeight: "600", color: theme.muted, marginBottom: 4 },
-    orgHoursText: { fontSize: 12, color: theme.textSecondary },
     list: { flex: 1 },
     listContent: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32, gap: 8 },
     row: { backgroundColor: theme.surface, borderRadius: 12, padding: 14, gap: 10 },

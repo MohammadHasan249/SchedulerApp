@@ -3,6 +3,7 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ActivityIndicator, Alert,
 } from "react-native";
+import { Link } from "expo-router";
 import { supabase } from "@/lib/supabase";
 
 export default function LoginScreen() {
@@ -70,6 +71,13 @@ export default function LoginScreen() {
               : <Text style={styles.buttonText}>Sign In</Text>
             }
           </TouchableOpacity>
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Don't have an account? </Text>
+            <Link href="/(auth)/signup" style={styles.footerLink}>
+              Sign up
+            </Link>
+          </View>
         </View>
       </View>
     </KeyboardAvoidingView>
@@ -104,4 +112,7 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: "#fff", fontSize: 15, fontWeight: "600" },
+  footer: { flexDirection: "row", justifyContent: "center", marginTop: 12 },
+  footerText: { color: "#94a3b8", fontSize: 14 },
+  footerLink: { color: "#3b82f6", fontSize: 14, fontWeight: "600" },
 });

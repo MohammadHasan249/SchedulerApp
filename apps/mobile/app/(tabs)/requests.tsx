@@ -6,18 +6,19 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { format, startOfWeek, addDays } from "date-fns";
 import {
-  getTimeOffRequests, createTimeOffRequest,
+  getTimeOffRequests, createTimeOffRequest, updateTimeOffRequest,
   getShiftSwaps, createShiftSwap, updateShiftSwap,
-  getShifts,
+  getShifts, getEmployees,
 } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useAuthStore } from "@/lib/authStore";
-import type { TimeOffRequest, ShiftSwapRequest, Shift } from "@scheduler/types";
+import { useIsAdmin } from "@/lib/useRole";
+import type { TimeOffRequest, ShiftSwapRequest, Shift, Employee } from "@scheduler/types";
 
 const TIME_OFF_COLORS: Record<string, string> = {
   pending: "#f59e0b",
   approved: "#22c55e",
-  rejected: "#ef4444",
+  denied: "#ef4444",
 };
 
 const SWAP_COLORS: Record<string, string> = {
@@ -67,7 +68,9 @@ export default function RequestsScreen() {
 function TimeOffSection() {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
+  const isAdmin = useIsAdmin();
   const [requests, setRequests] = useState<TimeOffRequest[]>([]);
+  const [employeeMap, setEmployeeMap] = useState<Record<string, Employee>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -75,11 +78,18 @@ function TimeOffSection() {
   const [endDate, setEndDate] = useState("");
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [actioning, setActioning] = useState<string | null>(null);
 
   async function load() {
     try {
-      setRequests(await getTimeOffRequests());
-    } catch {
+      const reqs = await getTimeOffRequests();
+      setRequests(reqs);
+      if (isAdmin) {
+        const emps = await getEmployees();
+        setEmployeeMap(Object.fromEntries(emps.map((e) => [e.id, e])));
+      }
+    } catch (e) {
+      Alert.alert("Couldn't load time-off requests", e instanceof Error ? e.message : "Please try again.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -99,22 +109,39 @@ function TimeOffSection() {
       setShowForm(false);
       setStartDate(""); setEndDate(""); setReason("");
       await load();
-    } catch (e: any) {
-      Alert.alert("Error", e.message ?? "Failed to submit request");
+    } catch (e) {
+      Alert.alert("Error", e instanceof Error ? e.message : "Failed to submit request");
     } finally {
       setSubmitting(false);
     }
   }
 
+  async function handleDecision(id: string, status: "approved" | "denied") {
+    setActioning(id);
+    try {
+      await updateTimeOffRequest(id, { status });
+      await load();
+    } catch (e) {
+      Alert.alert("Error", e instanceof Error ? e.message : `Failed to ${status === "approved" ? "approve" : "deny"} request`);
+    } finally {
+      setActioning(null);
+    }
+  }
+
+  const pendingRequests = requests.filter((r) => r.status === "pending");
+  const decidedRequests = requests.filter((r) => r.status !== "pending");
+
   return (
     <>
-      <View style={styles.headerRow}>
-        <TouchableOpacity style={styles.newBtn} onPress={() => setShowForm((v) => !v)}>
-          <Text style={styles.newBtnText}>{showForm ? "Cancel" : "+ Request"}</Text>
-        </TouchableOpacity>
-      </View>
+      {!isAdmin && (
+        <View style={styles.headerRow}>
+          <TouchableOpacity style={styles.newBtn} onPress={() => setShowForm((v) => !v)}>
+            <Text style={styles.newBtnText}>{showForm ? "Cancel" : "+ Request"}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
-      {showForm && (
+      {!isAdmin && showForm && (
         <View style={styles.form}>
           <View style={styles.formRow}>
             <View style={styles.formField}>
@@ -123,7 +150,7 @@ function TimeOffSection() {
                 style={styles.input}
                 value={startDate}
                 onChangeText={setStartDate}
-                placeholder="2026-05-10"
+                placeholder="YYYY-MM-DD"
                 placeholderTextColor={theme.inactive}
               />
             </View>
@@ -133,7 +160,7 @@ function TimeOffSection() {
                 style={styles.input}
                 value={endDate}
                 onChangeText={setEndDate}
-                placeholder="2026-05-12"
+                placeholder="YYYY-MM-DD"
                 placeholderTextColor={theme.inactive}
               />
             </View>
@@ -176,26 +203,95 @@ function TimeOffSection() {
         >
           {requests.length === 0 ? (
             <View style={styles.empty}>
-              <Text style={styles.emptyText}>No time-off requests</Text>
+              <Text style={styles.emptyText}>
+                {isAdmin ? "No time-off requests from your team" : "No time-off requests"}
+              </Text>
             </View>
-          ) : requests.map((req) => (
-            <View key={req.id} style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>
-                  {format(new Date(req.startDate), "MMM d")} – {format(new Date(req.endDate), "MMM d, yyyy")}
-                </Text>
-                <View style={[styles.badge, { backgroundColor: TIME_OFF_COLORS[req.status] + "33" }]}>
-                  <Text style={[styles.badgeText, { color: TIME_OFF_COLORS[req.status] }]}>
-                    {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
-                  </Text>
-                </View>
-              </View>
-              {req.reason && <Text style={styles.cardSub}>{req.reason}</Text>}
-            </View>
-          ))}
+          ) : (
+            <>
+              {isAdmin && pendingRequests.length > 0 && (
+                <Text style={styles.sectionHeader}>Pending ({pendingRequests.length})</Text>
+              )}
+              {(isAdmin ? pendingRequests : requests).map((req) => (
+                <TimeOffCard
+                  key={req.id}
+                  req={req}
+                  employeeName={isAdmin ? employeeMap[req.employeeId]?.name : undefined}
+                  actioning={actioning === req.id}
+                  onApprove={isAdmin ? () => handleDecision(req.id, "approved") : undefined}
+                  onDeny={isAdmin ? () => handleDecision(req.id, "denied") : undefined}
+                />
+              ))}
+
+              {isAdmin && decidedRequests.length > 0 && (
+                <Text style={[styles.sectionHeader, { marginTop: 16 }]}>History</Text>
+              )}
+              {isAdmin && decidedRequests.map((req) => (
+                <TimeOffCard
+                  key={req.id}
+                  req={req}
+                  employeeName={employeeMap[req.employeeId]?.name}
+                />
+              ))}
+            </>
+          )}
         </ScrollView>
       )}
     </>
+  );
+}
+
+function TimeOffCard({
+  req,
+  employeeName,
+  actioning,
+  onApprove,
+  onDeny,
+}: {
+  req: TimeOffRequest;
+  employeeName?: string;
+  actioning?: boolean;
+  onApprove?: () => void;
+  onDeny?: () => void;
+}) {
+  const theme = useAppTheme();
+  const styles = makeStyles(theme);
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <Text style={styles.cardTitle}>
+          {format(new Date(req.startDate), "MMM d")} – {format(new Date(req.endDate), "MMM d, yyyy")}
+        </Text>
+        <View style={[styles.badge, { backgroundColor: (TIME_OFF_COLORS[req.status] ?? theme.muted) + "33" }]}>
+          <Text style={[styles.badgeText, { color: TIME_OFF_COLORS[req.status] ?? theme.muted }]}>
+            {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
+          </Text>
+        </View>
+      </View>
+      {employeeName && <Text style={styles.cardSub}>{employeeName}</Text>}
+      {req.reason && <Text style={styles.cardSub}>{req.reason}</Text>}
+
+      {onApprove && onDeny && (
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.denyBtn, actioning && styles.btnDisabled]}
+            onPress={onDeny}
+            disabled={actioning}
+          >
+            <Text style={styles.denyBtnText}>Deny</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.approveBtn, actioning && styles.btnDisabled]}
+            onPress={onApprove}
+            disabled={actioning}
+          >
+            {actioning
+              ? <ActivityIndicator color="#fff" size="small" />
+              : <Text style={styles.approveBtnText}>Approve</Text>}
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -204,17 +300,19 @@ function TimeOffSection() {
 function SwapSection() {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
+  const isAdmin = useIsAdmin();
   const { session } = useAuthStore();
   const employeeId = session?.user?.user_metadata?.employee_id as string | undefined;
 
   const [swaps, setSwaps] = useState<ShiftSwapRequest[]>([]);
   const [shiftMap, setShiftMap] = useState<Record<string, Shift>>({});
+  const [employeeMap, setEmployeeMap] = useState<Record<string, Employee>>({});
   const [upcomingShifts, setUpcomingShifts] = useState<Shift[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [accepting, setAccepting] = useState<string | null>(null);
+  const [actioning, setActioning] = useState<string | null>(null);
 
   async function load() {
     try {
@@ -231,7 +329,13 @@ function SwapSection() {
       setSwaps(swapData);
       setShiftMap(map);
       setUpcomingShifts(allShifts.filter((s) => new Date(s.startTime) > now));
-    } catch {
+
+      if (isAdmin) {
+        const emps = await getEmployees();
+        setEmployeeMap(Object.fromEntries(emps.map((e) => [e.id, e])));
+      }
+    } catch (e) {
+      Alert.alert("Couldn't load swap requests", e instanceof Error ? e.message : "Please try again.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -246,34 +350,57 @@ function SwapSection() {
       await createShiftSwap({ shiftId });
       setShowPicker(false);
       await load();
-    } catch (e: any) {
-      Alert.alert("Error", e.message ?? "Failed to create swap request");
+    } catch (e) {
+      Alert.alert("Error", e instanceof Error ? e.message : "Failed to create swap request");
     } finally {
       setSubmitting(false);
     }
   }
 
   async function handleAccept(swapId: string) {
-    setAccepting(swapId);
+    setActioning(swapId);
     try {
       await updateShiftSwap(swapId, "accept_cover");
       await load();
-    } catch (e: any) {
-      Alert.alert("Error", e.message ?? "Failed to accept swap");
+    } catch (e) {
+      Alert.alert("Error", e instanceof Error ? e.message : "Failed to accept swap");
     } finally {
-      setAccepting(null);
+      setActioning(null);
     }
   }
 
+  async function handleManagerDecision(swapId: string, action: "manager_approve" | "deny") {
+    setActioning(swapId);
+    try {
+      await updateShiftSwap(swapId, action);
+      await load();
+    } catch (e) {
+      Alert.alert("Error", e instanceof Error ? e.message : "Failed to update swap");
+    } finally {
+      setActioning(null);
+    }
+  }
+
+  // For admins, sort swaps so cover_accepted (awaiting manager) bubble to top.
+  const sortedSwaps = isAdmin
+    ? [...swaps].sort((a, b) => {
+        const aPri = a.status === "cover_accepted" ? 0 : a.status === "pending" ? 1 : 2;
+        const bPri = b.status === "cover_accepted" ? 0 : b.status === "pending" ? 1 : 2;
+        return aPri - bPri;
+      })
+    : swaps;
+
   return (
     <>
-      <View style={styles.headerRow}>
-        <TouchableOpacity style={styles.newBtn} onPress={() => setShowPicker((v) => !v)}>
-          <Text style={styles.newBtnText}>{showPicker ? "Cancel" : "+ Request"}</Text>
-        </TouchableOpacity>
-      </View>
+      {!isAdmin && (
+        <View style={styles.headerRow}>
+          <TouchableOpacity style={styles.newBtn} onPress={() => setShowPicker((v) => !v)}>
+            <Text style={styles.newBtnText}>{showPicker ? "Cancel" : "+ Request"}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
-      {showPicker && (
+      {!isAdmin && showPicker && (
         <View style={styles.form}>
           <Text style={styles.label}>Select a shift to swap</Text>
           {upcomingShifts.length === 0 ? (
@@ -314,15 +441,20 @@ function SwapSection() {
             />
           }
         >
-          {swaps.length === 0 ? (
+          {sortedSwaps.length === 0 ? (
             <View style={styles.empty}>
-              <Text style={styles.emptyText}>No swap requests</Text>
+              <Text style={styles.emptyText}>
+                {isAdmin ? "No swap requests from your team" : "No swap requests"}
+              </Text>
             </View>
-          ) : swaps.map((swap) => {
+          ) : sortedSwaps.map((swap) => {
             const shift = shiftMap[swap.shiftId];
             const isRequester = swap.requesterId === employeeId;
             const isCover = swap.coverId === employeeId;
-            const canAccept = isCover && swap.status === "pending";
+            const canAccept = !isAdmin && isCover && swap.status === "pending";
+            const canManagerDecide = isAdmin && swap.status === "cover_accepted";
+            const requesterName = employeeMap[swap.requesterId]?.name;
+            const coverName = swap.coverId ? employeeMap[swap.coverId]?.name : undefined;
             return (
               <View key={swap.id} style={styles.card}>
                 <View style={styles.cardHeader}>
@@ -338,18 +470,42 @@ function SwapSection() {
                   </View>
                 </View>
                 <Text style={styles.cardSub}>
-                  {isRequester ? "You requested" : isCover ? "You're covering" : "Open swap"}
+                  {isAdmin
+                    ? `${requesterName ?? "Requester"} → ${coverName ?? "(no cover yet)"}`
+                    : isRequester ? "You requested" : isCover ? "You're covering" : "Open swap"}
                 </Text>
+
                 {canAccept && (
                   <TouchableOpacity
-                    style={[styles.acceptBtn, accepting === swap.id && styles.btnDisabled]}
+                    style={[styles.acceptBtn, actioning === swap.id && styles.btnDisabled]}
                     onPress={() => handleAccept(swap.id)}
-                    disabled={accepting === swap.id}
+                    disabled={actioning === swap.id}
                   >
-                    {accepting === swap.id
+                    {actioning === swap.id
                       ? <ActivityIndicator color="#fff" size="small" />
                       : <Text style={styles.acceptBtnText}>Accept Swap</Text>}
                   </TouchableOpacity>
+                )}
+
+                {canManagerDecide && (
+                  <View style={styles.actionRow}>
+                    <TouchableOpacity
+                      style={[styles.actionBtn, styles.denyBtn, actioning === swap.id && styles.btnDisabled]}
+                      onPress={() => handleManagerDecision(swap.id, "deny")}
+                      disabled={actioning === swap.id}
+                    >
+                      <Text style={styles.denyBtnText}>Deny</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.actionBtn, styles.approveBtn, actioning === swap.id && styles.btnDisabled]}
+                      onPress={() => handleManagerDecision(swap.id, "manager_approve")}
+                      disabled={actioning === swap.id}
+                    >
+                      {actioning === swap.id
+                        ? <ActivityIndicator color="#fff" size="small" />
+                        : <Text style={styles.approveBtnText}>Approve</Text>}
+                    </TouchableOpacity>
+                  </View>
                 )}
               </View>
             );
@@ -401,6 +557,7 @@ function makeStyles(theme: ReturnType<typeof useAppTheme>) {
     shiftPickerTime: { fontSize: 12, color: theme.muted, marginTop: 2 },
     list: { flex: 1 },
     listContent: { paddingHorizontal: 16, paddingBottom: 32, gap: 8 },
+    sectionHeader: { fontSize: 12, fontWeight: "600", color: theme.muted, textTransform: "uppercase", letterSpacing: 0.5, paddingHorizontal: 4, paddingTop: 4 },
     empty: { alignItems: "center", paddingVertical: 48 },
     emptyText: { color: theme.inactive, fontSize: 14 },
     card: { backgroundColor: theme.surface, borderRadius: 12, padding: 14, gap: 6 },
@@ -411,5 +568,11 @@ function makeStyles(theme: ReturnType<typeof useAppTheme>) {
     cardSub: { fontSize: 13, color: theme.muted },
     acceptBtn: { backgroundColor: theme.primary, borderRadius: 8, paddingVertical: 10, alignItems: "center", marginTop: 4 },
     acceptBtnText: { color: "#fff", fontSize: 13, fontWeight: "600" },
+    actionRow: { flexDirection: "row", gap: 8, marginTop: 6 },
+    actionBtn: { flex: 1, borderRadius: 8, paddingVertical: 10, alignItems: "center" },
+    approveBtn: { backgroundColor: "#22c55e" },
+    approveBtnText: { color: "#fff", fontSize: 13, fontWeight: "600" },
+    denyBtn: { backgroundColor: theme.surface2 },
+    denyBtnText: { color: theme.destructive, fontSize: 13, fontWeight: "600" },
   });
 }

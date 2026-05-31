@@ -158,7 +158,6 @@ function makeStyles(theme: ReturnType<typeof useAppTheme>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.bg },
     header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 20 },
-    title: { fontSize: 26, fontWeight: "700", color: theme.text },
     subtitle: { fontSize: 13, color: theme.muted, marginTop: 2 },
     statsRow: {
       flexDirection: "row",

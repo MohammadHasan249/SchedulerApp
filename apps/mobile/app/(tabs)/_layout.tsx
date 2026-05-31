@@ -88,7 +88,6 @@ export default function TabLayout() {
         name="requests"
         options={{
           title: "Requests",
-          href: isAdmin ? null : undefined,
           tabBarIcon: ({ color, size }) => (
             <ArrowLeftRight size={size} color={color} />
           ),
