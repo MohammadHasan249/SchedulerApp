@@ -40,3 +40,13 @@ export function updateEmployee(
     body: JSON.stringify(data),
   });
 }
+
+export function updateEmployeePin(
+  employeeId: string,
+  pin: string
+): Promise<{ success: boolean; name: string }> {
+  return apiFetch(`/api/employees/${employeeId}/pin`, {
+    method: "PATCH",
+    body: JSON.stringify({ pin }),
+  });
+}

@@ -57,3 +57,14 @@ export function publishShifts(branchId: string, weekStart: string): Promise<void
 export function getShiftAssignments(shiftId: string): Promise<ShiftAssignment[]> {
   return apiFetch(`/api/shifts/${shiftId}/assign`);
 }
+
+export function autoAssignShifts(
+  branchId: string,
+  fromDate: string,
+  toDate: string
+): Promise<{ success: boolean; assignmentsCreated: number; assignments: ShiftAssignment[] }> {
+  return apiFetch("/api/shifts/auto-assign", {
+    method: "POST",
+    body: JSON.stringify({ branchId, fromDate, toDate }),
+  });
+}

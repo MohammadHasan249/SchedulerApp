@@ -6,7 +6,6 @@ import {
   shiftAssignments,
   shiftRoleRequirements,
   employees,
-  availability,
   timeOffRequests,
 } from "@scheduler/database/schema";
 import { eq } from "drizzle-orm";

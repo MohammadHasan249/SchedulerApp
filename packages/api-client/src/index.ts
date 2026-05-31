@@ -13,3 +13,4 @@ export * from "./exitPin";
 export * from "./branches";
 export * from "./jobRoles";
 export * from "./scheduleAI";
+export * from "./notifications";

@@ -1,0 +1,34 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'echo \"$CLAUDE_TOOL_INPUT_FILE_PATH\" | grep -q \"packages/database/src/schema\" && echo \"\n⚠️  Schema file changed — remember to generate a migration:\n    cd /tmp/SchedulerApp/packages/database && npx drizzle-kit generate\n\" || true'"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'echo \"$CLAUDE_TOOL_INPUT_FILE_PATH\" | grep -q \"apps/web/app/api\" && echo \"\n📱 API route changed — check packages/api-client/src/ for a matching mobile client function.\n\" || true'"
+          }
+        ]
+      }
+    ],
+    "PreCommit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /tmp/SchedulerApp && npx turbo run type-check 2>&1 | tail -20"
+          }
+        ]
+      }
+    ]
+  }
+}
