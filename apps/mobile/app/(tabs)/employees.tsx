@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "expo-router";
 import { UserPlus, Pencil, X, Users } from "lucide-react-native";
 import {
   getEmployees,
@@ -90,6 +91,7 @@ function PillSelect<T extends string>({
 export default function EmployeesScreen() {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
+  const router = useRouter();
   const role = useRole();
   const { session } = useAuthStore();
   const userBranchId = session?.user?.app_metadata?.branch_id as string | undefined;
@@ -256,7 +258,12 @@ export default function EmployeesScreen() {
       ) : (
         <ScrollView contentContainerStyle={styles.list}>
           {employees.map((emp) => (
-            <View key={emp.id} style={[styles.card, { backgroundColor: theme.surface, opacity: emp.isActive ? 1 : 0.5 }]}>
+            <TouchableOpacity
+              key={emp.id}
+              style={[styles.card, { backgroundColor: theme.surface, opacity: emp.isActive ? 1 : 0.5 }]}
+              onPress={() => router.push(`/(admin)/employees/${emp.id}`)}
+              activeOpacity={0.7}
+            >
               <View style={styles.cardAvatar}>
                 <Text style={[styles.cardAvatarText, { color: theme.primary }]}>
                   {emp.name[0]?.toUpperCase() ?? "?"}
@@ -286,10 +293,16 @@ export default function EmployeesScreen() {
                   )}
                 </View>
               </View>
-              <TouchableOpacity style={styles.editBtn} onPress={() => openEdit(emp)}>
+              <TouchableOpacity
+                style={styles.editBtn}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  openEdit(emp);
+                }}
+              >
                 <Pencil size={16} color={theme.muted} />
               </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
           ))}
         </ScrollView>
       )}

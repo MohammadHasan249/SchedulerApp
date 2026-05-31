@@ -15,7 +15,7 @@ export function createTimeOffRequest(data: {
 
 export function updateTimeOffRequest(
   id: string,
-  data: { status: "approved" | "rejected" }
+  data: { status: "approved" | "denied" }
 ): Promise<TimeOffRequest> {
   return apiFetch(`/api/time-off/${id}`, {
     method: "PATCH",

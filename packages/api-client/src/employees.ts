@@ -14,6 +14,14 @@ export function getEmployees(): Promise<Employee[]> {
   return apiFetch("/api/employees");
 }
 
+export function getEmployee(id: string): Promise<Employee & { pinHash?: string | null }> {
+  return apiFetch(`/api/employees/${id}`);
+}
+
+export function deleteEmployee(id: string): Promise<Employee> {
+  return apiFetch(`/api/employees/${id}`, { method: "DELETE" });
+}
+
 export type InviteEmployeeResult = Employee & { emailSent: boolean };
 
 export function inviteEmployee(payload: InviteEmployeePayload): Promise<InviteEmployeeResult> {

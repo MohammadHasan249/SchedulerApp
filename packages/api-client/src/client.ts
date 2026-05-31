@@ -34,6 +34,15 @@ export async function apiFetch<T>(
     }
   }
 
+  // 204 No Content / empty body — return undefined cast to T so callers typed as
+  // Promise<void> work without crashing JSON.parse("").
+  if (res.status === 204) {
+    return undefined as unknown as T;
+  }
+
   const text = await res.text();
+  if (!text) {
+    return undefined as unknown as T;
+  }
   return JSON.parse(text);
 }
