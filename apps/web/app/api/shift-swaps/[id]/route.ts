@@ -82,7 +82,7 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
       .where(eq(shiftSwapRequests.id, id))
       .returning();
 
-    createNotifications([
+    await createNotifications([
       {
         employeeId: updated.requesterId,
         organizationId: user.organizationId,
@@ -121,7 +121,7 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
       const notifyTargets = [updated.requesterId, updated.coverId].filter(
         (x): x is string => !!x
       );
-      createNotifications(
+      await createNotifications(
         notifyTargets.map((employeeId) => ({
           employeeId,
           organizationId: user.organizationId,
@@ -174,7 +174,7 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
       return row;
     });
 
-    createNotifications([
+    await createNotifications([
       {
         employeeId: updated.requesterId,
         organizationId: user.organizationId,

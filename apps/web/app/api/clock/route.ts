@@ -6,6 +6,10 @@ import { eq, and, desc, gte, lte, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
+import { checkRateLimit, getClientIp } from "@/lib/utils/rate-limit";
+import { getZonedDayStart } from "@/lib/utils/timezone";
+
+const CLOCK_RATE_LIMIT = { maxAttempts: 10, windowMs: 5 * 60 * 1000 };
 
 export const GET = withAuth(async function GET(request: Request) {
   const user = await getUser();
@@ -64,6 +68,19 @@ export const POST = withAuth(async function POST(request: Request) {
   }
 
   const { pin, branchSlug } = parsed.data;
+
+  // App-layer brute-force defense. Keyed by IP+branchSlug so one tampered
+  // kiosk can't lock out the whole branch's clock-in by another kiosk on a
+  // different network. Pair with infrastructure-level rate limiting in prod.
+  const rateKey = `clock:${getClientIp(request)}:${branchSlug}`;
+  const rl = checkRateLimit(rateKey, CLOCK_RATE_LIMIT);
+  if (!rl.allowed) {
+    const retryAfterSec = Math.max(1, Math.ceil((rl.resetAt - Date.now()) / 1000));
+    return NextResponse.json(
+      { error: "Too many attempts. Try again in a few minutes." },
+      { status: 429, headers: { "Retry-After": String(retryAfterSec) } }
+    );
+  }
 
   // Find branch by slug
   const [branch] = await db
@@ -138,9 +155,10 @@ export const POST = withAuth(async function POST(request: Request) {
 
   const matchedEmployee = matches[0];
 
-  // Determine clock type: if last event today is clock_in → clock_out, else clock_in
-  const dayStart = new Date();
-  dayStart.setHours(0, 0, 0, 0);
+  // Use the branch's timezone for the day boundary, not the server's. Without
+  // this, a Tokyo branch on a UTC server would see "today" start at 09:00 JST
+  // and misclassify late-night/early-morning clock_in/clock_out toggles.
+  const dayStart = getZonedDayStart(branch.timezone);
 
   const [lastEvent] = await db
     .select()

@@ -126,7 +126,7 @@ export const POST = withAuth(async function POST(request: Request) {
     .returning();
 
   if (coverId) {
-    createNotification({
+    await createNotification({
       employeeId: coverId,
       organizationId: user.organizationId,
       message: `${emp.name} has asked you to cover one of their shifts.`,
