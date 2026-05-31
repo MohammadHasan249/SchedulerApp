@@ -1,0 +1,19 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'echo \"$CLAUDE_TOOL_INPUT_FILE_PATH\" | grep -q \"packages/database/src/schema\" && echo \"\n⚠️  Schema file changed — remember to generate a migration:\n    cd $CLAUDE_PROJECT_DIR/packages/database && npx drizzle-kit generate\n\" || true'"
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'echo \"$CLAUDE_TOOL_INPUT_FILE_PATH\" | grep -q \"apps/web/app/api\" && echo \"\n📱 API route changed — run /scheduler-mobile-sync to check the mobile client for a matching function.\n\" || true'"
+          }
+        ]
+      }
+    ]
+  }
+}

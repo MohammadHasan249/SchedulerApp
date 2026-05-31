@@ -1,100 +1,94 @@
-# SchedulerApp — Claude Session Notes
+# SchedulerApp — Claude Code Context
 
-## What This Is
-Multi-tenant employee scheduling SaaS (like Homebase/Deputy).
-- **Repo:** `MohammadHasan249/SchedulerApp` (private) — Krayyan is a collaborator
-- **Stack:** Turborepo monorepo — `apps/web` (Next.js 15), `apps/mobile` (Expo 54), `packages/`
-- **DB:** Supabase (PostgreSQL) + Drizzle ORM
-- **Auth:** Supabase Auth (SSR cookies on web, Bearer token on mobile)
+## What this is
+Multi-tenant employee scheduling SaaS (Homebase/Deputy-style). Repo: `MohammadHasan249/SchedulerApp`. Collaborator: Krayyan.
+
+## Monorepo Structure
+```
+apps/web        → Next.js 15 App Router (deployed on Vercel)
+apps/mobile     → Expo 54 React Native (Expo Go for testing)
+packages/
+  api-client    → Shared fetch client used by mobile app
+  database      → Drizzle ORM schema + migrations (PostgreSQL)
+  types         → Shared TypeScript types
+```
+
+## Key Commands
+```bash
+# Dev
+npm run dev                          # runs web + all packages via turbo
+cd apps/mobile && npx expo start --tunnel --clear   # mobile dev server
+
+# Database
+cd packages/database && npx drizzle-kit generate    # generate migration from schema diff
+cd packages/database && npx drizzle-kit migrate     # apply migrations to DB
+
+# Type check (run before committing)
+npx turbo run type-check
+
+# Tests
+cd apps/web && npx vitest run
+```
 
 ## Supabase Project
-- **URL:** `https://zloueokwqntzrmckhneg.supabase.co`
-- **Publishable key:** `sb_publishable_3kU6rRaEGWHeaG6guLG-qA_rU59jMN5`
-- **Secret key:** in 1Password / ask Khaled (do not commit)
-- **DATABASE_URL:** `postgresql://postgres:[PASSWORD]@db.zloueokwqntzrmckhneg.supabase.co:5432/postgres`
-  - Find password: Supabase dashboard → Settings → Database → Reset database password
+Credentials live in `apps/web/.env.local` (web) and `apps/mobile/.env.local` (mobile), not in source. Required env vars:
 
-## Test Account
-- **Email:** `khaledrayyan@outlook.com`
-- **Password:** `Test1234!`
-- **Role:** org_admin (no branch assigned)
+**Web (`apps/web/.env.local`):**
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` (server-only, admin auth ops)
+- `DATABASE_URL` (Drizzle connection — reset DB password at Supabase → Settings → Database)
+- `NEXT_PUBLIC_APP_URL`
 
-## Bugs Found & Fixed
+**Mobile (`apps/mobile/.env.local`):**
+- `EXPO_PUBLIC_SUPABASE_URL`
+- `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `EXPO_PUBLIC_API_URL`
 
-### 1. Shifts disappear after creating (FIXED — PR #4)
-**File:** `apps/web/components/schedule/WeeklyScheduleGrid.tsx`
-**Root cause:** `refreshWeek()` called `router.refresh()` which triggered a Next.js server re-render,
-temporarily resetting `initialShifts` → `useEffect` fired `setShifts([])` → blank screen.
-**Fix:** Replaced `router.refresh()` with a direct `fetch('/api/shifts?weekStart=...')` call that
-updates state in-place. PR #4 is open on Moh's repo, awaiting his review.
+Ask a maintainer for current values.
 
-### 2. Employee invite returns 401 from mobile (ROOT CAUSE FOUND)
-**Not a code bug** — Moh's Vercel deployment (`scheduler-dirdzawlx-mohammads-projects-ebb11006.vercel.app`)
-has Vercel Deployment Protection enabled. All API requests from the mobile app are intercepted
-by Vercel's SSO wall before reaching the app. Fix: deploy our own instance (see below).
+## Deployment
+Deploy with `vercel --cwd apps/web` from the repo root after `vercel link`. Required env vars on Vercel: `DATABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_APP_URL`.
 
-### 3. Known code bugs (not yet fixed)
-- `employee-signup` uses `listUsers()` — slow at scale
-- Auto-assign can double-book (no check for existing assignments)
-- Timezone bug: `ShiftCreateDialog` uses local `getDay()`, auto-assign uses `getUTCDay()`
-- Invitation email hardcoded to `mohdhasan.dev@gmail.com`
-- Notifications are never created anywhere in the codebase
-- `OrgContextProvider` wired but `useOrg()` never called — dead code
+Note: if the production Vercel has Deployment Protection enabled, mobile API calls will return 401. Either deploy to a separate non-protected project for mobile testing or disable protection in Vercel project settings.
 
-## Deployment Plan (Our Own Vercel Instance)
-Goal: deploy `apps/web` to Krayyan's Vercel account so we don't depend on Moh's deployment.
+## Mobile App
+- Env file: `apps/mobile/.env.local`
+- `EXPO_PUBLIC_API_URL` must point to a non-protected deployment
+- Expo tunnel URL (current session): `exp://hn1yxns-anonymous-8081.exp.direct`
+- Test login: ask a maintainer (don't commit credentials to this file)
 
-**Vercel CLI:** installed, authenticated as `krayyan`
-**Current branch:** `fix/shift-create-disappear`
+## Auth Architecture
+- **Web:** Supabase cookie-based auth via SSR (`@supabase/ssr`)
+- **Mobile:** Supabase Bearer token stored in SecureStore
+  - SecureStore key format: `startsWith("sb-") && endsWith("-auth-token")` — critical, must match exactly
 
-### Env vars needed on Vercel:
-| Variable | Value |
-|----------|-------|
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://zloueokwqntzrmckhneg.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_3kU6rRaEGWHeaG6guLG-qA_rU59jMN5` |
-| `SUPABASE_SERVICE_ROLE_KEY` | ask Khaled / 1Password |
-| `DATABASE_URL` | get from Supabase Connect modal (reset password first) |
-| `NEXT_PUBLIC_APP_URL` | set to the Vercel URL after first deploy |
-| `RESEND_API_KEY` | optional — needed for invite emails |
-| `RESEND_FROM_EMAIL` | optional |
-| `DEEPSEEK_API_KEY` | optional — needed for AI scheduling assistant |
+## Database Schema (packages/database/src/schema/)
+Key tables: `organizations`, `branches`, `employees`, `shifts`, `shift_assignments`, `shift_role_requirements`, `time_off_requests`, `shift_swap_requests`, `availability`, `clock_events`, `notifications`, `job_roles`
 
-### Deploy command (from repo root):
-```bash
-cd /tmp/SchedulerApp
-vercel --cwd apps/web
-```
+Important constraints added in migration 0007:
+- `shift_assignments`: UNIQUE(shift_id, employee_id)
+- `shift_role_requirements`: UNIQUE(shift_id, job_role_id)
+- `employees`: UNIQUE(organization_id, email)
 
-### Supabase MCP
-Added to Claude user config:
-```
-claude mcp add --scope user --transport http supabase "https://mcp.supabase.com/mcp?project_ref=zloueokwqntzrmckhneg"
-```
-Authentication pending — run `claude /mcp`, select supabase, click Authenticate.
-Once authenticated, Claude can fetch DATABASE_URL and other config directly.
+## API Routes (apps/web/app/api/)
+`auth`, `availability`, `branches`, `clock`, `dashboard`, `employees`, `job-roles`, `notifications`, `org`, `settings`, `shift-swaps`, `shifts`, `time-off`, `ai`
 
-## Mobile App Setup
-- **Framework:** Expo 54 + React Native + Expo Router
-- **Env file:** `apps/mobile/.env.local`
-- **API URL:** points to Vercel deployment (update after our own deploy)
-- **Login:** `khaledrayyan@outlook.com` / `Test1234!`
+## Known Gotchas
+1. **Vercel Deployment Protection** — any `fetch()` to Moh's Vercel from mobile returns 401. Solution: deploy to own Vercel or ask Moh to disable protection.
+2. **SecureStore key mismatch** — if auth tokens don't persist on mobile, check the key format in `apps/mobile/lib/supabase.ts`
+3. **drizzle-kit generate before migrate** — always generate first, review the SQL, then apply. Never skip the review step.
+4. **apiFetch 204 handling** — `packages/api-client/src/client.ts` must handle empty body; fixed in PR #5.
+5. **Mobile API client** — when adding a new web API route, always add the matching function in `packages/api-client/src/`
+6. **Timezone** — `ShiftCreateDialog` uses local `getDay()`, auto-assign uses `getUTCDay()`. Be consistent — prefer UTC.
 
-### To start Expo dev server:
-```bash
-cd /tmp/SchedulerApp/apps/mobile
-EXPO_NO_PROMPT=1 npx expo start --tunnel
-```
-Scan QR in Expo Go app, or enter URL manually: `exp://[tunnel-url]`
+## PRs (on MohammadHasan249/SchedulerApp)
+- **PR #4:** shift disappear fix (awaiting review)
+- **PR #5:** 21 bug fixes batch
+- **PR #6:** mobile UI parity (admin requests, reports, job roles, employee detail, signup flows)
 
-### Clock-in kiosk:
-- Branch slug: `main` or `ottawa`
-- Employees with PINs: Mohammad, Dragonfire (branch `c5668a8b`), Fadi, Fadi Rayyan
-- Khaled's account has no PIN set — set one via web app employee settings
-
-## Next Steps
-1. Get DATABASE_URL (reset Supabase DB password → paste into connection string)
-2. Authenticate Supabase MCP (`claude /mcp` → supabase → Authenticate)
-3. Run `vercel` from `/tmp/SchedulerApp` to deploy web app
-4. Set env vars on Vercel
-5. Update `EXPO_PUBLIC_API_URL` in mobile `.env.local` to the new Vercel URL
-6. Re-run Expo and test invite + shift creation
+## Skills Available
+- `/scheduler-migrate` — generate + apply a Drizzle migration
+- `/scheduler-mobile-sync` — diff web API routes vs mobile api-client
+- `/scheduler-pr` — create a PR to Moh's repo
+- `/scheduler-seed` — seed test data into Supabase

@@ -44,7 +44,7 @@ describe('POST /api/clock - PIN Kiosk', () => {
   });
 
   it('should default to clock_in when no prior event', () => {
-    const lastEvent = null;
+    const lastEvent = null as { type: 'clock_in' | 'clock_out' } | null;
     const clockType = lastEvent ? (lastEvent.type === 'clock_in' ? 'clock_out' : 'clock_in') : 'clock_in';
 
     expect(clockType).toBe('clock_in');
