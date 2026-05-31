@@ -1,5 +1,5 @@
 export type EmployeeRole = "org_admin" | "branch_manager" | "employee";
-export type TimeOffStatus = "pending" | "approved" | "rejected";
+export type TimeOffStatus = "pending" | "approved" | "denied";
 
 export interface Notification {
   id: string;

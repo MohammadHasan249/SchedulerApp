@@ -75,8 +75,9 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
     return row;
   });
 
-  // Notify the employee of the decision (non-blocking).
-  createNotification({
+  // Notify the employee of the decision. createNotification swallows its own
+  // errors, so awaiting only adds the commit latency — not extra failure modes.
+  await createNotification({
     employeeId: updated.employeeId,
     organizationId: user.organizationId,
     message:

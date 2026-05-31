@@ -317,7 +317,7 @@ export const POST = withAuth(async function POST(request: Request) {
       })
       .returning();
 
-    createNotification({
+    await createNotification({
       employeeId: emp.id,
       organizationId: user.organizationId,
       message: `You've been assigned to a shift starting ${new Date(shiftRow.startTime).toLocaleString()}.`,
