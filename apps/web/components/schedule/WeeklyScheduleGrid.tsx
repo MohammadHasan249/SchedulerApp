@@ -11,7 +11,7 @@ import { WeekNavigator } from "./WeekNavigator";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import type { Shift, ShiftAssignment, Employee, Branch } from "@scheduler/database/schema";
+import type { Shift, ShiftAssignment, Employee, Branch } from "@scheduler/types";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DAY_LABELS_FULL = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];

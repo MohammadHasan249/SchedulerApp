@@ -3,6 +3,11 @@ import { db } from "@/lib/db";
 import { shiftSwapRequests, employees, shifts, branches, shiftAssignments } from "@scheduler/database/schema";
 import { eq, and, or, inArray } from "drizzle-orm";
 import { ShiftSwapTable } from "@/components/shift-swaps/ShiftSwapTable";
+import {
+  serializeEmployee,
+  serializeShift,
+  serializeShiftSwap,
+} from "@/lib/serialize";
 
 export default async function ShiftSwapsPage() {
   const user = await getUser();
@@ -93,9 +98,9 @@ export default async function ShiftSwapsPage() {
         </p>
       </div>
       <ShiftSwapTable
-        swaps={swaps}
-        shifts={shiftRows}
-        employees={employeeRows}
+        swaps={swaps.map(serializeShiftSwap)}
+        shifts={shiftRows.map((s) => serializeShift(s))}
+        employees={employeeRows.map(serializeEmployee)}
         currentEmployeeId={currentEmployeeId}
         canApprove={canApprove}
       />

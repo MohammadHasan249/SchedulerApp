@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import type { JobRole } from "@scheduler/database/schema";
+import type { JobRole } from "@scheduler/types";
 import { extractErrorMessage } from "@/lib/utils/extract-error";
 
 type Props = {

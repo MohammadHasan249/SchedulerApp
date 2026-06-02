@@ -2,7 +2,7 @@
 
 import { createContext, useContext } from "react";
 import { type AppUser } from "@/lib/auth/getUser";
-import { type OrganizationTheme } from "@scheduler/database/schema";
+import { type OrganizationTheme } from "@scheduler/types";
 
 type Organization = {
   name?: string;

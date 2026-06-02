@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { BranchForm } from "./BranchForm";
-import type { Branch } from "@scheduler/database/schema";
+import type { Branch } from "@scheduler/types";
 
 type Props = {
   branches: Branch[];

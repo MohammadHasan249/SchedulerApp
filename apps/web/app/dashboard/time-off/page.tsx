@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { timeOffRequests, employees } from "@scheduler/database/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { TimeOffRequestTable } from "@/components/time-off/TimeOffRequestTable";
+import { serializeEmployee, serializeTimeOff } from "@/lib/serialize";
 
 export default async function TimeOffPage() {
   const user = await getUser();
@@ -51,9 +52,9 @@ export default async function TimeOffPage() {
         </p>
       </div>
       <TimeOffRequestTable
-        requests={requests}
+        requests={requests.map(serializeTimeOff)}
         canApprove={canApprove}
-        employees={employeeRows}
+        employees={employeeRows.map(serializeEmployee)}
       />
     </div>
   );

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { branches, employees, shifts } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
+import { requireOrgAdmin } from "@/lib/auth/policies";
 import { eq, and, gte } from "drizzle-orm";
 
 const patchSchema = z.object({
@@ -25,9 +26,8 @@ async function getBranch(id: string, organizationId: string) {
 export const PATCH = withAuth(async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
 
-  if (user.role !== "org_admin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const denied = requireOrgAdmin(user);
+  if (denied) return denied;
 
   const { id } = await params;
   const branch = await getBranch(id, user.organizationId);
@@ -60,9 +60,8 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
 export const DELETE = withAuth(async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
 
-  if (user.role !== "org_admin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const denied = requireOrgAdmin(user);
+  if (denied) return denied;
 
   const { id } = await params;
   const branch = await getBranch(id, user.organizationId);

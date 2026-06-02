@@ -9,7 +9,7 @@ import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
 import { format } from "date-fns";
-import type { Notification } from "@scheduler/database/schema";
+import type { Notification } from "@scheduler/types";
 
 type Props = {
   employeeId: string;

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { THEME_PRESETS } from "@scheduler/types";
-import type { OrganizationTheme } from "@scheduler/database/schema";
+import type { OrganizationTheme } from "@scheduler/types";
 
 const FIXED_THEME = {
   secondary: "#64748b",

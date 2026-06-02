@@ -1,7 +1,7 @@
 "use client";
 
 import { ThemeEditor } from "./ThemeEditor";
-import type { OrganizationTheme } from "@scheduler/database/schema";
+import type { OrganizationTheme } from "@scheduler/types";
 
 type Props = {
   initialTheme: OrganizationTheme;

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { employees, branches, jobRoles } from "@scheduler/database/schema";
 import { eq, and } from "drizzle-orm";
 import { EmployeeTable } from "@/components/employees/EmployeeTable";
+import { serializeEmployee, serializeBranch, serializeJobRole } from "@/lib/serialize";
 
 export default async function EmployeesPage() {
   const user = await getUser();
@@ -27,9 +28,9 @@ export default async function EmployeesPage() {
         <p className="text-muted-foreground text-sm mt-1">Manage your team members.</p>
       </div>
       <EmployeeTable
-        employees={employeeRows}
-        branches={branchRows}
-        jobRoles={roleRows}
+        employees={employeeRows.map(serializeEmployee)}
+        branches={branchRows.map(serializeBranch)}
+        jobRoles={roleRows.map(serializeJobRole)}
         currentUserRole={user.role}
         currentUserBranchId={user.branchId}
       />

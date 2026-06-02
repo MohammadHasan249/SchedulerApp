@@ -9,7 +9,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TimeOffRequestForm } from "./TimeOffRequestForm";
-import type { TimeOffRequest, Employee } from "@scheduler/database/schema";
+import type { TimeOffRequest, Employee } from "@scheduler/types";
 
 type RequestWithEmployee = TimeOffRequest & { employee?: Employee };
 

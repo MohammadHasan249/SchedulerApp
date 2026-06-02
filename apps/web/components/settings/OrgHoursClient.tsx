@@ -1,7 +1,7 @@
 "use client";
 
 import { HoursEditor } from "./HoursEditor";
-import type { HoursSchedule } from "@scheduler/database/schema";
+import type { HoursSchedule } from "@scheduler/types";
 
 type Props = {
   initialHours: HoursSchedule;

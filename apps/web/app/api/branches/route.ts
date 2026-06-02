@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { branches } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
+import { requireOrgAdmin } from "@/lib/auth/policies";
 import { eq, and } from "drizzle-orm";
 import { slugify } from "@/lib/utils/slugify";
 
@@ -28,9 +29,8 @@ export const GET = withAuth(async function GET() {
 export const POST = withAuth(async function POST(request: Request) {
   const user = await getUser();
 
-  if (user.role !== "org_admin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const denied = requireOrgAdmin(user);
+  if (denied) return denied;
 
   const body = await request.json();
   const parsed = createSchema.safeParse(body);
