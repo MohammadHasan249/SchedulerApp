@@ -121,10 +121,9 @@ export const POST = withAuth(async function POST(request: Request) {
     .values({ employeeId: emp.id, startDate, endDate, reason })
     .returning();
 
-  // Send notification email (non-blocking)
-  sendTimeOffNotification(emp.id, user.organizationId, startDate, endDate, reason).catch((error) => {
-    console.error("Failed to send time-off notification:", error);
-  });
+  // Send notification email. sendTimeOffNotification swallows its own errors,
+  // so awaiting only adds latency — no new failure modes.
+  await sendTimeOffNotification(emp.id, user.organizationId, startDate, endDate, reason);
 
   return NextResponse.json(req, { status: 201 });
 });

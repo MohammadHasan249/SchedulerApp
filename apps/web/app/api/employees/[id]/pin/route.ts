@@ -6,15 +6,29 @@ import { withAuth } from "@/lib/auth/withAuth";
 import { db } from "@/lib/db";
 import { employees } from "@scheduler/database/schema";
 import { pinCollidesWithExisting } from "@/lib/employees/pin";
+import { checkRateLimit, getClientIp } from "@/lib/utils/rate-limit";
 import { eq, and } from "drizzle-orm";
 
 const pinSchema = z.object({
   pin: z.string().regex(/^\d{4,6}$/),
 });
 
+// Setting a PIN runs an O(N) bcrypt collision scan. Cap attempts per-user so a
+// compromised session can't be used to DoS the box.
+const PIN_SET_RATE_LIMIT = { maxAttempts: 5, windowMs: 5 * 60 * 1000 };
+
 export const PATCH = withAuth(async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
   const { id } = await params;
+
+  const rl = checkRateLimit(`pin-set:${getClientIp(request)}:${user.id}`, PIN_SET_RATE_LIMIT);
+  if (!rl.allowed) {
+    const retryAfterSec = Math.max(1, Math.ceil((rl.resetAt - Date.now()) / 1000));
+    return NextResponse.json(
+      { error: "Too many PIN changes. Try again in a few minutes." },
+      { status: 429, headers: { "Retry-After": String(retryAfterSec) } }
+    );
+  }
 
   // Users can only update their own PIN
   const [employee] = await db
