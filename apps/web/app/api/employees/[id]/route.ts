@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { employees, branches, jobRoles } from "@scheduler/database/schema";
+import { employees, branches, jobRoles, shifts, shiftAssignments } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { pinCollidesWithExisting } from "@/lib/employees/pin";
-import { eq, and } from "drizzle-orm";
+import { eq, and, gte, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 const patchSchema = z.object({
@@ -121,36 +121,41 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
     return NextResponse.json(employee);
   }
 
-  // DB update first; then sync Supabase app_metadata. If metadata sync fails
-  // we roll the DB row back so the two stores can't diverge (previously they
-  // could — metadata went first and a DB failure left JWT claims pointing at
-  // permissions the DB never recorded).
-  const [updated] = await db
-    .update(employees)
-    .set(updates)
-    .where(eq(employees.id, id))
-    .returning();
-
-  if ((rest.role || rest.branchId !== undefined) && employee.authUserId) {
-    const supabase = createAdminClient();
-    const syncResult = await supabase.auth.admin.updateUserById(employee.authUserId, {
-      app_metadata: {
-        role: rest.role ?? employee.role,
-        organization_id: employee.organizationId,
-        branch_id: rest.branchId !== undefined ? rest.branchId : employee.branchId,
-      },
-    });
-    if (syncResult.error) {
-      // Roll back to pre-update state so DB and auth metadata stay consistent.
-      await db
+  // Run DB update + auth metadata sync in a single transaction. If the metadata
+  // sync fails we throw inside the tx and Postgres rolls back ALL field changes
+  // — name/jobRoleId/maxHoursPerWeek/pin too, not just role/branch (the old
+  // hand-rolled rollback only restored role+branchId, leaving the others
+  // committed → inconsistent state).
+  let updated;
+  try {
+    updated = await db.transaction(async (tx) => {
+      const [row] = await tx
         .update(employees)
-        .set({
-          role: employee.role,
-          branchId: employee.branchId,
-        })
-        .where(eq(employees.id, id));
-      return NextResponse.json({ error: syncResult.error.message }, { status: 500 });
-    }
+        .set(updates)
+        .where(eq(employees.id, id))
+        .returning();
+
+      if ((rest.role || rest.branchId !== undefined) && employee.authUserId) {
+        const supabase = createAdminClient();
+        const syncResult = await supabase.auth.admin.updateUserById(employee.authUserId, {
+          app_metadata: {
+            role: rest.role ?? employee.role,
+            organization_id: employee.organizationId,
+            branch_id: rest.branchId !== undefined ? rest.branchId : employee.branchId,
+          },
+        });
+        if (syncResult.error) {
+          throw new Error(syncResult.error.message);
+        }
+      }
+
+      return row;
+    });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Failed to update employee" },
+      { status: 500 }
+    );
   }
 
   // Re-enable the auth user when an employee is reactivated.
@@ -179,14 +184,38 @@ export const DELETE = withAuth(async function DELETE(request: Request, { params 
   const employee = await getEmployee(id, user.organizationId);
   if (!employee) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // Deactivate rather than hard-delete, and ban the Supabase auth user so any
-  // active JWT they hold stops working. Without this they'd retain their
-  // session and most API endpoints don't recheck isActive.
-  const [updated] = await db
-    .update(employees)
-    .set({ isActive: false })
-    .where(eq(employees.id, id))
-    .returning();
+  // Deactivate rather than hard-delete, ban the Supabase auth user, AND
+  // unassign them from any future shifts. Skipping the last step left
+  // schedule grids showing inactive employees and double-counted hours in
+  // reports until someone manually unassigned every shift.
+  const updated = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(employees)
+      .set({ isActive: false })
+      .where(eq(employees.id, id))
+      .returning();
+
+    const futureShiftIds = (
+      await tx
+        .select({ id: shifts.id })
+        .from(shifts)
+        .innerJoin(shiftAssignments, eq(shiftAssignments.shiftId, shifts.id))
+        .where(and(eq(shiftAssignments.employeeId, id), gte(shifts.startTime, new Date())))
+    ).map((r) => r.id);
+
+    if (futureShiftIds.length > 0) {
+      await tx
+        .delete(shiftAssignments)
+        .where(
+          and(
+            eq(shiftAssignments.employeeId, id),
+            inArray(shiftAssignments.shiftId, futureShiftIds)
+          )
+        );
+    }
+
+    return row;
+  });
 
   if (employee.authUserId) {
     try {

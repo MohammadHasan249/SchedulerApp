@@ -12,9 +12,13 @@ import { getApiUser as getUser } from "@/lib/auth/getUser";
 import { withAuth } from "@/lib/auth/withAuth";
 import { validateAssignment } from "@/lib/scheduling/assignment-validator";
 import { createNotification } from "@/lib/notifications/create";
+import { checkRateLimit, getClientIp } from "@/lib/utils/rate-limit";
 import { eq, and, gte, lte, inArray } from "drizzle-orm";
 
 const MAX_SHIFT_HOURS = 10;
+
+const DEEPSEEK_TIMEOUT_MS = 30_000;
+const AI_RATE_LIMIT = { maxAttempts: 20, windowMs: 60 * 60 * 1000 };
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant"]),
@@ -99,6 +103,17 @@ export const POST = withAuth(async function POST(request: Request) {
     return NextResponse.json(
       { error: "AI assistant is not configured." },
       { status: 503 }
+    );
+  }
+
+  // Rate-limit by org. Each request can trigger up to 10 DeepSeek calls — left
+  // unbounded, a single tab open in a browser could rack up real $ in minutes.
+  const rl = checkRateLimit(`ai:${user.organizationId}`, AI_RATE_LIMIT);
+  if (!rl.allowed) {
+    const retryAfterSec = Math.max(1, Math.ceil((rl.resetAt - Date.now()) / 1000));
+    return NextResponse.json(
+      { error: "AI quota exhausted for this hour. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(retryAfterSec) } }
     );
   }
 
@@ -390,20 +405,31 @@ Your job:
   ];
 
   for (let i = 0; i < 10; i++) {
-    const res = await fetch(DEEPSEEK_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        messages,
-        tools: TOOLS,
-        tool_choice: "auto",
-        temperature: 0.3,
-      }),
-    });
+    let res: Response;
+    try {
+      res = await fetch(DEEPSEEK_URL, {
+        method: "POST",
+        signal: AbortSignal.timeout(DEEPSEEK_TIMEOUT_MS),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          messages,
+          tools: TOOLS,
+          tool_choice: "auto",
+          temperature: 0.3,
+        }),
+      });
+    } catch (e) {
+      const isTimeout = e instanceof DOMException && e.name === "TimeoutError";
+      console.error(isTimeout ? "DeepSeek timeout" : "DeepSeek fetch failed:", e);
+      return NextResponse.json(
+        { error: isTimeout ? "AI service timed out" : "AI service unreachable" },
+        { status: 504 }
+      );
+    }
 
     if (!res.ok) {
       console.error("DeepSeek error:", await res.text());
@@ -418,26 +444,31 @@ Your job:
     messages.push(msg);
 
     if (choice.finish_reason === "tool_calls" && msg.tool_calls?.length) {
-      const toolResults: DeepSeekMessage[] = await Promise.all(
-        msg.tool_calls.map(async (tc: DeepSeekToolCall) => {
-          let args: Record<string, unknown> = {};
-          try {
-            args = JSON.parse(tc.function.arguments || "{}");
-          } catch {
-            return {
-              role: "tool" as const,
-              tool_call_id: tc.id,
-              content: JSON.stringify({ error: "Invalid tool arguments (malformed JSON)" }),
-            };
-          }
-          const result = await executeTool(tc.function.name, args);
-          return {
+      // Run tool calls sequentially. With Promise.all, the model can request
+      // two `assign_employee` calls targeting the same shift in one turn; both
+      // pass `validateAssignment` independently and both insert, blowing past
+      // headcount caps. Sequential execution lets each call see the previous
+      // call's mutation.
+      const toolResults: DeepSeekMessage[] = [];
+      for (const tc of msg.tool_calls as DeepSeekToolCall[]) {
+        let args: Record<string, unknown> = {};
+        try {
+          args = JSON.parse(tc.function.arguments || "{}");
+        } catch {
+          toolResults.push({
             role: "tool" as const,
             tool_call_id: tc.id,
-            content: JSON.stringify(result),
-          };
-        })
-      );
+            content: JSON.stringify({ error: "Invalid tool arguments (malformed JSON)" }),
+          });
+          continue;
+        }
+        const result = await executeTool(tc.function.name, args);
+        toolResults.push({
+          role: "tool" as const,
+          tool_call_id: tc.id,
+          content: JSON.stringify(result),
+        });
+      }
       messages.push(...toolResults);
     } else {
       return NextResponse.json({ reply: msg.content ?? "" });

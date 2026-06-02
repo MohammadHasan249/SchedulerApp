@@ -15,12 +15,28 @@ export class ApiAuthError extends Error {
   constructor() { super("Unauthorized"); }
 }
 
+const VALID_ROLES = new Set(["org_admin", "branch_manager", "employee"]);
+
 function parseAppUser(user: { id: string; email?: string; app_metadata: Record<string, unknown> }): AppUser {
+  const role = user.app_metadata.role;
+  const organizationId = user.app_metadata.organization_id;
+
+  // Reject malformed sessions rather than letting `undefined` propagate through
+  // every downstream filter. A misconfigured user (signup half-failed, manual
+  // SQL edit) would otherwise silently match every row via
+  // `eq(table.organizationId, undefined)`.
+  if (typeof role !== "string" || !VALID_ROLES.has(role)) {
+    throw new ApiAuthError();
+  }
+  if (typeof organizationId !== "string" || organizationId.length === 0) {
+    throw new ApiAuthError();
+  }
+
   return {
     id: user.id,
     email: user.email!,
-    role: user.app_metadata.role as AppUser["role"],
-    organizationId: user.app_metadata.organization_id as string,
+    role: role as AppUser["role"],
+    organizationId,
     branchId: (user.app_metadata.branch_id as string | undefined) ?? null,
   };
 }
