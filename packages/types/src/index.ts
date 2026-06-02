@@ -86,13 +86,13 @@ export interface TimeOffRequest {
   endDate: string;
   reason: string | null;
   status: TimeOffStatus;
+  createdAt: string;
 }
 
 export interface JobRole {
   id: string;
   organizationId: string;
   name: string;
-  color: string | null;
 }
 
 export interface Organization {
@@ -110,6 +110,9 @@ export type OrganizationTheme = {
   background: string;
   foreground: string;
 };
+
+// Keys are day-of-week strings "0"–"6". A missing key means the day is closed.
+export type HoursSchedule = Record<string, { startTime: string; endTime: string }>;
 
 export const THEME_PRESETS = [
   { key: "blue",    label: "Blue",    primary: "#2563eb" },

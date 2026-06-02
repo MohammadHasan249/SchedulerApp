@@ -4,6 +4,12 @@ import { shifts, shiftAssignments, employees, branches } from "@scheduler/databa
 import { eq, and, inArray, gte, lte } from "drizzle-orm";
 import { startOfWeek, addDays } from "date-fns";
 import { WeeklyScheduleGrid } from "@/components/schedule/WeeklyScheduleGrid";
+import {
+  serializeShift,
+  serializeAssignment,
+  serializeEmployee,
+  serializeBranch,
+} from "@/lib/serialize";
 
 type AvailabilityRow = { dayOfWeek: number; startTime: string; endTime: string };
 
@@ -86,10 +92,10 @@ export default async function SchedulePage() {
         <p className="text-muted-foreground text-sm mt-1">Weekly shift schedule.</p>
       </div>
       <WeeklyScheduleGrid
-        shifts={visibleShifts}
-        assignments={assignmentRows}
-        employees={employeeRows}
-        branches={branchRows}
+        shifts={visibleShifts.map((s) => serializeShift(s))}
+        assignments={assignmentRows.map(serializeAssignment)}
+        employees={employeeRows.map(serializeEmployee)}
+        branches={branchRows.map(serializeBranch)}
         availability={availabilityRows}
         canEdit={user.role !== "employee"}
         currentBranchId={currentBranchId}

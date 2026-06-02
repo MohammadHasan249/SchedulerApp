@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { ShiftSwapRequest, Shift, Employee } from "@scheduler/database/schema";
+import type { ShiftSwapRequest, Shift, Employee } from "@scheduler/types";
 
 type SwapWithDetails = ShiftSwapRequest & { shift?: Shift };
 

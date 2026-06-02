@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmployeeForm } from "./EmployeeForm";
-import type { Employee, Branch, JobRole } from "@scheduler/database/schema";
+import type { Employee, Branch, JobRole } from "@scheduler/types";
 
 type Props = {
   employees: Employee[];

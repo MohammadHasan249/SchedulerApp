@@ -3,7 +3,7 @@
 import { format } from "date-fns";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import type { Shift, ShiftAssignment, Employee } from "@scheduler/database/schema";
+import type { Shift, ShiftAssignment, Employee } from "@scheduler/types";
 
 type Props = {
   shift: Shift;

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { jobRoles } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
+import { requireOrgAdmin, requireManagerOrAdmin } from "@/lib/auth/policies";
 import { eq, and } from "drizzle-orm";
 
 const patchSchema = z.object({
@@ -23,9 +24,8 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
   const user = await getUser();
   const { id } = await params;
 
-  if (user.role !== "org_admin" && user.role !== "branch_manager") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const denied = requireManagerOrAdmin(user);
+  if (denied) return denied;
 
   const role = await getRole(id, user.organizationId);
   if (!role) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -51,9 +51,8 @@ export const DELETE = withAuth(async function DELETE(request: Request, { params 
   const user = await getUser();
   const { id } = await params;
 
-  if (user.role !== "org_admin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const denied = requireOrgAdmin(user);
+  if (denied) return denied;
 
   const role = await getRole(id, user.organizationId);
   if (!role) return NextResponse.json({ error: "Not found" }, { status: 404 });

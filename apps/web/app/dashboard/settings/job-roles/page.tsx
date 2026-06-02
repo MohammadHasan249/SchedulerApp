@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { jobRoles } from "@scheduler/database/schema";
 import { eq } from "drizzle-orm";
 import { JobRolesList } from "@/components/job-roles/JobRolesList";
+import { serializeJobRole } from "@/lib/serialize";
 
 export default async function JobRolesPage() {
   const user = await getUser();
@@ -22,7 +23,7 @@ export default async function JobRolesPage() {
           Create and manage job roles for your organization.
         </p>
       </div>
-      <JobRolesList roles={roles} />
+      <JobRolesList roles={roles.map(serializeJobRole)} />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { jobRoles } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
+import { requireManagerOrAdmin } from "@/lib/auth/policies";
 import { eq } from "drizzle-orm";
 
 const createSchema = z.object({
@@ -24,9 +25,8 @@ export const GET = withAuth(async function GET() {
 export const POST = withAuth(async function POST(request: Request) {
   const user = await getUser();
 
-  if (user.role !== "org_admin" && user.role !== "branch_manager") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const denied = requireManagerOrAdmin(user);
+  if (denied) return denied;
 
   const body = await request.json();
   const parsed = createSchema.safeParse(body);

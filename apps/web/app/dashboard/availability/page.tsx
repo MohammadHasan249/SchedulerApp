@@ -5,6 +5,7 @@ import { employees } from "@scheduler/database/schema";
 import { eq, and } from "drizzle-orm";
 import { AvailabilityEditor } from "@/components/availability/AvailabilityEditor";
 import { TeamAvailabilityView } from "@/components/availability/TeamAvailabilityView";
+import { serializeEmployee } from "@/lib/serialize";
 
 type AvailabilityRow = { dayOfWeek: number; startTime: string; endTime: string };
 
@@ -66,7 +67,7 @@ export default async function AvailabilityPage() {
             View availability for team members.
           </p>
         </div>
-        <TeamAvailabilityView employees={teamEmployees} availability={[]} />
+        <TeamAvailabilityView employees={teamEmployees.map(serializeEmployee)} availability={[]} />
       </div>
     );
   }

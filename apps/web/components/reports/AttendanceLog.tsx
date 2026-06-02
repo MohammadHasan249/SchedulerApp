@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { Branch } from "@scheduler/database/schema";
+import type { Branch } from "@scheduler/types";
 
 type ClockRow = {
   event: { id: string; type: "clock_in" | "clock_out"; timestamp: Date | string; branchId: string };
