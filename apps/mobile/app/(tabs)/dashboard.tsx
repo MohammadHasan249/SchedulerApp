@@ -58,14 +58,18 @@ export default function DashboardScreen() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   async function load(opts: { silent?: boolean } = {}) {
     try {
       const data = await getDashboardStats();
       setStats(data);
+      setLoadError(null);
     } catch (e) {
+      const msg = e instanceof Error ? e.message : "Please try again.";
+      setLoadError(msg);
       if (!opts.silent) {
-        Alert.alert("Couldn't load dashboard", e instanceof Error ? e.message : "Please try again.");
+        Alert.alert("Couldn't load dashboard", msg);
       }
     } finally {
       setLoading(false);
@@ -105,6 +109,12 @@ export default function DashboardScreen() {
 
         {loading ? (
           <ActivityIndicator color={theme.primary} style={{ marginTop: 40 }} />
+        ) : loadError && !stats ? (
+          <View style={styles.errorState}>
+            <Text style={[styles.errorText, { color: theme.destructive }]}>
+              {loadError}
+            </Text>
+          </View>
         ) : stats ? (
           <>
             <View style={styles.statsRow}>
@@ -195,6 +205,15 @@ function makeStyles(theme: ReturnType<typeof useAppTheme>) {
       fontSize: 14,
       color: theme.muted,
       padding: 16,
+      textAlign: "center",
+    },
+    errorState: {
+      alignItems: "center",
+      paddingTop: 60,
+      paddingHorizontal: 32,
+    },
+    errorText: {
+      fontSize: 14,
       textAlign: "center",
     },
   });

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { safeJson } from "@/lib/utils/safe-json";
 import { db } from "@/lib/db";
 import { jobRoles } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
@@ -30,7 +31,8 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
   const role = await getRole(id, user.organizationId);
   if (!role) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const body = await request.json();
+  const [body, jsonErr] = await safeJson(request);
+  if (jsonErr) return jsonErr;
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 

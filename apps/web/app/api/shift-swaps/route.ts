@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { safeJson } from "@/lib/utils/safe-json";
 import { db } from "@/lib/db";
 import { shiftSwapRequests, employees, shifts, branches, shiftAssignments } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
@@ -70,7 +71,8 @@ export const POST = withAuth(async function POST(request: Request) {
   const emp = await getEmployeeForUser(user.id, user.organizationId);
   if (!emp) return NextResponse.json({ error: "Employee profile not found" }, { status: 404 });
 
-  const body = await request.json();
+  const [body, jsonErr] = await safeJson(request);
+  if (jsonErr) return jsonErr;
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 

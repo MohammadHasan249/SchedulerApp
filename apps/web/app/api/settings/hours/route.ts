@@ -1,17 +1,25 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { safeJson } from "@/lib/utils/safe-json";
 import { db } from "@/lib/db";
 import { organizations } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser";
 import { withAuth } from "@/lib/auth/withAuth";
 import { eq } from "drizzle-orm";
 
-const timeRegex = /^\d{2}:\d{2}$/;
+const timeSchema = z
+  .string()
+  .regex(/^\d{2}:\d{2}$/)
+  .refine((t) => {
+    const [h, m] = t.split(":").map(Number);
+    return h >= 0 && h <= 23 && m >= 0 && m <= 59;
+  }, "Invalid time value");
+
 const scheduleSchema = z.record(
   z.string().regex(/^[0-6]$/),
   z.object({
-    startTime: z.string().regex(timeRegex),
-    endTime: z.string().regex(timeRegex),
+    startTime: timeSchema,
+    endTime: timeSchema,
   })
 );
 
@@ -31,7 +39,8 @@ export const PUT = withAuth(async function PUT(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = await request.json();
+  const [body, jsonErr] = await safeJson(request);
+  if (jsonErr) return jsonErr;
   const parsed = scheduleSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });

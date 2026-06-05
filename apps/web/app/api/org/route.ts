@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { safeJson } from "@/lib/utils/safe-json";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { db } from "@/lib/db";
 import { organizations, employees, branches } from "@scheduler/database/schema";
@@ -15,7 +16,8 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
-  const body = await request.json();
+  const [body, jsonErr] = await safeJson(request);
+  if (jsonErr) return jsonErr;
   const parsed = schema.safeParse(body);
 
   if (!parsed.success) {

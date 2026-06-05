@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { safeJson } from "@/lib/utils/safe-json";
 import { db } from "@/lib/db";
 import { clockEvents, employees, branches } from "@scheduler/database/schema";
 import { eq, and, desc, gte, lte, inArray } from "drizzle-orm";
@@ -61,7 +62,8 @@ const clockSchema = z.object({
 });
 
 export const POST = withAuth(async function POST(request: Request) {
-  const body = await request.json();
+  const [body, jsonErr] = await safeJson(request);
+  if (jsonErr) return jsonErr;
   const parsed = clockSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });

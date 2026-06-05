@@ -50,7 +50,7 @@ export default function ClockInScreen() {
   // Block navigation when locked
   useEffect(() => {
     if (!isLocked) return;
-    const unsub = navigation.addListener("beforeRemove", (e: any) => {
+    const unsub = navigation.addListener("beforeRemove", (e) => {
       e.preventDefault();
     });
     const backHandler = BackHandler.addEventListener(

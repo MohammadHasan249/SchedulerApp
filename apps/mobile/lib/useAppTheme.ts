@@ -12,6 +12,7 @@ const DARK = {
   textMuted: "#94a3b8",
   inactive: "#475569",
   destructive: "#ef4444",
+  overlay: "rgba(0,0,0,0.45)",
 } as const;
 
 export function useAppTheme() {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { safeJson } from "@/lib/utils/safe-json";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { autoAssignShifts } from "@/lib/scheduling/auto-assign";
@@ -27,7 +28,8 @@ export const POST = withAuth(async function POST(request: Request) {
     );
   }
 
-  const body = await request.json();
+  const [body, jsonErr] = await safeJson(request);
+  if (jsonErr) return jsonErr;
   const parsed = autoAssignSchema.safeParse(body);
 
   if (!parsed.success) {
