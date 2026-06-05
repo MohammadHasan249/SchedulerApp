@@ -469,7 +469,7 @@ function makeStyles(theme: ReturnType<typeof useAppTheme>) {
     roleLabel: { fontSize: 12, color: theme.muted },
     // Modal
     modalBackdrop: {
-      flex: 1, backgroundColor: "rgba(0,0,0,0.45)",
+      flex: 1, backgroundColor: theme.overlay,
       justifyContent: "flex-end",
     },
     modalSheet: {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { safeJson } from "@/lib/utils/safe-json";
 import { db } from "@/lib/db";
 import { organizations } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser";
@@ -18,7 +19,8 @@ export const PUT = withAuth(async function PUT(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = await request.json();
+  const [body, jsonErr] = await safeJson(request);
+  if (jsonErr) return jsonErr;
   const parsed = pinSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "PIN must be 4–6 digits" }, { status: 400 });
@@ -50,7 +52,8 @@ export const POST = withAuth(async function POST(request: Request) {
     );
   }
 
-  const body = await request.json();
+  const [body, jsonErr2] = await safeJson(request);
+  if (jsonErr2) return jsonErr2;
   const parsed = pinSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ valid: false });

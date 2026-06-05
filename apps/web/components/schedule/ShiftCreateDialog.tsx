@@ -182,26 +182,41 @@ export function ShiftCreateDialog({
     }
 
     // Sync assignments: add newly checked, remove unchecked
+    const assignErrors: string[] = [];
     for (const empId of assignedIds) {
       if (!assignments.find((a) => a.employeeId === empId)) {
-        await fetch(`/api/shifts/${shiftId}/assign`, {
+        const r = await fetch(`/api/shifts/${shiftId}/assign`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ employeeId: empId }),
         });
+        if (!r.ok) {
+          const d = await r.json().catch(() => ({}));
+          const emp = employees.find((e) => e.id === empId);
+          assignErrors.push(typeof d.error === "string" ? d.error : `Could not assign ${emp?.name ?? empId}`);
+        }
       }
     }
     for (const existing of assignments) {
       if (!assignedIds.includes(existing.employeeId)) {
-        await fetch(`/api/shifts/${shiftId}/assign`, {
+        const r = await fetch(`/api/shifts/${shiftId}/assign`, {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ assignmentId: existing.id }),
         });
+        if (!r.ok && r.status !== 204) {
+          const emp = employees.find((e) => e.id === existing.employeeId);
+          assignErrors.push(`Could not unassign ${emp?.name ?? existing.employeeId}`);
+        }
       }
     }
 
     setLoading(false);
+    if (assignErrors.length > 0) {
+      setError(assignErrors.join("\n"));
+      onSaved();
+      return;
+    }
     onSaved();
     onOpenChange(false);
   }

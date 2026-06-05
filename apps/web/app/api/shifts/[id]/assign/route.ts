@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { safeJson } from "@/lib/utils/safe-json";
 import { db } from "@/lib/db";
 import { shifts, shiftAssignments, branches, employees } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
@@ -68,7 +69,8 @@ export const POST = withAuth(async function POST(request: Request, { params }: {
     return NextResponse.json({ error: "Past shifts are locked" }, { status: 409 });
   }
 
-  const body = await request.json();
+  const [body, jsonErr] = await safeJson(request);
+  if (jsonErr) return jsonErr;
   const parsed = assignSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
@@ -125,7 +127,8 @@ export const DELETE = withAuth(async function DELETE(request: Request, { params 
     return NextResponse.json({ error: "Past shifts are locked" }, { status: 409 });
   }
 
-  const body = await request.json();
+  const [body, jsonErr2] = await safeJson(request);
+  if (jsonErr2) return jsonErr2;
   const parsed = unassignSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 

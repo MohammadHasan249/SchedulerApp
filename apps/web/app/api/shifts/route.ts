@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { safeJson } from "@/lib/utils/safe-json";
 import { db } from "@/lib/db";
 import { shifts, branches, shiftAssignments, employees } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { eq, and, gte, lte, inArray } from "drizzle-orm";
 
+const MIN_SHIFT_DURATION_MINUTES = 15;
 const MAX_SHIFT_DURATION_HOURS = 24;
 
 const createSchema = z.object({
@@ -99,7 +101,8 @@ export const POST = withAuth(async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = await request.json();
+  const [body, jsonErr] = await safeJson(request);
+  if (jsonErr) return jsonErr;
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
@@ -116,7 +119,15 @@ export const POST = withAuth(async function POST(request: Request) {
     );
   }
 
-  const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+  const durationMs = end.getTime() - start.getTime();
+  if (durationMs < MIN_SHIFT_DURATION_MINUTES * 60 * 1000) {
+    return NextResponse.json(
+      { error: `Shift must be at least ${MIN_SHIFT_DURATION_MINUTES} minutes long` },
+      { status: 400 }
+    );
+  }
+
+  const durationHours = durationMs / (1000 * 60 * 60);
   if (durationHours > MAX_SHIFT_DURATION_HOURS) {
     return NextResponse.json(
       { error: `Shift duration cannot exceed ${MAX_SHIFT_DURATION_HOURS} hours` },
