@@ -47,6 +47,14 @@ export default async function AvailabilityPage() {
 
     const adminAvailability = adminEmployee ? scheduleToRows(adminEmployee.availabilitySchedule as Record<number, { startTime: string; endTime: string }> | null) : [];
 
+    const teamAvailability = teamEmployees.flatMap((emp) =>
+      scheduleToRows(emp.availabilitySchedule as Record<number, { startTime: string; endTime: string }> | null).map((row) => ({
+        id: `${emp.id}-${row.dayOfWeek}`,
+        employeeId: emp.id,
+        ...row,
+      }))
+    );
+
     return (
       <div className="space-y-8">
         {adminEmployee && (
@@ -67,7 +75,7 @@ export default async function AvailabilityPage() {
             View availability for team members.
           </p>
         </div>
-        <TeamAvailabilityView employees={teamEmployees.map(serializeEmployee)} availability={[]} />
+        <TeamAvailabilityView employees={teamEmployees.map(serializeEmployee)} availability={teamAvailability} />
       </div>
     );
   }
