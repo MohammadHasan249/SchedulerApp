@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { Resend } from "resend";
 import { db } from "@/lib/db";
 import { employees, organizations } from "@scheduler/database/schema";
@@ -43,7 +44,7 @@ export async function sendTimeOffNotification(
       .limit(1);
 
     if (!employee) {
-      console.error("Employee not found:", employeeId);
+      logger.error("Employee not found:", employeeId);
       return;
     }
 
@@ -54,7 +55,7 @@ export async function sendTimeOffNotification(
       .limit(1);
 
     if (!org) {
-      console.error("Organization not found:", organizationId);
+      logger.error("Organization not found:", organizationId);
       return;
     }
 
@@ -179,11 +180,11 @@ export async function sendTimeOffNotification(
     });
 
     if (result.error) {
-      console.error("Error sending email:", result.error);
+      logger.error("Error sending email:", result.error);
     } else {
       console.log("Email sent successfully:", result.data?.id);
     }
   } catch (error) {
-    console.error("Failed to send time-off notification:", error);
+    logger.error("Failed to send time-off notification:", error);
   }
 }

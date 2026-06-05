@@ -1,3 +1,5 @@
+import { logger } from "@/lib/logger";
+import { writeAuditLog } from "@/lib/audit/log";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { safeJson } from "@/lib/utils/safe-json";
@@ -8,7 +10,7 @@ import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { sendEmployeeInvitationEmail } from "@/lib/email/send-employee-invitation";
 import { pinCollidesWithExisting } from "@/lib/employees/pin";
-import { eq, and } from "drizzle-orm";
+import { eq, and, gt } from "drizzle-orm";
 
 const inviteSchema = z.object({
   name: z.string().min(1),
@@ -20,17 +22,24 @@ const inviteSchema = z.object({
   pin: z.string().regex(/^\d{4,6}$/).optional(),
 });
 
-export const GET = withAuth(async function GET() {
+const PAGE_SIZE = 100;
+
+export const GET = withAuth(async function GET(request: Request) {
   const user = await getUser();
 
   if (user.role === "branch_manager" && !user.branchId) {
-    return NextResponse.json([]);
+    return NextResponse.json({ data: [], nextCursor: null });
   }
 
-  const conditions = [eq(employees.organizationId, user.organizationId)];
+  const { searchParams } = new URL(request.url);
+  const cursor = searchParams.get("cursor"); // last seen employee id
 
+  const conditions = [eq(employees.organizationId, user.organizationId)];
   if (user.role === "branch_manager") {
     conditions.push(eq(employees.branchId, user.branchId!));
+  }
+  if (cursor) {
+    conditions.push(gt(employees.id, cursor));
   }
 
   const rows = await db
@@ -48,9 +57,15 @@ export const GET = withAuth(async function GET() {
       availabilitySchedule: employees.availabilitySchedule,
     })
     .from(employees)
-    .where(and(...conditions));
+    .where(and(...conditions))
+    .orderBy(employees.id)
+    .limit(PAGE_SIZE + 1);
 
-  return NextResponse.json(rows);
+  const hasMore = rows.length > PAGE_SIZE;
+  const data = hasMore ? rows.slice(0, PAGE_SIZE) : rows;
+  const nextCursor = hasMore ? data[data.length - 1].id : null;
+
+  return NextResponse.json({ data, nextCursor });
 });
 
 export const POST = withAuth(async function POST(request: Request) {
@@ -140,12 +155,20 @@ export const POST = withAuth(async function POST(request: Request) {
     })
     .returning();
 
+  void writeAuditLog({
+    organizationId: user.organizationId,
+    action: "employee.invite",
+    resourceType: "employee",
+    resourceId: employee.id,
+    after: { name, email, role },
+  });
+
   let emailSent = false;
   try {
     const result = await sendEmployeeInvitationEmail(name, email, user.organizationId);
     emailSent = result.sent;
   } catch (error) {
-    console.error("Failed to send invitation email:", error);
+    logger.error("Failed to send invitation email:", error);
   }
 
   return NextResponse.json({ ...employee, emailSent }, { status: 201 });

@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { safeJson } from "@/lib/utils/safe-json";
@@ -109,7 +110,7 @@ export const POST = withAuth(async function POST(request: Request) {
 
   // Rate-limit by org. Each request can trigger up to 10 DeepSeek calls — left
   // unbounded, a single tab open in a browser could rack up real $ in minutes.
-  const rl = checkRateLimit(`ai:${user.organizationId}`, AI_RATE_LIMIT);
+  const rl = await checkRateLimit(`ai:${user.organizationId}`, AI_RATE_LIMIT);
   if (!rl.allowed) {
     const retryAfterSec = Math.max(1, Math.ceil((rl.resetAt - Date.now()) / 1000));
     return NextResponse.json(
@@ -426,7 +427,7 @@ Your job:
       });
     } catch (e) {
       const isTimeout = e instanceof DOMException && e.name === "TimeoutError";
-      console.error(isTimeout ? "DeepSeek timeout" : "DeepSeek fetch failed:", e);
+      logger.error(isTimeout ? "DeepSeek timeout" : "DeepSeek fetch failed:", e);
       return NextResponse.json(
         { error: isTimeout ? "AI service timed out" : "AI service unreachable" },
         { status: 504 }
@@ -434,7 +435,7 @@ Your job:
     }
 
     if (!res.ok) {
-      console.error("DeepSeek error:", await res.text());
+      logger.error("DeepSeek error:", await res.text());
       return NextResponse.json({ error: "AI service error" }, { status: 500 });
     }
 

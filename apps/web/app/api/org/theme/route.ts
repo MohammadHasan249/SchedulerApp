@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { revalidateTag } from "next/cache";
 import { safeJson } from "@/lib/utils/safe-json";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { db } from "@/lib/db";
 import { organizations } from "@scheduler/database/schema";
+import { CACHE_TAGS } from "@/lib/cache/org";
 import { eq } from "drizzle-orm";
 
 export const GET = withAuth(async function GET() {
@@ -46,5 +48,6 @@ export const PATCH = withAuth(async function PATCH(request: Request) {
     .where(eq(organizations.id, user.organizationId))
     .returning({ theme: organizations.theme });
 
+  revalidateTag(CACHE_TAGS.orgTheme(user.organizationId));
   return NextResponse.json(org.theme);
 });

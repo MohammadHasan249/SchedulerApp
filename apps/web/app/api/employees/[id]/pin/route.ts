@@ -22,7 +22,7 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
   const user = await getUser();
   const { id } = await params;
 
-  const rl = checkRateLimit(`pin-set:${getClientIp(request)}:${user.id}`, PIN_SET_RATE_LIMIT);
+  const rl = await checkRateLimit(`pin-set:${getClientIp(request)}:${user.id}`, PIN_SET_RATE_LIMIT);
   if (!rl.allowed) {
     const retryAfterSec = Math.max(1, Math.ceil((rl.resetAt - Date.now()) / 1000));
     return NextResponse.json(

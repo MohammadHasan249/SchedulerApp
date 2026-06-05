@@ -25,18 +25,26 @@ function scheduleToRows(schedule: Record<number, { startTime: string; endTime: s
 export default async function SchedulePage() {
   const user = await getUser();
 
-  const branchRows = await db
-    .select()
-    .from(branches)
-    .where(eq(branches.organizationId, user.organizationId));
+  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const weekEnd = addDays(weekStart, 7);
+
+  // Branches and employees are independent — fetch in parallel.
+  const [branchRows, allEmployeeRows] = await Promise.all([
+    db.select().from(branches).where(eq(branches.organizationId, user.organizationId)),
+    db.select().from(employees).where(
+      and(
+        eq(employees.organizationId, user.organizationId),
+        ...(user.role === "branch_manager" && user.branchId
+          ? [eq(employees.branchId, user.branchId)]
+          : [])
+      )
+    ),
+  ]);
 
   const visibleBranchIds =
     user.role === "branch_manager" && user.branchId
       ? [user.branchId]
       : branchRows.map((b) => b.id);
-
-  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-  const weekEnd = addDays(weekStart, 7);
 
   const shiftRows =
     visibleBranchIds.length > 0
@@ -52,7 +60,6 @@ export default async function SchedulePage() {
           )
       : [];
 
-  // Employees only see published
   const visibleShifts =
     user.role === "employee" ? shiftRows.filter((s) => s.isPublished) : shiftRows;
 
@@ -62,17 +69,7 @@ export default async function SchedulePage() {
     shiftIds.length > 0
       ? db.select().from(shiftAssignments).where(inArray(shiftAssignments.shiftId, shiftIds))
       : Promise.resolve([]),
-    db
-      .select()
-      .from(employees)
-      .where(
-        and(
-          eq(employees.organizationId, user.organizationId),
-          ...(user.role === "branch_manager" && user.branchId
-            ? [eq(employees.branchId, user.branchId)]
-            : [])
-        )
-      ),
+    Promise.resolve(allEmployeeRows),
   ]);
 
   // Convert availabilitySchedule from all employees to a flat array for backward compatibility

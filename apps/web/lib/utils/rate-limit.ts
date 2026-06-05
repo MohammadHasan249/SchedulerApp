@@ -1,12 +1,13 @@
 /**
- * In-memory sliding-window rate limiter. Suitable for single-instance dev/staging
- * and as a defense-in-depth layer in front of infrastructure-level limiting in
- * prod. For multi-instance deployments use a shared store (Redis / Upstash /
- * Vercel KV) — the same interface drops in.
+ * Rate limiter with Upstash Redis in production and an in-memory sliding-window
+ * fallback for local dev. Set UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN
+ * to enable the distributed backend; without them the in-memory store is used
+ * (safe for single-instance / local; not safe for multi-instance prod).
  */
 
-type Bucket = { count: number; resetAt: number };
+// ── In-memory fallback ────────────────────────────────────────────────────────
 
+type Bucket = { count: number; resetAt: number };
 const buckets = new Map<string, Bucket>();
 
 export interface RateLimitResult {
@@ -15,7 +16,7 @@ export interface RateLimitResult {
   resetAt: number;
 }
 
-export function checkRateLimit(
+function inMemoryCheck(
   key: string,
   options: { maxAttempts: number; windowMs: number }
 ): RateLimitResult {
@@ -40,6 +41,61 @@ export function checkRateLimit(
   };
 }
 
+// ── Upstash Redis backend ─────────────────────────────────────────────────────
+
+const hasUpstash =
+  !!process.env.UPSTASH_REDIS_REST_URL &&
+  !!process.env.UPSTASH_REDIS_REST_TOKEN;
+
+// Cache one Ratelimit instance per (maxAttempts, windowMs) pair to avoid
+// constructing a new object on every request.
+const limiterCache = new Map<string, unknown>();
+
+async function upstashCheck(
+  key: string,
+  options: { maxAttempts: number; windowMs: number }
+): Promise<RateLimitResult> {
+  const cacheKey = `${options.maxAttempts}:${options.windowMs}`;
+  if (!limiterCache.has(cacheKey)) {
+    const { Ratelimit } = await import("@upstash/ratelimit");
+    const { Redis } = await import("@upstash/redis");
+    limiterCache.set(
+      cacheKey,
+      new Ratelimit({
+        redis: Redis.fromEnv(),
+        limiter: Ratelimit.slidingWindow(options.maxAttempts, `${options.windowMs}ms`),
+        ephemeralCache: new Map(),
+      })
+    );
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const limiter = limiterCache.get(cacheKey) as any;
+  const result = await limiter.limit(key);
+  return {
+    allowed: result.success,
+    remaining: result.remaining,
+    resetAt: result.reset,
+  };
+}
+
+// ── Public API ────────────────────────────────────────────────────────────────
+
+export async function checkRateLimit(
+  key: string,
+  options: { maxAttempts: number; windowMs: number }
+): Promise<RateLimitResult> {
+  if (hasUpstash) {
+    try {
+      return await upstashCheck(key, options);
+    } catch {
+      // Redis outage degrades to in-memory; a Redis blip shouldn't take down
+      // clock-in / AI endpoints entirely.
+    }
+  }
+  return inMemoryCheck(key, options);
+}
+
 /** Extract the caller's IP from common proxy headers. Falls back to "unknown". */
 export function getClientIp(request: Request): string {
   const xff = request.headers.get("x-forwarded-for");
@@ -47,16 +103,12 @@ export function getClientIp(request: Request): string {
   return request.headers.get("x-real-ip") ?? "unknown";
 }
 
-/** Periodically prune stale buckets so memory doesn't grow unbounded. */
-function prune() {
-  const now = Date.now();
-  for (const [k, b] of buckets) {
-    if (b.resetAt <= now) buckets.delete(k);
-  }
-}
-
-// Run roughly every 5 minutes. In serverless this may never fire (cold start
-// resets memory anyway); in long-lived runtimes it keeps the map small.
+// Periodically prune stale in-memory buckets.
 if (typeof setInterval !== "undefined") {
-  setInterval(prune, 5 * 60 * 1000).unref?.();
+  setInterval(() => {
+    const now = Date.now();
+    for (const [k, b] of buckets) {
+      if ((b as Bucket).resetAt <= now) buckets.delete(k);
+    }
+  }, 5 * 60 * 1000).unref?.();
 }

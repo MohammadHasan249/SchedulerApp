@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { safeJson } from "@/lib/utils/safe-json";
@@ -168,7 +169,7 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
         ban_duration: "none",
       });
     } catch (e) {
-      console.error("Failed to unban reactivated employee's auth user:", e);
+      logger.error("Failed to unban reactivated employee's auth user:", e);
     }
   }
 
@@ -226,7 +227,7 @@ export const DELETE = withAuth(async function DELETE(request: Request, { params 
         ban_duration: "876000h", // ~100 years
       });
     } catch (e) {
-      console.error("Failed to ban deactivated employee's auth user:", e);
+      logger.error("Failed to ban deactivated employee's auth user:", e);
     }
   }
 

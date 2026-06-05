@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { db } from "@/lib/db";
 import { notifications } from "@scheduler/database/schema";
 
@@ -15,7 +16,7 @@ export async function createNotification(input: CreateNotificationInput): Promis
       message: input.message,
     });
   } catch (error) {
-    console.error("Failed to create notification:", error);
+    logger.error("Failed to create notification:", error);
   }
 }
 
@@ -24,6 +25,6 @@ export async function createNotifications(inputs: CreateNotificationInput[]): Pr
   try {
     await db.insert(notifications).values(inputs);
   } catch (error) {
-    console.error("Failed to create notifications:", error);
+    logger.error("Failed to create notifications:", error);
   }
 }

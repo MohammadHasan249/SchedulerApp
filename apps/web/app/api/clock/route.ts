@@ -9,6 +9,7 @@ import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { checkRateLimit, getClientIp } from "@/lib/utils/rate-limit";
 import { getZonedDayStart } from "@/lib/utils/timezone";
+import { logger } from "@/lib/logger";
 
 const CLOCK_RATE_LIMIT = { maxAttempts: 10, windowMs: 5 * 60 * 1000 };
 
@@ -20,12 +21,14 @@ export const GET = withAuth(async function GET(request: Request) {
   const branchId = searchParams.get("branchId");
   const from = searchParams.get("from");
   const to = searchParams.get("to");
+  const limitParam = searchParams.get("limit");
+  const cursor = searchParams.get("cursor"); // ISO timestamp — fetch events older than this
+  const limit = Math.min(parseInt(limitParam ?? "100", 10) || 100, 500);
 
   if (user.role === "branch_manager" && !user.branchId) {
-    return NextResponse.json([]);
+    return NextResponse.json({ data: [], nextCursor: null });
   }
 
-  // Get visible branches (only fetch ids we need)
   const allowedBranchIds =
     user.role === "branch_manager"
       ? [user.branchId!]
@@ -39,21 +42,31 @@ export const GET = withAuth(async function GET(request: Request) {
   const targetBranchIds =
     branchId && allowedBranchIds.includes(branchId) ? [branchId] : allowedBranchIds;
 
-  if (targetBranchIds.length === 0) return NextResponse.json([]);
+  if (targetBranchIds.length === 0) return NextResponse.json({ data: [], nextCursor: null });
 
   const conditions = [inArray(clockEvents.branchId, targetBranchIds)];
 
   if (from) conditions.push(gte(clockEvents.timestamp, new Date(from)));
   if (to) conditions.push(lte(clockEvents.timestamp, new Date(to)));
+  if (cursor) conditions.push(lte(clockEvents.timestamp, new Date(cursor)));
+
+  if (cursor) {
+    conditions.push(lte(clockEvents.timestamp, new Date(cursor)));
+  }
 
   const rows = await db
     .select({ event: clockEvents, employee: employees })
     .from(clockEvents)
     .innerJoin(employees, eq(clockEvents.employeeId, employees.id))
     .where(and(...conditions))
-    .orderBy(desc(clockEvents.timestamp));
+    .orderBy(desc(clockEvents.timestamp))
+    .limit(limit + 1);
 
-  return NextResponse.json(rows);
+  const hasMore = rows.length > limit;
+  const data = hasMore ? rows.slice(0, limit) : rows;
+  const nextCursor = hasMore ? data[data.length - 1].event.timestamp.toISOString() : null;
+
+  return NextResponse.json({ data, nextCursor });
 });
 
 const clockSchema = z.object({
@@ -75,7 +88,7 @@ export const POST = withAuth(async function POST(request: Request) {
   // kiosk can't lock out the whole branch's clock-in by another kiosk on a
   // different network. Pair with infrastructure-level rate limiting in prod.
   const rateKey = `clock:${getClientIp(request)}:${branchSlug}`;
-  const rl = checkRateLimit(rateKey, CLOCK_RATE_LIMIT);
+  const rl = await checkRateLimit(rateKey, CLOCK_RATE_LIMIT);
   if (!rl.allowed) {
     const retryAfterSec = Math.max(1, Math.ceil((rl.resetAt - Date.now()) / 1000));
     return NextResponse.json(
@@ -142,7 +155,7 @@ export const POST = withAuth(async function POST(request: Request) {
 
   if (matches.length > 1) {
     // Legacy data: two people collided. Refuse rather than guess.
-    console.error(
+    logger.error(
       "PIN collision detected at clock-in",
       matches.map((m) => m.id)
     );
