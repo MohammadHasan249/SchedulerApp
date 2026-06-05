@@ -152,7 +152,7 @@ export function ShiftCreateDialog({
         body: JSON.stringify({ branchId, startTime: startISO, endTime: endISO }),
       });
       if (!res.ok) {
-        const d = await res.json();
+        const d = await res.json().catch(() => ({}));
         const msg = typeof d.error === "string" ? d.error : "Failed to create shift";
         setError(msg);
         setLoading(false);
@@ -167,7 +167,7 @@ export function ShiftCreateDialog({
         body: JSON.stringify({ startTime: startISO, endTime: endISO }),
       });
       if (!res.ok) {
-        const d = await res.json();
+        const d = await res.json().catch(() => ({}));
         let msg = "Failed to update shift";
         if (typeof d.error === "string") {
           msg = d.error;

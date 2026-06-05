@@ -12,7 +12,7 @@ const slotSchema = z.object({
   endTime: z.string().regex(/^\d{2}:\d{2}$/),
 });
 
-const scheduleSchema = z.record(z.string().regex(/^\d$/), slotSchema);
+const scheduleSchema = z.record(z.string().regex(/^[0-6]$/), slotSchema);
 
 async function verifyEmployeeAccess(
   employeeId: string,
