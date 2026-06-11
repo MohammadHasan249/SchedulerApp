@@ -40,7 +40,7 @@ export const POST = withAuth(async function POST(request: Request) {
 
   // Brute-force defense — same pattern as /api/clock POST. Keyed by IP+org so a
   // single tampered kiosk can't lock out other kiosks at the same branch.
-  const rl = checkRateLimit(
+  const rl = await checkRateLimit(
     `exit-pin:${getClientIp(request)}:${user.organizationId}`,
     EXIT_PIN_RATE_LIMIT
   );

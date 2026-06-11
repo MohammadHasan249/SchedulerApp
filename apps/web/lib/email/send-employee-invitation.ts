@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { Resend } from "resend";
 import { db } from "@/lib/db";
 import { employees, organizations } from "@scheduler/database/schema";
@@ -43,7 +44,7 @@ export async function sendEmployeeInvitationEmail(
       .limit(1);
 
     if (!org) {
-      console.error("Organization not found:", organizationId);
+      logger.error("Organization not found:", organizationId);
       return { sent: false };
     }
 
@@ -154,13 +155,13 @@ export async function sendEmployeeInvitationEmail(
     });
 
     if (result.error) {
-      console.error("Error sending email:", result.error);
+      logger.error("Error sending email:", result.error);
       return { sent: false };
     }
     console.log("Invitation email sent successfully:", result.data?.id);
     return { sent: true };
   } catch (error) {
-    console.error("Failed to send employee invitation:", error);
+    logger.error("Failed to send employee invitation:", error);
     return { sent: false };
   }
 }

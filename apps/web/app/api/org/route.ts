@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { safeJson } from "@/lib/utils/safe-json";
@@ -93,7 +94,7 @@ export async function POST(request: Request) {
     try {
       await supabase.auth.admin.deleteUser(authUserId);
     } catch (deleteErr) {
-      console.error("Failed to clean up orphan auth user after org-create rollback:", deleteErr);
+      logger.error("Failed to clean up orphan auth user after org-create rollback:", deleteErr);
     }
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Failed to create organization" },
@@ -110,7 +111,7 @@ export async function POST(request: Request) {
     },
   });
   if (syncError) {
-    console.error("Failed to sync org id into auth metadata after creation:", syncError);
+    logger.error("Failed to sync org id into auth metadata after creation:", syncError);
     // The DB row is correct; admin can repair metadata later. Don't roll back.
   }
 

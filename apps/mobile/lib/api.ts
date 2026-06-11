@@ -9,6 +9,10 @@ configureApiClient({
     const { data } = await supabase.auth.getSession();
     return data.session?.access_token ?? null;
   },
+  refreshToken: async () => {
+    const { data } = await supabase.auth.refreshSession();
+    return data.session?.access_token ?? null;
+  },
 });
 
 export * from "@scheduler/api-client";

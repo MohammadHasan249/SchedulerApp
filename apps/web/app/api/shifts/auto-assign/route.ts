@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { safeJson } from "@/lib/utils/safe-json";
@@ -70,7 +71,7 @@ export const POST = withAuth(async function POST(request: Request) {
       { status: 200 }
     );
   } catch (error) {
-    console.error("Error in auto-assign:", error);
+    logger.error("Error in auto-assign:", error);
     return NextResponse.json(
       { error: "Failed to auto-assign shifts" },
       { status: 500 }

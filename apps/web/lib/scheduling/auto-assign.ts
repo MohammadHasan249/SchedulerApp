@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { db } from "@/lib/db";
 import {
   shifts,
@@ -239,7 +240,7 @@ export async function autoAssignShifts(
     try {
       await db.insert(shiftAssignments).values(assignments);
     } catch (error) {
-      console.error("Failed to insert shift assignments:", error);
+      logger.error("Failed to insert shift assignments:", error);
       throw new Error("Failed to persist shift assignments to database");
     }
   }
