@@ -1,4 +1,4 @@
-import { Tabs } from "expo-router";
+import { Tabs, useRouter } from "expo-router";
 import { useEffect } from "react";
 import {
   Calendar,
@@ -21,14 +21,21 @@ export default function TabLayout() {
   const { session, employeeName } = useAuthStore();
   const { fetchOrgInfo } = useOrgStore();
   const isAdmin = useIsAdmin();
-  const { isLocked, loadBranchSlug } = useKioskStore();
+  const { isLocked, hydrate: hydrateKiosk } = useKioskStore();
+  const router = useRouter();
 
   useEffect(() => {
     if (session) {
       fetchOrgInfo();
-      loadBranchSlug();
+      hydrateKiosk();
     }
   }, [session]);
+
+  // If the device relaunched while in kiosk mode, force it back to the
+  // clock-in screen instead of whatever tab the router restores.
+  useEffect(() => {
+    if (isLocked) router.replace("/(tabs)/clock-in");
+  }, [isLocked]);
 
   return (
     <Tabs

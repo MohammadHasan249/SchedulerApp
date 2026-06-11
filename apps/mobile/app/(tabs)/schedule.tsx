@@ -330,7 +330,7 @@ function ShiftCard({
   const styles = makeStyles(theme);
   const start = new Date(shift.startTime);
   const end = new Date(shift.endTime);
-  const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+  const hours = Math.round(((end.getTime() - start.getTime()) / (1000 * 60 * 60)) * 10) / 10;
   const assignments = shift.assignments ?? [];
 
   const card = (
