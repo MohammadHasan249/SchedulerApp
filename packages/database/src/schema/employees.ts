@@ -2,6 +2,7 @@ import { pgTable, uuid, text, integer, boolean, pgEnum, jsonb, unique } from "dr
 import { organizations } from "./organizations";
 import { branches } from "./branches";
 import { jobRoles } from "./job-roles";
+import { permissionProfiles } from "./permissions";
 
 export const employeeRoleEnum = pgEnum("employee_role", [
   "org_admin",
@@ -27,6 +28,12 @@ export const employees = pgTable(
     maxHoursPerWeek: integer("max_hours_per_week").default(40),
     isActive: boolean("is_active").notNull().default(true),
     availabilitySchedule: jsonb("availability_schedule").default({}),
+    // Granular-permissions profile (e.g. who may view salaries). null = only the
+    // base role's implicit access. org_admins ignore this and hold everything.
+    permissionProfileId: uuid("permission_profile_id").references(
+      () => permissionProfiles.id,
+      { onDelete: "set null" }
+    ),
   },
   (t) => [unique("employees_org_email_unique").on(t.organizationId, t.email)]
 );
