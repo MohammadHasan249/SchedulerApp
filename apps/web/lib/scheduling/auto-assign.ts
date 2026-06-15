@@ -113,7 +113,11 @@ export async function autoAssignShifts(
 
   const timeOffByEmployeeId = buildTimeOffMap(approvedTimeOff, fromDate, toDate);
 
-  // Batch fetch existing shift assignments to calculate hours (exclude unpublished shifts)
+  // Batch fetch existing shift assignments to calculate hours (exclude unpublished shifts).
+  // Scope to the planning window [fromDate, toDate] — maxHoursPerWeek is a *weekly*
+  // cap, so counting all-time published hours would (for any established branch)
+  // push every employee past their max and silently assign nobody. Counting only
+  // hours inside the same window the new shifts fall into keeps the cap meaningful.
   const existingAssignments = await db
     .select({
       employeeId: shiftAssignments.employeeId,
@@ -125,7 +129,9 @@ export async function autoAssignShifts(
     .where(
       and(
         eq(shifts.branchId, branchId),
-        eq(shifts.isPublished, true) // Only count published shifts
+        eq(shifts.isPublished, true), // Only count published shifts
+        gte(shifts.startTime, fromDate),
+        lte(shifts.endTime, toDate)
       )
     );
 
