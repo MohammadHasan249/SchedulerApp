@@ -28,7 +28,7 @@ export type ClockEventRow = {
   };
 };
 
-export function getClockEvents(opts?: {
+export async function getClockEvents(opts?: {
   branchId?: string;
   from?: string;
   to?: string;
@@ -38,5 +38,10 @@ export function getClockEvents(opts?: {
   if (opts?.from) params.set("from", opts.from);
   if (opts?.to) params.set("to", opts.to);
   const qs = params.toString();
-  return apiFetch(`/api/clock${qs ? `?${qs}` : ""}`);
+  // GET /api/clock returns a paginated envelope { data, nextCursor }, not a
+  // bare array. Unwrap to the rows so callers get the array they expect.
+  const res = await apiFetch<{ data: ClockEventRow[]; nextCursor: string | null }>(
+    `/api/clock${qs ? `?${qs}` : ""}`
+  );
+  return res.data ?? [];
 }

@@ -10,8 +10,15 @@ export type InviteEmployeePayload = {
   pin?: string;
 };
 
-export function getEmployees(): Promise<Employee[]> {
-  return apiFetch("/api/employees");
+export async function getEmployees(): Promise<Employee[]> {
+  // GET /api/employees returns a paginated envelope { data, nextCursor }, not a
+  // bare array. Unwrap to the rows so callers get the array they expect.
+  // (Only the first page — up to PAGE_SIZE — is surfaced; pagination isn't
+  // wired through the client yet.)
+  const res = await apiFetch<{ data: Employee[]; nextCursor: string | null }>(
+    "/api/employees"
+  );
+  return res.data ?? [];
 }
 
 export function getEmployee(id: string): Promise<Employee & { pinHash?: string | null }> {
