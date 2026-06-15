@@ -321,7 +321,13 @@ export const POST = withAuth(async function POST(request: Request) {
       .limit(1);
     if (!emp) return { error: "Employee not found or out of scope" };
 
-    const validation = await validateAssignment(shiftRow, emp);
+    const [branchRow] = await db
+      .select({ timezone: branches.timezone })
+      .from(branches)
+      .where(eq(branches.id, shiftRow.branchId))
+      .limit(1);
+
+    const validation = await validateAssignment(shiftRow, emp, branchRow?.timezone ?? "UTC");
     if (!validation.ok) {
       return { error: validation.message };
     }

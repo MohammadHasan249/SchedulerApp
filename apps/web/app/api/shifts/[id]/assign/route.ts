@@ -88,7 +88,7 @@ export const POST = withAuth(async function POST(request: Request, { params }: {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const validation = await validateAssignment(row.shift, employee);
+  const validation = await validateAssignment(row.shift, employee, row.branch.timezone);
   if (!validation.ok) {
     return NextResponse.json({ error: validation.message, code: validation.code }, { status: 409 });
   }
