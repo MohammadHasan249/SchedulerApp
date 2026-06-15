@@ -28,17 +28,34 @@ export function AttendanceLog({ initialRows, branches }: Props) {
   const [from, setFrom] = useState(format(new Date(), "yyyy-MM-dd"));
   const [to, setTo] = useState(format(new Date(), "yyyy-MM-dd"));
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleFetch() {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (branchId) params.set("branchId", branchId);
-    params.set("from", new Date(from).toISOString());
-    params.set("to", new Date(`${to}T23:59:59`).toISOString());
+    setError(null);
+    try {
+      const params = new URLSearchParams();
+      if (branchId) params.set("branchId", branchId);
+      // Use local start/end of the picked days so the range matches what the
+      // user selected (both bounds local, not one UTC midnight + one local).
+      params.set("from", new Date(`${from}T00:00:00`).toISOString());
+      params.set("to", new Date(`${to}T23:59:59`).toISOString());
 
-    const res = await fetch(`/api/clock?${params}`);
-    if (res.ok) setRows(await res.json());
-    setLoading(false);
+      const res = await fetch(`/api/clock?${params}`);
+      if (!res.ok) {
+        setError("Couldn't load attendance records. Please try again.");
+        return;
+      }
+      // GET /api/clock returns { data, nextCursor } — pull out the data array.
+      // Setting `rows` to the whole envelope makes rows.map() throw and crashes
+      // the table ("Something went wrong").
+      const json = await res.json();
+      setRows(Array.isArray(json) ? json : (json.data ?? []));
+    } catch {
+      setError("Couldn't load attendance records. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   const branchMap = Object.fromEntries(branches.map((b) => [b.id, b.name]));
@@ -74,6 +91,8 @@ export function AttendanceLog({ initialRows, branches }: Props) {
           {loading ? "Loading…" : "Filter"}
         </Button>
       </div>
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
       <div className="rounded-md border">
         <Table>
