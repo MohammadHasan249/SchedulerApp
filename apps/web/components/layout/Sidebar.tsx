@@ -12,6 +12,7 @@ import {
   GitBranch,
   CalendarCheck2,
   Briefcase,
+  ShieldCheck,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,7 @@ const NAV: NavItem[] = [
   { label: "Reports", href: "/dashboard/reports", icon: BarChart2, roles: ["org_admin", "branch_manager"], group: "manage" },
   { label: "Job Roles", href: "/dashboard/settings/job-roles", icon: Briefcase, roles: ["org_admin"], group: "settings" },
   { label: "Branches", href: "/dashboard/settings/branches", icon: GitBranch, roles: ["org_admin"], group: "settings" },
+  { label: "Permissions", href: "/dashboard/settings/permissions", icon: ShieldCheck, roles: ["org_admin"], group: "settings" },
   { label: "Settings", href: "/dashboard/settings/organization", icon: Settings, roles: ["org_admin"], group: "settings" },
 ];
 

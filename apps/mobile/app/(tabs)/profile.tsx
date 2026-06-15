@@ -20,6 +20,7 @@ import {
   GitBranch,
   Briefcase,
   BarChart2,
+  ShieldCheck,
 } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
@@ -27,7 +28,7 @@ import { useAuthStore } from "@/lib/authStore";
 import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
 import { getOrganizationHours, type HoursSchedule } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
-import { useIsAdmin } from "@/lib/useRole";
+import { useIsAdmin, useRole } from "@/lib/useRole";
 import { useEffect, useState } from "react";
 
 const DAYS = [
@@ -47,6 +48,7 @@ export default function ProfileScreen() {
   const { session, employeeName, setEmployeeName } = useAuthStore();
   const { fetchMyEmployee } = useMyEmployeeStore();
   const isAdmin = useIsAdmin();
+  const role = useRole();
   const user = session?.user;
   const [orgHours, setOrgHours] = useState<HoursSchedule | null>(null);
   const [loadingHours, setLoadingHours] = useState(true);
@@ -200,6 +202,16 @@ export default function ProfileScreen() {
               <Text style={styles.settingsRowText}>Job Roles</Text>
               <ChevronRight size={16} color={theme.muted} />
             </TouchableOpacity>
+            {role === "org_admin" && (
+              <TouchableOpacity
+                style={styles.settingsRow}
+                onPress={() => router.push("/(admin)/settings-permissions")}
+              >
+                <ShieldCheck size={18} color={theme.secondary} />
+                <Text style={styles.settingsRowText}>Permissions</Text>
+                <ChevronRight size={16} color={theme.muted} />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={styles.settingsRow}
               onPress={() => router.push("/(admin)/settings-theme")}
