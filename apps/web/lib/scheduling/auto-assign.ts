@@ -6,8 +6,10 @@ import {
   shiftRoleRequirements,
   employees,
   timeOffRequests,
+  branches,
 } from "@scheduler/database/schema";
 import { eq, and, gte, lte, inArray } from "drizzle-orm";
+import { coversAvailability, type AvailabilitySchedule } from "./availability";
 
 export interface AutoAssignResult {
   shiftId: string;
@@ -20,12 +22,6 @@ interface EmployeeCandidate {
   jobRoleId: string | null;
   hoursAssigned: number;
   jobRoleMatch: boolean;
-}
-
-interface AvailabilitySlot {
-  dayOfWeek: number;
-  startTime: string;
-  endTime: string;
 }
 
 export async function autoAssignShifts(
@@ -53,6 +49,14 @@ export async function autoAssignShifts(
   if (candidateShifts.length === 0) {
     return [];
   }
+
+  // Availability is evaluated in the branch's timezone, not the server's.
+  const [branchRow] = await db
+    .select({ timezone: branches.timezone })
+    .from(branches)
+    .where(eq(branches.id, branchId))
+    .limit(1);
+  const timezone = branchRow?.timezone ?? "UTC";
 
   // Existing assignments on these shifts (to avoid stacking on top of prior runs).
   const candidateShiftIds = candidateShifts.map((s) => s.id);
@@ -83,18 +87,12 @@ export async function autoAssignShifts(
 
   const employeeIds = allEmployees.map((e) => e.id);
 
-  // Build availability map from employees' availabilitySchedule JSON
-  const availabilityByEmployeeId = new Map<string, AvailabilitySlot[]>();
+  // Build availability map from employees' availabilitySchedule JSON. Stored raw
+  // (keyed by day-of-week) so coversAvailability can evaluate it in branch time.
+  const availabilityByEmployeeId = new Map<string, AvailabilitySchedule>();
   allEmployees.forEach((emp) => {
-    const schedule = emp.availabilitySchedule as Record<number, { startTime: string; endTime: string }> | null;
-    if (schedule) {
-      const slots = Object.entries(schedule).map(([day, slot]) => ({
-        dayOfWeek: parseInt(day, 10),
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-      }));
-      availabilityByEmployeeId.set(emp.id, slots);
-    }
+    const schedule = emp.availabilitySchedule as AvailabilitySchedule;
+    if (schedule) availabilityByEmployeeId.set(emp.id, schedule);
   });
 
   // Batch fetch approved time-off requests scoped to this org's employees only
@@ -187,7 +185,8 @@ export async function autoAssignShifts(
         hoursPerEmployee,
         timeOffByEmployeeId,
         availabilityByEmployeeId,
-        shiftAssignedSet
+        shiftAssignedSet,
+        timezone
       );
 
       if (candidate) {
@@ -218,7 +217,8 @@ export async function autoAssignShifts(
             hoursPerEmployee,
             timeOffByEmployeeId,
             availabilityByEmployeeId,
-            shiftAssignedSet
+            shiftAssignedSet,
+            timezone
           );
 
           if (candidate) {
@@ -306,38 +306,15 @@ function getShiftHours(shift: typeof shifts.$inferSelect): number {
   );
 }
 
-function convertTimestampToTimeString(date: Date): string {
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  return `${hours}:${minutes}`;
-}
-
-function isAvailableForShift(
-  shift: typeof shifts.$inferSelect,
-  empAvailability: AvailabilitySlot[]
-): boolean {
-  const shiftStart = new Date(shift.startTime);
-  const shiftEnd = new Date(shift.endTime);
-  const shiftDayOfWeek = shiftStart.getDay();
-  const shiftStartTime = convertTimestampToTimeString(shiftStart);
-  const shiftEndTime = convertTimestampToTimeString(shiftEnd);
-
-  return empAvailability.some(
-    (avail) =>
-      avail.dayOfWeek === shiftDayOfWeek &&
-      avail.startTime <= shiftStartTime &&
-      avail.endTime >= shiftEndTime
-  );
-}
-
 function findBestCandidate(
   shift: typeof shifts.$inferSelect,
   allEmployees: (typeof employees.$inferSelect)[],
   requiredJobRoleId: string | null,
   hoursPerEmployee: Map<string, number>,
   timeOffByEmployeeId: Map<string, Set<string>>,
-  availabilityByEmployeeId: Map<string, AvailabilitySlot[]>,
-  assignedEmployeeSet: Set<string>
+  availabilityByEmployeeId: Map<string, AvailabilitySchedule>,
+  assignedEmployeeSet: Set<string>,
+  timezone: string
 ): EmployeeCandidate | null {
   const shiftHours = getShiftHours(shift);
   const shiftDate = new Date(shift.startTime).toISOString().split("T")[0];
@@ -362,9 +339,16 @@ function findBestCandidate(
       continue;
     }
 
-    // Check availability for this day/time
-    const empAvailability = availabilityByEmployeeId.get(emp.id) || [];
-    if (!isAvailableForShift(shift, empAvailability)) {
+    // Check availability for this day/time (in the branch's timezone)
+    const empAvailability = availabilityByEmployeeId.get(emp.id);
+    if (
+      !coversAvailability(
+        empAvailability,
+        new Date(shift.startTime),
+        new Date(shift.endTime),
+        timezone
+      )
+    ) {
       continue;
     }
 

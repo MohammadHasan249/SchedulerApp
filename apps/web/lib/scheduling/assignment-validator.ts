@@ -6,6 +6,8 @@ import {
   timeOffRequests,
 } from "@scheduler/database/schema";
 import { eq, and, gte, lte, ne } from "drizzle-orm";
+import { getZonedParts } from "@/lib/utils/timezone";
+import { violatesAvailability } from "./availability";
 
 export type AssignmentValidationError =
   | "EMPLOYEE_INACTIVE"
@@ -29,7 +31,9 @@ function hoursBetween(start: Date, end: Date): number {
 
 export async function validateAssignment(
   shift: Shift,
-  employee: Employee
+  employee: Employee,
+  /** IANA timezone of the shift's branch; availability + dates are evaluated in it. */
+  timezone: string
 ): Promise<AssignmentValidationResult> {
   if (!employee.isActive) {
     return { ok: false, code: "EMPLOYEE_INACTIVE", message: "Employee is deactivated." };
@@ -62,31 +66,27 @@ export async function validateAssignment(
     };
   }
 
-  // Availability check
+  // Availability check — evaluated in the branch's timezone, not the server's.
   const schedule = employee.availabilitySchedule as
     | Record<string, { startTime: string; endTime: string }>
     | null;
-  const dayOfWeek = shiftStart.getDay();
-  const slot = schedule?.[String(dayOfWeek)];
-
-  if (slot) {
-    const toMin = (t: string) => {
-      const [h, m] = t.split(":").map(Number);
-      return h * 60 + m;
+  const { violates, slot } = violatesAvailability(
+    schedule,
+    shiftStart,
+    shiftEnd,
+    timezone
+  );
+  if (violates && slot) {
+    return {
+      ok: false,
+      code: "OUTSIDE_AVAILABILITY",
+      message: `Employee is only available ${slot.startTime}–${slot.endTime} on that day.`,
     };
-    const startMin = shiftStart.getHours() * 60 + shiftStart.getMinutes();
-    const endMin = shiftEnd.getHours() * 60 + shiftEnd.getMinutes();
-    if (startMin < toMin(slot.startTime) || endMin > toMin(slot.endTime)) {
-      return {
-        ok: false,
-        code: "OUTSIDE_AVAILABILITY",
-        message: `Employee is only available ${slot.startTime}–${slot.endTime} on that day.`,
-      };
-    }
   }
 
-  // Approved time off
-  const shiftDate = shiftStart.toISOString().split("T")[0];
+  // Approved time off — compare against the shift's branch-local date so a shift
+  // near midnight isn't matched against the wrong calendar day.
+  const shiftDate = getZonedParts(shiftStart, timezone).dateStr;
   const [timeOff] = await db
     .select({ id: timeOffRequests.id })
     .from(timeOffRequests)

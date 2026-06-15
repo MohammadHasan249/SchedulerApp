@@ -1,3 +1,58 @@
+import { formatInTimeZone } from "date-fns-tz";
+
+/**
+ * Wall-clock parts of a UTC instant as seen in a given IANA timezone, computed
+ * explicitly (independent of the server's own timezone).
+ *
+ * - `dayOfWeek`: 0 (Sun) – 6 (Sat), matching JS `Date.getDay()`.
+ * - `minutesOfDay`: minutes since local midnight (0–1439).
+ * - `dateStr`: local calendar date as "YYYY-MM-DD".
+ */
+export function getZonedParts(
+  at: Date,
+  timezone: string
+): { dayOfWeek: number; minutesOfDay: number; dateStr: string } {
+  // date-fns 'i' token = ISO day of week, 1 (Mon) – 7 (Sun). Map to 0–6 (Sun–Sat).
+  const isoDow = Number(formatInTimeZone(at, timezone, "i"));
+  const dayOfWeek = isoDow % 7;
+  const hh = Number(formatInTimeZone(at, timezone, "HH"));
+  const mm = Number(formatInTimeZone(at, timezone, "mm"));
+  return {
+    dayOfWeek,
+    minutesOfDay: hh * 60 + mm,
+    dateStr: formatInTimeZone(at, timezone, "yyyy-MM-dd"),
+  };
+}
+
+/**
+ * Projects a shift (UTC start/end) onto the branch-local wall clock for
+ * availability comparison.
+ *
+ * `endMinutes` is measured from the START day's local midnight, so a shift that
+ * crosses local midnight yields `endMinutes >= 1440`. Single-day availability
+ * windows (max 1439) therefore never "cover" an overnight shift — the caller
+ * conservatively treats it as outside availability, which is the sensible
+ * default for a per-day availability model.
+ */
+export function getZonedShiftWindow(
+  start: Date,
+  end: Date,
+  timezone: string
+): { dayOfWeek: number; startMinutes: number; endMinutes: number } {
+  const s = getZonedParts(start, timezone);
+  const e = getZonedParts(end, timezone);
+  // Whole-day difference between the two local calendar dates (UTC-parsed so the
+  // diff is exact days regardless of month/DST boundaries).
+  const dayDiff = Math.round(
+    (Date.parse(e.dateStr) - Date.parse(s.dateStr)) / 86_400_000
+  );
+  return {
+    dayOfWeek: s.dayOfWeek,
+    startMinutes: s.minutesOfDay,
+    endMinutes: e.minutesOfDay + dayDiff * 1440,
+  };
+}
+
 /**
  * Returns the UTC instant that represents 00:00:00 of today in the given IANA
  * timezone. The server's own timezone is irrelevant.
