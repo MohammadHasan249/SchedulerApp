@@ -43,8 +43,8 @@ export const GET = withAuth(async function GET(request: Request) {
   }
 
   // Employees only get their own record — the full roster (emails,
-  // availability) is for managers and admins. Returned as an array so
-  // self-lookup clients can keep treating the response uniformly.
+  // availability) is for managers and admins. Still wrapped in the same
+  // { data, nextCursor } envelope so self-lookup clients handle it uniformly.
   if (user.role === "employee") {
     conditions.push(eq(employees.authUserId, user.id));
   }
