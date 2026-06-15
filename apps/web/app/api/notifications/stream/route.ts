@@ -33,18 +33,29 @@ export async function GET(request: Request) {
     return new Response("Employee profile not found", { status: 404 });
   }
 
+  // The SSE event id is the notification's createdAt as epoch-ms, NOT its row id:
+  // ids are random UUIDs (defaultRandom) with no chronological order, so a
+  // "newer than last id" cursor would silently drop notifications whose UUID
+  // happened to sort below the cursor. createdAt is monotonic, so it's a sound
+  // cursor for both reconnect catch-up (Last-Event-ID) and the live poll below.
   const lastEventId = request.headers.get("Last-Event-ID") ?? undefined;
+  const parsedLast = lastEventId ? Number(lastEventId) : NaN;
+  let lastSeen: Date | undefined = Number.isFinite(parsedLast)
+    ? new Date(parsedLast)
+    : undefined;
 
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     async start(controller) {
-      function send(id: string, data: unknown) {
-        controller.enqueue(encoder.encode(`id: ${id}\ndata: ${JSON.stringify(data)}\n\n`));
+      function send(createdAt: Date, data: unknown) {
+        controller.enqueue(
+          encoder.encode(`id: ${createdAt.getTime()}\ndata: ${JSON.stringify(data)}\n\n`)
+        );
       }
 
       // 1. Flush any missed notifications since the last event id.
-      if (lastEventId) {
+      if (lastSeen) {
         const missed = await db
           .select()
           .from(notifications)
@@ -52,14 +63,15 @@ export async function GET(request: Request) {
             and(
               eq(notifications.employeeId, emp.id),
               eq(notifications.organizationId, user.organizationId),
-              gt(notifications.id, lastEventId)
+              gt(notifications.createdAt, lastSeen)
             )
           )
-          .orderBy(notifications.createdAt)
+          .orderBy(notifications.createdAt, notifications.id)
           .limit(50);
 
         for (const n of missed) {
-          send(n.id, n);
+          send(n.createdAt, n);
+          lastSeen = n.createdAt;
         }
       }
 
@@ -76,25 +88,24 @@ export async function GET(request: Request) {
       // 3. Poll for new notifications every 3 s. In production this should be
       //    replaced by Supabase Realtime (Postgres LISTEN/NOTIFY) so the DB
       //    isn't polled — the hook is in place, just swap the implementation.
-      let lastSeen = lastEventId;
       const poll = setInterval(async () => {
         try {
           const conditions = [
             eq(notifications.employeeId, emp.id),
             eq(notifications.organizationId, user.organizationId),
           ];
-          if (lastSeen) conditions.push(gt(notifications.id, lastSeen));
+          if (lastSeen) conditions.push(gt(notifications.createdAt, lastSeen));
 
           const rows = await db
             .select()
             .from(notifications)
             .where(and(...conditions))
-            .orderBy(notifications.createdAt)
+            .orderBy(notifications.createdAt, notifications.id)
             .limit(20);
 
           for (const n of rows) {
-            send(n.id, n);
-            lastSeen = n.id;
+            send(n.createdAt, n);
+            lastSeen = n.createdAt;
           }
         } catch {
           clearInterval(poll);

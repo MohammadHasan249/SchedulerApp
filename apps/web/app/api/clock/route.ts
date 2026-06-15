@@ -3,7 +3,7 @@ import { z } from "zod";
 import { safeJson } from "@/lib/utils/safe-json";
 import { db } from "@/lib/db";
 import { clockEvents, employees, branches } from "@scheduler/database/schema";
-import { eq, and, desc, gte, lte, inArray } from "drizzle-orm";
+import { eq, and, desc, gte, lte, lt, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
@@ -48,11 +48,10 @@ export const GET = withAuth(async function GET(request: Request) {
 
   if (from) conditions.push(gte(clockEvents.timestamp, new Date(from)));
   if (to) conditions.push(lte(clockEvents.timestamp, new Date(to)));
-  if (cursor) conditions.push(lte(clockEvents.timestamp, new Date(cursor)));
-
-  if (cursor) {
-    conditions.push(lte(clockEvents.timestamp, new Date(cursor)));
-  }
+  // Cursor is exclusive: nextCursor is the timestamp of the last row returned,
+  // so an inclusive (lte) cursor re-returns that row as the first item of the
+  // next page. Use lt to advance past it.
+  if (cursor) conditions.push(lt(clockEvents.timestamp, new Date(cursor)));
 
   const rows = await db
     .select({ event: clockEvents, employee: employees })
