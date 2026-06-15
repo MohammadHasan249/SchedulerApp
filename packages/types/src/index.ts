@@ -22,6 +22,43 @@ export interface Employee {
   maxHoursPerWeek: number | null;
   isActive: boolean;
   availabilitySchedule?: Record<string, { startTime: string; endTime: string }> | null;
+  permissionProfileId?: string | null;
+}
+
+// ---- Compensation (effective-dated pay history; foundation for T4 generation) ----
+
+export type PayType = "hourly" | "salary";
+
+export interface PayRate {
+  id: string;
+  employeeId: string;
+  payType: PayType;
+  /** Minor units (cents). hourly = cents/hour, salary = cents/year. */
+  amountCents: number;
+  currency: string;
+  /** YYYY-MM-DD; the rate active on a day is the latest one with effectiveDate <= day. */
+  effectiveDate: string;
+  note: string | null;
+  createdAt: string;
+  createdByEmployeeId: string | null;
+}
+
+// ---- Granular permissions ----
+
+export const PERMISSION_KEYS = ["salaries:view", "salaries:edit"] as const;
+export type PermissionKey = (typeof PERMISSION_KEYS)[number];
+
+export const PERMISSION_LABELS: Record<PermissionKey, string> = {
+  "salaries:view": "View salaries",
+  "salaries:edit": "Edit salaries",
+};
+
+export interface PermissionProfile {
+  id: string;
+  organizationId: string;
+  name: string;
+  permissions: PermissionKey[];
+  createdAt: string;
 }
 
 export interface ShiftAssignmentDetail {

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { safeJson } from "@/lib/utils/safe-json";
 import { db } from "@/lib/db";
-import { employees, branches, jobRoles, shifts, shiftAssignments } from "@scheduler/database/schema";
+import { employees, branches, jobRoles, shifts, shiftAssignments, permissionProfiles } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -18,6 +18,7 @@ const patchSchema = z.object({
   jobRoleId: z.string().uuid().nullable().optional(),
   maxHoursPerWeek: z.number().int().min(1).max(168).optional(),
   isActive: z.boolean().optional(),
+  permissionProfileId: z.string().uuid().nullable().optional(),
   pin: z.string().regex(/^\d{4,6}$/).optional(),
 });
 
@@ -109,6 +110,32 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
       .limit(1);
     if (!jr) {
       return NextResponse.json({ error: "Job role not found" }, { status: 404 });
+    }
+  }
+
+  // Assigning a permission profile grants capabilities (e.g. viewing salaries),
+  // so it's org_admin-only and the profile must belong to this org.
+  if (rest.permissionProfileId !== undefined) {
+    if (user.role !== "org_admin") {
+      return NextResponse.json(
+        { error: "Forbidden: only org_admin can assign permission profiles" },
+        { status: 403 }
+      );
+    }
+    if (rest.permissionProfileId !== null) {
+      const [profile] = await db
+        .select({ id: permissionProfiles.id })
+        .from(permissionProfiles)
+        .where(
+          and(
+            eq(permissionProfiles.id, rest.permissionProfileId),
+            eq(permissionProfiles.organizationId, user.organizationId)
+          )
+        )
+        .limit(1);
+      if (!profile) {
+        return NextResponse.json({ error: "Permission profile not found" }, { status: 404 });
+      }
     }
   }
 
