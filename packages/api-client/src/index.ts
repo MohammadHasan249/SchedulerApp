@@ -16,3 +16,4 @@ export * from "./scheduleAI";
 export * from "./notifications";
 export * from "./payRates";
 export * from "./permissionProfiles";
+export * from "./permissions";

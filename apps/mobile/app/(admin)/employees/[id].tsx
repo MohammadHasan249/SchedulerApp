@@ -16,11 +16,13 @@ import {
   getJobRoles,
   updateEmployee,
   deleteEmployee,
+  getMyPermissions,
   type Branch,
   type JobRole,
 } from "@/lib/api";
 import type { Employee } from "@scheduler/types";
 import { useAppTheme } from "@/lib/useAppTheme";
+import { EmployeeCompensation } from "@/components/EmployeeCompensation";
 
 const ROLE_LABEL: Record<string, string> = {
   org_admin: "Org Admin",
@@ -39,18 +41,23 @@ export default function EmployeeDetailScreen() {
   const [jobRoleMap, setJobRoleMap] = useState<Record<string, JobRole>>({});
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+  const [canViewSalary, setCanViewSalary] = useState(false);
+  const [canEditSalary, setCanEditSalary] = useState(false);
 
   async function load() {
     if (!id) return;
     try {
-      const [emp, branches, jobRoles] = await Promise.all([
+      const [emp, branches, jobRoles, permissions] = await Promise.all([
         getEmployee(id),
         getBranches(),
         getJobRoles(),
+        getMyPermissions(),
       ]);
       setEmployee(emp);
       setBranchMap(Object.fromEntries(branches.map((b) => [b.id, b])));
       setJobRoleMap(Object.fromEntries(jobRoles.map((j) => [j.id, j])));
+      setCanViewSalary(permissions.includes("salaries:view"));
+      setCanEditSalary(permissions.includes("salaries:edit"));
     } catch (e) {
       Alert.alert("Couldn't load employee", e instanceof Error ? e.message : "Please try again.");
     } finally {
@@ -165,6 +172,10 @@ export default function EmployeeDetailScreen() {
             last
           />
         </View>
+
+        {canViewSalary && (
+          <EmployeeCompensation employeeId={employee.id} canEdit={canEditSalary} />
+        )}
 
         <TouchableOpacity
           style={[
