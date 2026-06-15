@@ -10,14 +10,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useCallback, useEffect, useState } from "react";
 import { Users, CalendarCheck, Clock } from "lucide-react-native";
+import { format } from "date-fns";
 import { getDashboardStats, type DashboardStats } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
 
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
 function formatTime(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return format(new Date(iso), "h:mm a");
 }
 
 function StatCard({

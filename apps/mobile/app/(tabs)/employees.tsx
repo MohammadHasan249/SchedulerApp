@@ -10,6 +10,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useCallback, useEffect, useState } from "react";
@@ -100,6 +101,7 @@ export default function EmployeesScreen() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [jobRoles, setJobRoles] = useState<JobRole[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Invite modal
   const [inviteVisible, setInviteVisible] = useState(false);
@@ -123,6 +125,7 @@ export default function EmployeesScreen() {
       Alert.alert("Couldn't load employees", e instanceof Error ? e.message : "Please try again.");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -216,7 +219,12 @@ export default function EmployeesScreen() {
             try {
               await updateEmployee(emp.id, { isActive: !emp.isActive });
               load();
-            } catch {}
+            } catch (e) {
+              Alert.alert(
+                `Couldn't ${action.toLowerCase()} employee`,
+                e instanceof Error ? e.message : "Please try again."
+              );
+            }
           },
         },
       ]
@@ -256,7 +264,16 @@ export default function EmployeesScreen() {
           <Text style={[styles.emptyText, { color: theme.muted }]}>No employees yet.</Text>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.list}>
+        <ScrollView
+          contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => { setRefreshing(true); load(); }}
+              tintColor={theme.primary}
+            />
+          }
+        >
           {employees.map((emp) => (
             <TouchableOpacity
               key={emp.id}

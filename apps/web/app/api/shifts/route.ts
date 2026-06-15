@@ -66,11 +66,14 @@ export const GET = withAuth(async function GET(request: Request) {
     .from(shifts)
     .where(and(...conditions));
 
-  if (user.role === "employee" || rows.length === 0) {
+  if (rows.length === 0) {
     return NextResponse.json(rows);
   }
 
-  // For admins/managers, include assignments with employee names
+  // Include assignments with employee names. Employees only ever receive
+  // published shifts (filtered above), and the per-shift assignments
+  // endpoint already lets them view assignments on published shifts, so
+  // this exposes nothing new — it lets clients mark "your" shifts.
   const shiftIds = rows.map((s) => s.id);
   const assignmentRows = await db
     .select({

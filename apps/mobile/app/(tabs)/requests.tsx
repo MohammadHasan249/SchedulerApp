@@ -8,12 +8,21 @@ import { format, startOfWeek, addDays } from "date-fns";
 import {
   getTimeOffRequests, createTimeOffRequest, updateTimeOffRequest,
   getShiftSwaps, createShiftSwap, updateShiftSwap,
-  getShifts, getEmployees,
+  getShifts, getShiftAssignments, getEmployees,
 } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useAuthStore } from "@/lib/authStore";
+import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
 import { useIsAdmin } from "@/lib/useRole";
 import type { TimeOffRequest, ShiftSwapRequest, Shift, Employee } from "@scheduler/types";
+
+// Time-off dates are date-only strings ("2026-06-10"). `new Date()` would
+// parse them as UTC midnight and render the previous day in negative-offset
+// timezones, so build a local date instead.
+function parseDateOnly(s: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  return m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(s);
+}
 
 const TIME_OFF_COLORS: Record<string, string> = {
   pending: "#f59e0b",
@@ -260,7 +269,7 @@ function TimeOffCard({
     <View style={styles.card}>
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>
-          {format(new Date(req.startDate), "MMM d")} – {format(new Date(req.endDate), "MMM d, yyyy")}
+          {format(parseDateOnly(req.startDate), "MMM d")} – {format(parseDateOnly(req.endDate), "MMM d, yyyy")}
         </Text>
         <View style={[styles.badge, { backgroundColor: (TIME_OFF_COLORS[req.status] ?? theme.muted) + "33" }]}>
           <Text style={[styles.badgeText, { color: TIME_OFF_COLORS[req.status] ?? theme.muted }]}>
@@ -302,7 +311,8 @@ function SwapSection() {
   const styles = makeStyles(theme);
   const isAdmin = useIsAdmin();
   const { session } = useAuthStore();
-  const employeeId = session?.user?.user_metadata?.employee_id as string | undefined;
+  const { fetchMyEmployee } = useMyEmployeeStore();
+  const [employeeId, setEmployeeId] = useState<string | undefined>(undefined);
 
   const [swaps, setSwaps] = useState<ShiftSwapRequest[]>([]);
   const [shiftMap, setShiftMap] = useState<Record<string, Shift>>({});
@@ -316,6 +326,9 @@ function SwapSection() {
 
   async function load() {
     try {
+      const me = session ? await fetchMyEmployee(session.user.id) : null;
+      setEmployeeId(me?.id);
+
       const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
       const [swapData, shiftsNow, shiftsNext] = await Promise.all([
         getShiftSwaps(),
@@ -328,7 +341,25 @@ function SwapSection() {
       const now = new Date();
       setSwaps(swapData);
       setShiftMap(map);
-      setUpcomingShifts(allShifts.filter((s) => new Date(s.startTime) > now));
+
+      const upcoming = allShifts.filter((s) => new Date(s.startTime) > now);
+      if (isAdmin || !me) {
+        setUpcomingShifts(upcoming);
+      } else {
+        // The shifts list for employees carries no assignment info, so check
+        // each upcoming shift — otherwise the picker offers shifts the server
+        // will reject with "You are not assigned to this shift".
+        const assignmentLists = await Promise.all(
+          upcoming.map((s) =>
+            s.assignments
+              ? Promise.resolve(s.assignments)
+              : getShiftAssignments(s.id).catch(() => [])
+          )
+        );
+        setUpcomingShifts(
+          upcoming.filter((_, i) => assignmentLists[i].some((a) => a.employeeId === me.id))
+        );
+      }
 
       if (isAdmin) {
         const emps = await getEmployees();
@@ -404,7 +435,7 @@ function SwapSection() {
         <View style={styles.form}>
           <Text style={styles.label}>Select a shift to swap</Text>
           {upcomingShifts.length === 0 ? (
-            <Text style={styles.emptyText}>No upcoming shifts this fortnight</Text>
+            <Text style={styles.emptyText}>You have no upcoming assigned shifts to swap</Text>
           ) : upcomingShifts.map((shift) => (
             <TouchableOpacity
               key={shift.id}
@@ -463,9 +494,9 @@ function SwapSection() {
                       ? `${format(new Date(shift.startTime), "EEE MMM d")} · ${format(new Date(shift.startTime), "h:mm a")}–${format(new Date(shift.endTime), "h:mm a")}`
                       : "Shift unavailable"}
                   </Text>
-                  <View style={[styles.badge, { backgroundColor: SWAP_COLORS[swap.status] + "33" }]}>
-                    <Text style={[styles.badgeText, { color: SWAP_COLORS[swap.status] }]}>
-                      {SWAP_LABELS[swap.status]}
+                  <View style={[styles.badge, { backgroundColor: (SWAP_COLORS[swap.status] ?? theme.muted) + "33" }]}>
+                    <Text style={[styles.badgeText, { color: SWAP_COLORS[swap.status] ?? theme.muted }]}>
+                      {SWAP_LABELS[swap.status] ?? swap.status}
                     </Text>
                   </View>
                 </View>

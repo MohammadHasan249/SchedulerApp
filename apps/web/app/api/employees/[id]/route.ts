@@ -41,6 +41,12 @@ export const GET = withAuth(async function GET(request: Request, { params }: { p
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // Employees may only read their own record. 404 (not 403) so ids can't
+  // be probed for existence.
+  if (user.role === "employee" && employee.authUserId !== user.id) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   return NextResponse.json(employee);
 });
 

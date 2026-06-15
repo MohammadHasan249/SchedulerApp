@@ -24,6 +24,7 @@ import {
 import { useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/lib/authStore";
+import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
 import { getOrganizationHours, type HoursSchedule } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useIsAdmin } from "@/lib/useRole";
@@ -44,6 +45,7 @@ export default function ProfileScreen() {
   const styles = makeStyles(theme);
   const router = useRouter();
   const { session, employeeName, setEmployeeName } = useAuthStore();
+  const { fetchMyEmployee } = useMyEmployeeStore();
   const isAdmin = useIsAdmin();
   const user = session?.user;
   const [orgHours, setOrgHours] = useState<HoursSchedule | null>(null);
@@ -60,23 +62,13 @@ export default function ProfileScreen() {
         setLoadingHours(false);
       }
 
-      if (!employeeName) {
-        const fullName = session?.user?.user_metadata?.full_name as string | undefined;
+      if (!employeeName && session) {
+        const fullName = session.user.user_metadata?.full_name as string | undefined;
         if (fullName) {
           setEmployeeName(fullName);
         } else {
-          const employeeId = session?.user?.user_metadata?.employee_id as string | undefined;
-          if (employeeId) {
-            try {
-              const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/employees/${employeeId}`, {
-                headers: { Authorization: `Bearer ${session?.access_token}` },
-              });
-              if (res.ok) {
-                const emp = await res.json();
-                if (emp?.name) setEmployeeName(emp.name);
-              }
-            } catch {}
-          }
+          const me = await fetchMyEmployee(session.user.id);
+          if (me?.name) setEmployeeName(me.name);
         }
       }
     }

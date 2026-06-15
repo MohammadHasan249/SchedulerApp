@@ -6,11 +6,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ChevronLeft, ChevronRight, Bot, X, Plus, UserMinus } from "lucide-react-native";
 import { format, addDays, startOfWeek, isSameDay, getDay } from "date-fns";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import {
   getShifts, getEmployees, assignEmployee, unassignEmployee, getJobRoles,
 } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
+import { useAuthStore } from "@/lib/authStore";
+import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
 import { useIsAdmin } from "@/lib/useRole";
 import type { Shift, Employee, ShiftAssignmentDetail } from "@scheduler/types";
 
@@ -21,6 +23,9 @@ export default function ScheduleScreen() {
   const styles = makeStyles(theme);
   const isAdmin = useIsAdmin();
   const router = useRouter();
+  const { session } = useAuthStore();
+  const { fetchMyEmployee } = useMyEmployeeStore();
+  const [myEmployeeId, setMyEmployeeId] = useState<string | null>(null);
 
   const [view, setView] = useState<"shifts" | "availability">("shifts");
   const [weekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -60,6 +65,26 @@ export default function ScheduleScreen() {
     if (isAdmin) tasks.push(loadEmployees());
     Promise.all(tasks).finally(() => setLoading(false));
   }, [weekStart]);
+
+  // Employees: resolve own record so their shifts can be highlighted.
+  useEffect(() => {
+    if (!isAdmin && session) {
+      fetchMyEmployee(session.user.id).then((me) => setMyEmployeeId(me?.id ?? null));
+    }
+  }, [session, isAdmin]);
+
+  // Silently refresh when the screen regains focus (e.g. returning from the
+  // AI assign screen) so new assignments show up without a manual pull.
+  const firstFocusRef = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (firstFocusRef.current) {
+        firstFocusRef.current = false;
+        return;
+      }
+      loadShifts(weekStart);
+    }, [weekStart, loadShifts])
+  );
 
   // Reload employees once when switching to availability
   useEffect(() => {
@@ -210,6 +235,7 @@ export default function ScheduleScreen() {
                 key={shift.id}
                 shift={shift}
                 isAdmin={isAdmin}
+                myEmployeeId={myEmployeeId}
                 onPress={() => { setSelectedShift(shift); }}
               />
             ))
@@ -320,18 +346,21 @@ export default function ScheduleScreen() {
 function ShiftCard({
   shift,
   isAdmin,
+  myEmployeeId,
   onPress,
 }: {
   shift: Shift;
   isAdmin: boolean;
+  myEmployeeId?: string | null;
   onPress?: () => void;
 }) {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
   const start = new Date(shift.startTime);
   const end = new Date(shift.endTime);
-  const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+  const hours = Math.round(((end.getTime() - start.getTime()) / (1000 * 60 * 60)) * 10) / 10;
   const assignments = shift.assignments ?? [];
+  const isMine = !!myEmployeeId && assignments.some((a) => a.employeeId === myEmployeeId);
 
   const card = (
     <View style={[styles.card, !shift.isPublished && styles.cardUnpublished]}>
@@ -344,13 +373,18 @@ function ShiftCard({
         <View style={{ flex: 1, gap: 4 }}>
           <View style={styles.cardTopRow}>
             <Text style={styles.cardHours}>{hours}h shift</Text>
+            {isMine && (
+              <View style={[styles.badge, { backgroundColor: theme.primary + "33" }]}>
+                <Text style={[styles.badgeText, { color: theme.primary }]}>Your shift</Text>
+              </View>
+            )}
             {!shift.isPublished && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>Draft</Text>
               </View>
             )}
           </View>
-          {isAdmin && assignments.length > 0 && (
+          {assignments.length > 0 && (
             <Text style={styles.assignedChips} numberOfLines={1}>
               {assignments.map((a) => a.employeeName).join(", ")}
             </Text>

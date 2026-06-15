@@ -77,10 +77,10 @@ export default function ClockInScreen() {
     return () => clearTimeout(t);
   }, [result]);
 
-  // Clear error after 1.5 seconds
+  // Clear error after 2.5 seconds (long enough to read a server message)
   useEffect(() => {
     if (!error) return;
-    const t = setTimeout(() => setError(null), 1500);
+    const t = setTimeout(() => setError(null), 2500);
     return () => clearTimeout(t);
   }, [error]);
 
@@ -94,8 +94,14 @@ export default function ClockInScreen() {
     try {
       const res = await clockPunch(pin, branchSlug);
       setResult({ employeeName: res.employeeName, clockType: res.clockType });
-    } catch {
-      setError("Invalid PIN. Please try again.");
+    } catch (e) {
+      // Surface the real server error (wrong branch slug, inactive employee…)
+      // instead of blaming the PIN for everything.
+      const msg =
+        e instanceof Error && e.message && !e.message.startsWith("Request failed")
+          ? e.message
+          : "Invalid PIN. Please try again.";
+      setError(msg);
     } finally {
       setPin("");
       setSubmitting(false);

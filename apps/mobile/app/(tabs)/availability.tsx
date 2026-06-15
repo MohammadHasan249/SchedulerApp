@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getAvailability, saveAvailability, getOrganizationHours } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
+import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
 import { useAppTheme } from "@/lib/useAppTheme";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -24,6 +25,7 @@ export default function AvailabilityScreen() {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
   const { session } = useAuthStore();
+  const { fetchMyEmployee } = useMyEmployeeStore();
   const [slots, setSlots] = useState<DaySlot[]>(
     DAYS.map(() => ({ enabled: true, startTime: DEFAULT_START, endTime: DEFAULT_END }))
   );
@@ -35,13 +37,22 @@ export default function AvailabilityScreen() {
     async function load() {
       if (!session) return;
       try {
-        const hours = await getOrganizationHours();
+        const [hours, me] = await Promise.all([
+          getOrganizationHours(),
+          fetchMyEmployee(session.user.id),
+        ]);
 
-        const empId = session.user.user_metadata?.employee_id as string | undefined;
-        if (!empId) { setLoading(false); return; }
-        setEmployeeId(empId);
+        if (!me) {
+          Alert.alert(
+            "No employee profile",
+            "Your account isn't linked to an employee record. Ask your manager to re-invite you."
+          );
+          setLoading(false);
+          return;
+        }
+        setEmployeeId(me.id);
 
-        const schedule = await getAvailability(empId);
+        const schedule = await getAvailability(me.id);
 
         setSlots(
           DAYS.map((_, i) => {
@@ -86,7 +97,15 @@ export default function AvailabilityScreen() {
   }
 
   async function handleSave() {
-    if (!employeeId) return;
+    if (!employeeId) {
+      Alert.alert("Error", "No employee profile linked to this account.");
+      return;
+    }
+    const invalid = slots.findIndex((s) => s.enabled && s.startTime >= s.endTime);
+    if (invalid !== -1) {
+      Alert.alert("Invalid times", `${DAYS[invalid]}: start time must be before end time.`);
+      return;
+    }
     setSaving(true);
     try {
       const payload: Record<number, { startTime: string; endTime: string }> = {};
@@ -95,8 +114,8 @@ export default function AvailabilityScreen() {
       });
       await saveAvailability(employeeId, payload);
       Alert.alert("Saved", "Your availability has been updated.");
-    } catch {
-      Alert.alert("Error", "Failed to save availability.");
+    } catch (e) {
+      Alert.alert("Error", e instanceof Error ? e.message : "Failed to save availability.");
     } finally {
       setSaving(false);
     }
