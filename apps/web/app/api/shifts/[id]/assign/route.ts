@@ -93,14 +93,30 @@ export const POST = withAuth(async function POST(request: Request, { params }: {
     return NextResponse.json({ error: validation.message, code: validation.code }, { status: 409 });
   }
 
-  const [assignment] = await db
-    .insert(shiftAssignments)
-    .values({
-      shiftId: id,
-      employeeId: parsed.data.employeeId,
-      jobRoleId: parsed.data.jobRoleId ?? null,
-    })
-    .returning();
+  let assignment;
+  try {
+    [assignment] = await db
+      .insert(shiftAssignments)
+      .values({
+        shiftId: id,
+        employeeId: parsed.data.employeeId,
+        jobRoleId: parsed.data.jobRoleId ?? null,
+      })
+      .returning();
+  } catch (error) {
+    // Two concurrent submits can both pass validateAssignment's duplicate
+    // pre-check; the loser lands on shift_assignments_shift_emp_unique.
+    if ((error as { code?: string })?.code === "23505") {
+      return NextResponse.json(
+        {
+          error: "Employee is already assigned to this shift.",
+          code: "DUPLICATE_ASSIGNMENT",
+        },
+        { status: 409 }
+      );
+    }
+    throw error;
+  }
 
   await createNotification({
     employeeId: employee.id,

@@ -10,6 +10,7 @@ import {
 } from "@scheduler/database/schema";
 import { eq, and, gte, lte, inArray } from "drizzle-orm";
 import { coversAvailability, type AvailabilitySchedule } from "./availability";
+import { getZonedParts } from "@/lib/utils/timezone";
 
 export interface AutoAssignResult {
   shiftId: string;
@@ -254,49 +255,50 @@ export async function autoAssignShifts(
   return assignments;
 }
 
-function buildTimeOffMap(
-  requests: (typeof timeOffRequests.$inferSelect)[],
+export interface TimeOffInterval {
+  start: string; // "YYYY-MM-DD"
+  end: string; // "YYYY-MM-DD" (inclusive)
+}
+
+export function buildTimeOffMap(
+  requests: Pick<
+    typeof timeOffRequests.$inferSelect,
+    "employeeId" | "startDate" | "endDate"
+  >[],
   fromDate: Date,
   toDate: Date
-): Map<string, Set<string>> {
-  const map = new Map<string, Set<string>>();
-  const normalizedFrom = fromDate.toISOString().split("T")[0];
-  const normalizedTo = toDate.toISOString().split("T")[0];
+): Map<string, TimeOffInterval[]> {
+  const map = new Map<string, TimeOffInterval[]>();
 
-  requests.forEach((req) => {
-    // Check if time-off overlaps with the date range
-    const reqStartStr = req.startDate.toString();
-    const reqEndStr = req.endDate.toString();
+  // Prefilter to the planning window, widened by a day on each side: the
+  // window bounds are normalized in UTC but shift dates are resolved in the
+  // branch's timezone (at most ±14h from UTC), so a request touching the
+  // window only in local time must not be dropped here.
+  const DAY_MS = 86_400_000;
+  const windowStart = new Date(fromDate.getTime() - DAY_MS)
+    .toISOString()
+    .slice(0, 10);
+  const windowEnd = new Date(toDate.getTime() + DAY_MS)
+    .toISOString()
+    .slice(0, 10);
 
-    if (reqEndStr < normalizedFrom || reqStartStr > normalizedTo) {
-      return; // No overlap
-    }
+  for (const req of requests) {
+    const start = String(req.startDate);
+    const end = String(req.endDate);
+    if (end < windowStart || start > windowEnd) continue;
 
-    if (!map.has(req.employeeId)) {
-      map.set(req.employeeId, new Set());
-    }
-
-    // Add all dates within the overlap range
-    const start = new Date(
-      Math.max(
-        new Date(normalizedFrom).getTime(),
-        new Date(reqStartStr).getTime()
-      )
-    );
-    const end = new Date(
-      Math.min(new Date(normalizedTo).getTime(), new Date(reqEndStr).getTime())
-    );
-
-    for (
-      let d = new Date(start);
-      d <= end;
-      d.setUTCDate(d.getUTCDate() + 1)
-    ) {
-      map.get(req.employeeId)!.add(d.toISOString().split("T")[0]);
-    }
-  });
+    if (!map.has(req.employeeId)) map.set(req.employeeId, []);
+    map.get(req.employeeId)!.push({ start, end });
+  }
 
   return map;
+}
+
+export function isOnTimeOff(
+  intervals: TimeOffInterval[] | undefined,
+  dateStr: string
+): boolean {
+  return !!intervals?.some((iv) => iv.start <= dateStr && dateStr <= iv.end);
 }
 
 function getShiftHours(shift: typeof shifts.$inferSelect): number {
@@ -311,13 +313,15 @@ function findBestCandidate(
   allEmployees: (typeof employees.$inferSelect)[],
   requiredJobRoleId: string | null,
   hoursPerEmployee: Map<string, number>,
-  timeOffByEmployeeId: Map<string, Set<string>>,
+  timeOffByEmployeeId: Map<string, TimeOffInterval[]>,
   availabilityByEmployeeId: Map<string, AvailabilitySchedule>,
   assignedEmployeeSet: Set<string>,
   timezone: string
 ): EmployeeCandidate | null {
   const shiftHours = getShiftHours(shift);
-  const shiftDate = new Date(shift.startTime).toISOString().split("T")[0];
+  // Branch-local calendar date, matching how validateAssignment resolves
+  // time-off (a 11pm local shift must not read as the next UTC day).
+  const shiftDate = getZonedParts(new Date(shift.startTime), timezone).dateStr;
 
   const candidates: EmployeeCandidate[] = [];
 
@@ -328,8 +332,7 @@ function findBestCandidate(
     }
 
     // Skip if employee has time-off on this day
-    const timeOffDates = timeOffByEmployeeId.get(emp.id) || new Set();
-    if (timeOffDates.has(shiftDate)) {
+    if (isOnTimeOff(timeOffByEmployeeId.get(emp.id), shiftDate)) {
       continue;
     }
 

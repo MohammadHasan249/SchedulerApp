@@ -471,7 +471,19 @@ Your job:
           });
           continue;
         }
-        const result = await executeTool(tc.function.name, args);
+        // A DB error inside a tool (e.g. a unique-constraint race on assign)
+        // must come back as a tool error the model can react to, not a 500
+        // that kills the whole conversation turn.
+        let result: unknown;
+        try {
+          result = await executeTool(tc.function.name, args);
+        } catch (e) {
+          logger.error(`AI tool ${tc.function.name} failed:`, e);
+          result = {
+            error:
+              "The operation failed unexpectedly. It may have hit a conflict — re-check current state before retrying.",
+          };
+        }
         toolResults.push({
           role: "tool" as const,
           tool_call_id: tc.id,

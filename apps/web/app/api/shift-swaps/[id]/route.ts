@@ -141,6 +141,26 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
       );
     }
 
+    // The cover may have been assigned to this shift (another slot) since
+    // accepting; the insert below would then hit the (shiftId, employeeId)
+    // unique constraint and 500. Reject up front with a real answer.
+    const [coverAlreadyAssigned] = await db
+      .select({ id: shiftAssignments.id })
+      .from(shiftAssignments)
+      .where(
+        and(
+          eq(shiftAssignments.shiftId, swap.shiftId),
+          eq(shiftAssignments.employeeId, swap.coverId)
+        )
+      )
+      .limit(1);
+    if (coverAlreadyAssigned) {
+      return NextResponse.json(
+        { error: "Cover employee is already assigned to this shift" },
+        { status: 409 }
+      );
+    }
+
     const updated = await db.transaction(async (tx) => {
       const [requesterAssignment] = await tx
         .select()
