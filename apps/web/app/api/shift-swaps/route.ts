@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { shiftSwapRequests, employees, shifts, branches, shiftAssignments } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
-import { createNotification } from "@/lib/notifications/create";
+import { createNotification } from "@/lib/notifications";
 import { eq, and, or, inArray } from "drizzle-orm";
 
 const createSchema = z.object({

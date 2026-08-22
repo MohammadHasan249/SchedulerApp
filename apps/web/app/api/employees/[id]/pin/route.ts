@@ -6,7 +6,7 @@ import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { db } from "@/lib/db";
 import { employees } from "@scheduler/database/schema";
-import { pinCollidesWithExisting } from "@/lib/employees/pin";
+import { pinCollidesWithExisting } from "@/lib/employees";
 import { checkRateLimit, getClientIp } from "@/lib/utils/rate-limit";
 import { eq, and } from "drizzle-orm";
 

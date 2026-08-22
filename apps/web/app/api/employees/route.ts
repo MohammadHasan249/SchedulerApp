@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger";
-import { writeAuditLog } from "@/lib/audit/log";
+import { writeAuditLog } from "@/lib/audit";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { safeJson } from "@/lib/utils/safe-json";
@@ -9,7 +9,7 @@ import { employees, branches, jobRoles } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { sendEmployeeInvitationEmail } from "@/lib/email/send-employee-invitation";
-import { pinCollidesWithExisting } from "@/lib/employees/pin";
+import { pinCollidesWithExisting } from "@/lib/employees";
 import { eq, and, gt } from "drizzle-orm";
 
 const inviteSchema = z.object({

@@ -6,7 +6,7 @@ import { shifts, shiftAssignments, branches, employees } from "@scheduler/databa
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { validateAssignment } from "@/lib/scheduling/assignment-validator";
-import { createNotification } from "@/lib/notifications/create";
+import { createNotification } from "@/lib/notifications";
 import { eq, and } from "drizzle-orm";
 
 const assignSchema = z.object({

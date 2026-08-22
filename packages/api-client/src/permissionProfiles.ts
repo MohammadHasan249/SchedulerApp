@@ -28,3 +28,9 @@ export function updatePermissionProfile(
 export function deletePermissionProfile(id: string): Promise<void> {
   return apiFetch(`/api/permission-profiles/${id}`, { method: "DELETE" });
 }
+
+/** The caller's own effective permission keys (for gating UI). */
+export async function getMyPermissions(): Promise<PermissionKey[]> {
+  const res = await apiFetch<{ permissions: PermissionKey[] }>("/api/me/permissions");
+  return res.permissions ?? [];
+}

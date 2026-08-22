@@ -13,7 +13,7 @@ import {
 import { getApiUser as getUser } from "@/lib/auth/getUser";
 import { withAuth } from "@/lib/auth/withAuth";
 import { validateAssignment } from "@/lib/scheduling/assignment-validator";
-import { createNotification } from "@/lib/notifications/create";
+import { createNotification } from "@/lib/notifications";
 import { checkRateLimit, getClientIp } from "@/lib/utils/rate-limit";
 import { eq, and, gte, lte, inArray } from "drizzle-orm";
 

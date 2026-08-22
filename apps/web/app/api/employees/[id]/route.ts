@@ -7,7 +7,7 @@ import { employees, branches, jobRoles, shifts, shiftAssignments, permissionProf
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { pinCollidesWithExisting } from "@/lib/employees/pin";
+import { pinCollidesWithExisting } from "@/lib/employees";
 import { eq, and, gte, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 

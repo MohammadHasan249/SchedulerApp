@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { shiftSwapRequests, employees, shifts, branches, shiftAssignments } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
-import { createNotifications } from "@/lib/notifications/create";
+import { createNotifications } from "@/lib/notifications";
 import { eq, and } from "drizzle-orm";
 
 const patchSchema = z.discriminatedUnion("action", [

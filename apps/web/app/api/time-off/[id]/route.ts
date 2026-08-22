@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { timeOffRequests, employees, shifts, shiftAssignments } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
-import { createNotification } from "@/lib/notifications/create";
+import { createNotification } from "@/lib/notifications";
 import { eq, and, gte, lte } from "drizzle-orm";
 
 const patchSchema = z.object({
