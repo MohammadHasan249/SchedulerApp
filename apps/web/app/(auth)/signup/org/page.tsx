@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/client";
 
 const schema = z.object({
   orgName: z.string().min(2, "Organization name must be at least 2 characters"),
@@ -69,20 +68,8 @@ export default function OrgSignupPage() {
       return;
     }
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({
-      email: data.email,
-      password: data.password,
-    });
-
-    if (error) {
-      toast.error("Account created but sign-in failed. Please log in manually.");
-      router.push("/login");
-      return;
-    }
-
-    router.push("/dashboard");
-    router.refresh();
+    toast.success("Organization created! Check your email to confirm your account, then log in.");
+    router.push("/login");
   }
 
   return (

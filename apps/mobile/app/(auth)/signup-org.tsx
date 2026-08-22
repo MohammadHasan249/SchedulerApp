@@ -12,7 +12,6 @@ import {
 } from "react-native";
 import { useState, useEffect } from "react";
 import { useRouter, Stack } from "expo-router";
-import { supabase } from "@/lib/supabase";
 import { useAppTheme } from "@/lib/useAppTheme";
 
 function slugify(str: string): string {
@@ -79,15 +78,11 @@ export default function SignupOrgScreen() {
         Alert.alert("Signup failed", msg);
         return;
       }
-      // Sign the user in directly so the next screen has a live session.
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-      if (signInError) {
-        Alert.alert(
-          "Account created",
-          "Your organization was created. Please sign in to continue.",
-          [{ text: "OK", onPress: () => router.replace("/(auth)/login") }]
-        );
-      }
+      Alert.alert(
+        "Check your email",
+        "Your organization was created. Confirm your email, then sign in to continue.",
+        [{ text: "OK", onPress: () => router.replace("/(auth)/login") }]
+      );
     } catch (e) {
       Alert.alert("Signup failed", e instanceof Error ? e.message : "Please try again.");
     } finally {
@@ -104,7 +99,7 @@ export default function SignupOrgScreen() {
       >
         <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
           <Text style={styles.title}>Create Organization</Text>
-          <Text style={styles.subtitle}>You'll become the org admin.</Text>
+          <Text style={styles.subtitle}>You will be the admin for this organization.</Text>
 
           <Field label="Organization name">
             <TextInput
@@ -117,7 +112,7 @@ export default function SignupOrgScreen() {
             />
           </Field>
 
-          <Field label="URL slug" hint="Used for kiosk URLs. Letters, numbers, hyphens.">
+          <Field label="URL slug" hint="Used for kiosk URLs. Letters, numbers, hyphens only.">
             <TextInput
               style={styles.input}
               value={orgSlug}
@@ -205,9 +200,9 @@ function Field({
 function makeStyles(theme: ReturnType<typeof useAppTheme>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.bg },
-    inner: { padding: 20, gap: 14 },
+    inner: { flexGrow: 1, padding: 20, paddingTop: 80, gap: 14 },
     title: { fontSize: 22, fontWeight: "700", color: theme.text },
-    subtitle: { fontSize: 13, color: theme.muted, marginBottom: 8 },
+    subtitle: { fontSize: 13, color: theme.muted, marginBottom: 24 },
     field: { gap: 6 },
     label: { fontSize: 13, fontWeight: "600", color: theme.muted },
     input: {

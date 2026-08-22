@@ -48,20 +48,8 @@ export default function EmployeeSignupPage() {
       return;
     }
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({
-      email: data.email,
-      password: data.password,
-    });
-
-    if (error) {
-      toast.error("Account created but sign-in failed. Please log in manually.");
-      router.push("/login");
-      return;
-    }
-
-    router.push("/dashboard");
-    router.refresh();
+    toast.success("Account created! Check your email to confirm your account, then log in.");
+    router.push("/login");
   }
 
   return (

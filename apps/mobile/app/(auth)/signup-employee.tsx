@@ -12,7 +12,6 @@ import {
 } from "react-native";
 import { useState } from "react";
 import { useRouter, Stack } from "expo-router";
-import { supabase } from "@/lib/supabase";
 import { useAppTheme } from "@/lib/useAppTheme";
 
 export default function SignupEmployeeScreen() {
@@ -46,14 +45,11 @@ export default function SignupEmployeeScreen() {
         Alert.alert("Signup failed", typeof data.error === "string" ? data.error : "Something went wrong");
         return;
       }
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-      if (signInError) {
-        Alert.alert(
-          "Account created",
-          "Please sign in to continue.",
-          [{ text: "OK", onPress: () => router.replace("/(auth)/login") }]
-        );
-      }
+      Alert.alert(
+        "Check your email",
+        "Confirm your email, then sign in to continue.",
+        [{ text: "OK", onPress: () => router.replace("/(auth)/login") }]
+      );
     } catch (e) {
       Alert.alert("Signup failed", e instanceof Error ? e.message : "Please try again.");
     } finally {
