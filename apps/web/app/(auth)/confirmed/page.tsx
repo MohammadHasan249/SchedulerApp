@@ -47,9 +47,11 @@ export default function ConfirmedPage() {
               Continue to sign in
             </Button>
           ) : (
-            <Button variant="outline" className="w-full" asChild>
-              <Link href="/login">Back to sign in</Link>
-            </Button>
+            <Link href="/login">
+              <Button variant="outline" className="w-full">
+                Back to sign in
+              </Button>
+            </Link>
           )}
         </CardContent>
       )}
