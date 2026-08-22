@@ -11,8 +11,8 @@ export async function GET(request: Request) {
   const host = request.headers.get("host") ?? "";
   const slug = slugFromHost(host);
 
-  let name = "Scheduler App";
-  let shortName = "Scheduler";
+  let name = "Workplix";
+  let shortName = "Workplix";
   let primaryColor = "#3b82f6";
   let logoUrl: string | null = null;
 

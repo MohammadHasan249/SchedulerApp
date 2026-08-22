@@ -92,7 +92,7 @@ export async function sendEmployeeInvitationEmail(
       </div>
       <div class="content">
         <p>Hi ${safeEmployeeName},</p>
-        <p>You've been invited to join <strong>${safeOrgName}</strong> on Scheduler App. Your account is ready to use!</p>
+        <p>You've been invited to join <strong>${safeOrgName}</strong> on Workplix. Your account is ready to use!</p>
         <div class="details">
           <p><strong>Organization:</strong> ${safeOrgName}</p>
           <p><strong>Next Steps:</strong> Log in to your account to get started.</p>
@@ -100,14 +100,14 @@ export async function sendEmployeeInvitationEmail(
         <a href="${appUrl}/dashboard" class="button">Go to Dashboard</a>
       </div>
       <div class="footer">
-        <p>This is an automated message from Scheduler App. Please do not reply to this email.</p>
+        <p>This is an automated message from Workplix. Please do not reply to this email.</p>
       </div>
     </div>
   </body>
 </html>
       `;
     } else {
-      subject = `Join ${org.name} on Scheduler App`;
+      subject = `Join ${org.name} on Workplix`;
       emailHtml = `
 <!DOCTYPE html>
 <html>
@@ -127,11 +127,11 @@ export async function sendEmployeeInvitationEmail(
     <div class="container">
       <div class="header">
         <h2>Join ${safeOrgName}!</h2>
-        <p style="margin: 0; color: #666;">You've been invited to use Scheduler App</p>
+        <p style="margin: 0; color: #666;">You've been invited to use Workplix</p>
       </div>
       <div class="content">
         <p>Hi ${safeEmployeeName},</p>
-        <p>You've been invited to join <strong>${safeOrgName}</strong> on Scheduler App, a modern workforce scheduling platform.</p>
+        <p>You've been invited to join <strong>${safeOrgName}</strong> on Workplix, a modern workforce scheduling platform.</p>
         <div class="details">
           <p><strong>Organization:</strong> ${safeOrgName}</p>
           <p><strong>Next Steps:</strong> Create your account to start managing schedules and time off.</p>
@@ -139,7 +139,7 @@ export async function sendEmployeeInvitationEmail(
         <a href="${appUrl}/signup/employee" class="button">Create Account</a>
       </div>
       <div class="footer">
-        <p>This is an automated message from Scheduler App. Please do not reply to this email.</p>
+        <p>This is an automated message from Workplix. Please do not reply to this email.</p>
       </div>
     </div>
   </body>

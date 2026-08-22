@@ -66,7 +66,7 @@ export default function LandingPage() {
             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
               <Calendar className="h-5 w-5 text-white" />
             </div>
-            <span className="text-xl font-bold text-white">Scheduler App</span>
+            <span className="text-xl font-bold text-white">Workplix</span>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/login">
@@ -161,7 +161,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div className="space-y-8">
-              <h2 className="text-4xl font-bold text-white">Why Choose Scheduler App?</h2>
+              <h2 className="text-4xl font-bold text-white">Why Choose Workplix?</h2>
               <ul className="space-y-4">
                 {[
                   "Reduce scheduling time by 80%",
@@ -195,7 +195,7 @@ export default function LandingPage() {
             Ready to transform your scheduling?
           </h2>
           <p className="text-xl text-slate-400">
-            Join hundreds of teams already using Scheduler App to manage their workforce.
+            Join hundreds of teams already using Workplix to manage their workforce.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/signup">
@@ -222,9 +222,9 @@ export default function LandingPage() {
               <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
                 <Calendar className="h-5 w-5 text-white" />
               </div>
-              <span className="font-semibold text-white">Scheduler App</span>
+              <span className="font-semibold text-white">Workplix</span>
             </div>
-            <p className="text-sm text-slate-500">© 2026 Scheduler App. All rights reserved.</p>
+            <p className="text-sm text-slate-500">© 2026 Workplix. All rights reserved.</p>
           </div>
         </div>
       </footer>

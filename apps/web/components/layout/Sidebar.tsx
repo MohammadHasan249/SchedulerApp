@@ -81,7 +81,7 @@ export function Sidebar({ role, orgName, isOpen = false, onClose }: Props) {
             <CalendarDays className="h-4 w-4 text-white" />
           </div>
           <span className="font-bold text-sm tracking-wide text-sidebar-foreground">
-            {orgName ?? "Scheduler"}
+            {orgName ?? "Workplix"}
           </span>
         </div>
         <button

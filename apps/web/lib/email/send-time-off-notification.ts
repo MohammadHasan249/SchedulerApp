@@ -165,7 +165,7 @@ export async function sendTimeOffNotification(
       </div>
 
       <div class="footer">
-        <p>This is an automated message from Scheduler App. Please do not reply to this email.</p>
+        <p>This is an automated message from Workplix. Please do not reply to this email.</p>
       </div>
     </div>
   </body>

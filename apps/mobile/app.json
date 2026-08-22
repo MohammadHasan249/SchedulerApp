@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Scheduler",
-    "slug": "scheduler-mobile",
+    "name": "Workplix",
+    "slug": "workplix-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "scheme": "scheduler",
+    "scheme": "workplix",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -15,14 +15,14 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.schedulerapp.mobile"
+      "bundleIdentifier": "com.workplix.mobile"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0f172a"
       },
-      "package": "com.schedulerapp.mobile"
+      "package": "com.workplix.mobile"
     },
     "experiments": {
       "typedRoutes": true

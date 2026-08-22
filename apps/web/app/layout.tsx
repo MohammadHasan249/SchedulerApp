@@ -12,13 +12,13 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "Scheduler",
+  title: "Workplix",
   description: "Workforce scheduling platform",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Scheduler",
+    title: "Workplix",
   },
 };
 
