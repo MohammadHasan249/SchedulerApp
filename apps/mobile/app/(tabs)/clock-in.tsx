@@ -14,7 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useEffect, useRef, useState } from "react";
 import { useNavigation } from "expo-router";
 import { Lock, Unlock, Delete } from "lucide-react-native";
-import { clockPunch, verifyExitPin } from "@/lib/api";
+import { clockPunch, verifyExitPin, getBranches, type Branch } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useKioskStore } from "@/lib/kioskStore";
 
@@ -30,7 +30,8 @@ export default function ClockInScreen() {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
   const navigation = useNavigation();
-  const { isLocked, branchSlug, setLocked, setBranchSlug } = useKioskStore();
+  const { isLocked, branchSlug, setLocked, setBranchSlug, clearBranchSlug } =
+    useKioskStore();
 
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +46,47 @@ export default function ClockInScreen() {
 
   // Branch slug setup modal
   const [branchModalVisible, setBranchModalVisible] = useState(false);
-  const [branchInput, setBranchInput] = useState("");
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [branchesLoading, setBranchesLoading] = useState(false);
+  const [branchesError, setBranchesError] = useState<string | null>(null);
+
+  const selectedBranch = branches.find((b) => b.slug === branchSlug);
+
+  // Fetch the org's live branch list so the kiosk always reflects the
+  // database instead of a slug typed in once and cached forever on-device.
+  async function loadBranches() {
+    setBranchesLoading(true);
+    setBranchesError(null);
+    try {
+      const rows = await getBranches();
+      setBranches(rows);
+    } catch {
+      setBranchesError("Unable to load branches. Check your connection.");
+    } finally {
+      setBranchesLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadBranches();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Re-validate whenever we have both a persisted slug and a fresh branch
+  // list (either may arrive after the other — hydration from SecureStore
+  // and the network fetch race independently). The persisted slug may point
+  // at a branch that was renamed/deleted since it was set — clear it so the
+  // UI doesn't silently show stale data, and force re-selection.
+  useEffect(() => {
+    if (
+      branchSlug &&
+      branches.length > 0 &&
+      !branches.some((b) => b.slug === branchSlug)
+    ) {
+      clearBranchSlug();
+      setBranchModalVisible(true);
+    }
+  }, [branchSlug, branches, clearBranchSlug]);
 
   // Block navigation when locked
   useEffect(() => {
@@ -135,6 +176,10 @@ export default function ClockInScreen() {
         setLocked(false);
         setExitModalVisible(false);
         setExitPin("");
+      } else if (!res.configured) {
+        setExitError(
+          "No exit PIN has been set yet. Ask an org admin to set one under Settings > Organization on the web dashboard."
+        );
       } else {
         setExitError("Incorrect PIN.");
       }
@@ -145,12 +190,9 @@ export default function ClockInScreen() {
     }
   }
 
-  async function handleBranchSave() {
-    const slug = branchInput.trim().toLowerCase();
-    if (!slug) return;
+  async function handleBranchSelect(slug: string) {
     await setBranchSlug(slug);
     setBranchModalVisible(false);
-    setBranchInput("");
   }
 
   return (
@@ -159,7 +201,7 @@ export default function ClockInScreen() {
       {!isLocked && (
         <View style={styles.toolbar}>
           <Text style={styles.branchLabel}>
-            Branch: {branchSlug ?? "not set"}
+            Branch: {selectedBranch?.name ?? branchSlug ?? "not set"}
           </Text>
           <TouchableOpacity
             style={styles.toolbarBtn}
@@ -341,44 +383,59 @@ export default function ClockInScreen() {
           <View style={[styles.modalBox, { backgroundColor: theme.surface }]}>
             <Text style={styles.modalTitle}>Set Branch</Text>
             <Text style={styles.modalSubtitle}>
-              Enter the branch slug (from the web dashboard)
+              Select the branch this device clocks in for
             </Text>
-            <TextInput
-              style={[
-                styles.pinInput,
-                {
-                  backgroundColor: theme.bg,
-                  color: theme.text,
-                  borderColor: theme.surface2,
-                },
-              ]}
-              value={branchInput}
-              onChangeText={setBranchInput}
-              autoCapitalize="none"
-              autoCorrect={false}
-              placeholder="e.g. downtown"
-              placeholderTextColor={theme.muted}
-              autoFocus
-            />
+
+            {branchesLoading && (
+              <Text style={[styles.modalSubtitle, { color: theme.muted }]}>
+                Loading branches…
+              </Text>
+            )}
+            {branchesError && (
+              <Text style={styles.modalError}>{branchesError}</Text>
+            )}
+            {!branchesLoading && !branchesError && branches.length === 0 && (
+              <Text style={[styles.modalSubtitle, { color: theme.muted }]}>
+                No branches found for this organization.
+              </Text>
+            )}
+
+            <View style={styles.branchList}>
+              {branches.map((b) => (
+                <TouchableOpacity
+                  key={b.id}
+                  style={[
+                    styles.branchOption,
+                    {
+                      backgroundColor:
+                        b.slug === branchSlug ? theme.primarySurface : theme.bg,
+                    },
+                  ]}
+                  onPress={() => handleBranchSelect(b.slug)}
+                >
+                  <Text style={{ color: theme.text, fontWeight: "600" }}>
+                    {b.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={[styles.modalBtn, { backgroundColor: theme.bg }]}
-                onPress={() => {
-                  setBranchModalVisible(false);
-                  setBranchInput("");
-                }}
+                onPress={loadBranches}
               >
                 <Text style={[styles.modalBtnText, { color: theme.muted }]}>
-                  Cancel
+                  Refresh
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalBtn, { backgroundColor: theme.primary }]}
-                onPress={handleBranchSave}
-                disabled={!branchInput.trim()}
+                style={[styles.modalBtn, { backgroundColor: theme.bg }]}
+                onPress={() => setBranchModalVisible(false)}
+                disabled={!branchSlug}
               >
-                <Text style={[styles.modalBtnText, { color: "#fff" }]}>
-                  Save
+                <Text style={[styles.modalBtnText, { color: theme.muted }]}>
+                  Cancel
                 </Text>
               </TouchableOpacity>
             </View>
@@ -486,6 +543,15 @@ function makeStyles(theme: ReturnType<typeof useAppTheme>) {
       alignItems: "center",
       justifyContent: "center",
       padding: 24,
+    },
+    branchList: {
+      gap: 8,
+      maxHeight: 260,
+    },
+    branchOption: {
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      borderRadius: 10,
     },
     modalBox: {
       width: "100%",

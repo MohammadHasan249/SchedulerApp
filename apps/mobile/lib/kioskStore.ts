@@ -9,6 +9,7 @@ interface KioskState {
   branchSlug: string | null;
   setLocked: (locked: boolean) => void;
   setBranchSlug: (slug: string) => Promise<void>;
+  clearBranchSlug: () => Promise<void>;
   hydrate: () => Promise<void>;
 }
 
@@ -24,6 +25,10 @@ export const useKioskStore = create<KioskState>((set) => ({
   setBranchSlug: async (slug) => {
     await SecureStore.setItemAsync(BRANCH_SLUG_KEY, slug);
     set({ branchSlug: slug });
+  },
+  clearBranchSlug: async () => {
+    await SecureStore.deleteItemAsync(BRANCH_SLUG_KEY);
+    set({ branchSlug: null });
   },
   hydrate: async () => {
     const [slug, locked] = await Promise.all([

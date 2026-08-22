@@ -4,6 +4,7 @@ import { organizations } from "@scheduler/database/schema";
 import { eq } from "drizzle-orm";
 import { OrganizationThemeClient } from "@/components/settings/OrganizationThemeClient";
 import { OrgHoursClient } from "@/components/settings/OrgHoursClient";
+import { KioskExitPinClient } from "@/components/settings/KioskExitPinClient";
 
 export default async function OrganizationSettingsPage() {
   const user = await getUser();
@@ -20,7 +21,11 @@ export default async function OrganizationSettingsPage() {
   }
 
   const [org] = await db
-    .select({ theme: organizations.theme, hoursSchedule: organizations.hoursSchedule })
+    .select({
+      theme: organizations.theme,
+      hoursSchedule: organizations.hoursSchedule,
+      exitPinHash: organizations.exitPinHash,
+    })
     .from(organizations)
     .where(eq(organizations.id, user.organizationId))
     .limit(1);
@@ -51,6 +56,11 @@ export default async function OrganizationSettingsPage() {
         <div>
           <h2 className="text-lg font-semibold mb-4">Hours of Operation</h2>
           <OrgHoursClient initialHours={org?.hoursSchedule ?? {}} />
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold mb-4">Kiosk Exit PIN</h2>
+          <KioskExitPinClient initialIsSet={!!org?.exitPinHash} />
         </div>
       </div>
     </div>

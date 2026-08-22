@@ -67,10 +67,10 @@ export const POST = withAuth(async function POST(request: Request) {
 
   if (!org?.exitPinHash) {
     await new Promise((r) => setTimeout(r, 1000));
-    return NextResponse.json({ valid: false });
+    return NextResponse.json({ valid: false, configured: false });
   }
 
   const valid = await bcrypt.compare(parsed.data.pin, org.exitPinHash);
   if (!valid) await new Promise((r) => setTimeout(r, 1000));
-  return NextResponse.json({ valid });
+  return NextResponse.json({ valid, configured: true });
 });

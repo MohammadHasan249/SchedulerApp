@@ -7,7 +7,9 @@ export function setExitPin(pin: string): Promise<{ ok: boolean }> {
   });
 }
 
-export function verifyExitPin(pin: string): Promise<{ valid: boolean }> {
+export function verifyExitPin(
+  pin: string
+): Promise<{ valid: boolean; configured: boolean }> {
   return apiFetch("/api/settings/exit-pin", {
     method: "POST",
     body: JSON.stringify({ pin }),
