@@ -117,7 +117,11 @@ export async function POST(request: Request) {
 
   // 4. admin.createUser() does not send a confirmation email by itself —
   //    explicitly trigger it so the user can confirm and sign in.
-  const { error: resendError } = await supabase.auth.resend({ type: "signup", email });
+  const { error: resendError } = await supabase.auth.resend({
+    type: "signup",
+    email,
+    options: { emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/confirmed` },
+  });
   if (resendError) {
     logger.error("Failed to send signup confirmation email:", resendError);
   }
