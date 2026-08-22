@@ -115,5 +115,12 @@ export async function POST(request: Request) {
     // The DB row is correct; admin can repair metadata later. Don't roll back.
   }
 
+  // 4. admin.createUser() does not send a confirmation email by itself —
+  //    explicitly trigger it so the user can confirm and sign in.
+  const { error: resendError } = await supabase.auth.resend({ type: "signup", email });
+  if (resendError) {
+    logger.error("Failed to send signup confirmation email:", resendError);
+  }
+
   return NextResponse.json({ orgId, userId: authUserId }, { status: 201 });
 }

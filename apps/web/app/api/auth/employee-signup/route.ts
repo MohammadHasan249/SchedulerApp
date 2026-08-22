@@ -84,5 +84,9 @@ export async function POST(request: Request) {
     .set({ authUserId })
     .where(eq(employees.id, employee.id));
 
+  // admin.createUser() does not send a confirmation email by itself —
+  // explicitly trigger it so the user can confirm and sign in.
+  await supabase.auth.resend({ type: "signup", email });
+
   return NextResponse.json({ success: true }, { status: 201 });
 }
