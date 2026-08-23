@@ -5,6 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { db } from "@/lib/db";
 import { employees } from "@scheduler/database/schema";
 import { eq } from "drizzle-orm";
+import { sendConfirmationEmail } from "@/lib/email/send-confirmation-email";
+import { logger } from "@/lib/logger";
 
 const schema = z.object({
   email: z.string().email(),
@@ -85,12 +87,19 @@ export async function POST(request: Request) {
     .where(eq(employees.id, employee.id));
 
   // admin.createUser() does not send a confirmation email by itself —
-  // explicitly trigger it so the user can confirm and sign in.
-  await supabase.auth.resend({
+  // generate the confirmation link and send it ourselves via Resend
+  // (Supabase's built-in email sending is not used).
+  const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
     type: "signup",
     email,
-    options: { emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/confirmed` },
+    password,
+    options: { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/confirmed` },
   });
+  if (linkError || !linkData?.properties?.action_link) {
+    logger.error("Failed to generate signup confirmation link:", linkError);
+  } else {
+    await sendConfirmationEmail(email, linkData.properties.action_link, employee.name);
+  }
 
   return NextResponse.json({ success: true }, { status: 201 });
 }
