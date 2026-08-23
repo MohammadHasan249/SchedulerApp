@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { motion } from "motion/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -92,7 +93,12 @@ export default function OrgSignupPage() {
   }
 
   return (
-    <Card>
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+    >
+    <Card className="shadow-lg shadow-primary/5">
       <CardHeader>
         <CardTitle>Create your organization</CardTitle>
         <CardDescription>Get started with your workforce scheduling platform</CardDescription>
@@ -187,5 +193,6 @@ export default function OrgSignupPage() {
         </form>
       </CardContent>
     </Card>
+    </motion.div>
   );
 }

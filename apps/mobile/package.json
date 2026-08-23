@@ -42,6 +42,9 @@
   "private": true,
   "jest": {
     "preset": "jest-expo",
+    "moduleNameMapper": {
+      "^lucide-react-native$": "<rootDir>/../../node_modules/lucide-react-native/dist/cjs/lucide-react-native.js"
+    },
     "collectCoverageFrom": [
       "lib/**/*.{ts,tsx}",
       "!lib/**/*.d.ts"

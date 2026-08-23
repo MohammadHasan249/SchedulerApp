@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { motion } from "motion/react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,35 +43,41 @@ function ConfirmedCard() {
   }, [searchParams]);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          {status === "loading" && "Confirming your email…"}
-          {status === "success" && "Email confirmed"}
-          {status === "error" && "Confirmation failed"}
-        </CardTitle>
-        <CardDescription>
-          {status === "loading" && "Just a moment while we verify your account."}
-          {status === "success" && "Your account is ready. You can now sign in."}
-          {status === "error" &&
-            "This confirmation link is invalid or has expired. Please try signing up again or request a new link."}
-        </CardDescription>
-      </CardHeader>
-      {status !== "loading" && (
-        <CardContent>
-          {status === "success" ? (
-            <Button className="w-full" onClick={() => router.push("/login")}>
-              Continue to sign in
-            </Button>
-          ) : (
-            <Link href="/login">
-              <Button variant="outline" className="w-full">
-                Back to sign in
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+    >
+      <Card className="shadow-lg shadow-primary/5">
+        <CardHeader>
+          <CardTitle>
+            {status === "loading" && "Confirming your email…"}
+            {status === "success" && "Email confirmed"}
+            {status === "error" && "Confirmation failed"}
+          </CardTitle>
+          <CardDescription>
+            {status === "loading" && "Just a moment while we verify your account."}
+            {status === "success" && "Your account is ready. You can now sign in."}
+            {status === "error" &&
+              "This confirmation link is invalid or has expired. Please try signing up again or request a new link."}
+          </CardDescription>
+        </CardHeader>
+        {status !== "loading" && (
+          <CardContent>
+            {status === "success" ? (
+              <Button className="w-full" onClick={() => router.push("/login")}>
+                Continue to sign in
               </Button>
-            </Link>
-          )}
-        </CardContent>
-      )}
-    </Card>
+            ) : (
+              <Link href="/login">
+                <Button variant="outline" className="w-full">
+                  Back to sign in
+                </Button>
+              </Link>
+            )}
+          </CardContent>
+        )}
+      </Card>
+    </motion.div>
   );
 }
