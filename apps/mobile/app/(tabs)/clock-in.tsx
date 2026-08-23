@@ -12,8 +12,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useEffect, useRef, useState } from "react";
-import { useNavigation } from "expo-router";
-import { Lock, Unlock, Delete } from "lucide-react-native";
+import { useNavigation, useRouter } from "expo-router";
+import { Lock, Unlock, Delete, ChevronLeft } from "lucide-react-native";
 import { clockPunch, verifyExitPin, getBranches, type Branch } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useKioskStore } from "@/lib/kioskStore";
@@ -30,6 +30,7 @@ export default function ClockInScreen() {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
   const navigation = useNavigation();
+  const router = useRouter();
   const { isLocked, branchSlug, setLocked, setBranchSlug, clearBranchSlug } =
     useKioskStore();
 
@@ -200,6 +201,13 @@ export default function ClockInScreen() {
       {/* Unlocked toolbar */}
       {!isLocked && (
         <View style={styles.toolbar}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => router.back()}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <ChevronLeft size={22} color={theme.text} />
+          </TouchableOpacity>
           <Text style={styles.branchLabel}>
             Branch: {selectedBranch?.name ?? branchSlug ?? "not set"}
           </Text>
@@ -456,6 +464,7 @@ function makeStyles(theme: ReturnType<typeof useAppTheme>) {
       paddingVertical: 10,
       gap: 8,
     },
+    backBtn: { padding: 2 },
     branchLabel: { fontSize: 12, color: theme.muted, flex: 1 },
     toolbarBtn: {
       flexDirection: "row",

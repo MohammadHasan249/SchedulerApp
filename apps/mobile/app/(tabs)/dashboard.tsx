@@ -6,10 +6,12 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  TouchableOpacity,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useCallback, useEffect, useState } from "react";
-import { Users, CalendarCheck, Clock } from "lucide-react-native";
+import { useRouter } from "expo-router";
+import { Users, CalendarCheck, Clock, Timer, ChevronRight } from "lucide-react-native";
 import { format } from "date-fns";
 import { getDashboardStats, type DashboardStats } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
@@ -53,6 +55,7 @@ const statStyles = StyleSheet.create({
 export default function DashboardScreen() {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
+  const router = useRouter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -104,6 +107,20 @@ export default function DashboardScreen() {
             })}
           </Text>
         </View>
+
+        <TouchableOpacity
+          style={[styles.kioskRow, { backgroundColor: theme.surface }]}
+          onPress={() => router.push("/(tabs)/clock-in")}
+        >
+          <Timer size={20} color={theme.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.kioskTitle}>Kiosk Clock-In</Text>
+            <Text style={styles.kioskSubtitle}>
+              Set up this device for staff to clock in and out
+            </Text>
+          </View>
+          <ChevronRight size={18} color={theme.muted} />
+        </TouchableOpacity>
 
         {loading ? (
           <ActivityIndicator color={theme.primary} style={{ marginTop: 40 }} />
@@ -167,6 +184,17 @@ function makeStyles(theme: ReturnType<typeof useAppTheme>) {
     container: { flex: 1, backgroundColor: theme.bg },
     header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 20 },
     subtitle: { fontSize: 13, color: theme.muted, marginTop: 2 },
+    kioskRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      marginHorizontal: 20,
+      marginBottom: 24,
+      padding: 14,
+      borderRadius: 12,
+    },
+    kioskTitle: { fontSize: 14, fontWeight: "600", color: theme.text },
+    kioskSubtitle: { fontSize: 12, color: theme.muted, marginTop: 2 },
     statsRow: {
       flexDirection: "row",
       paddingHorizontal: 20,

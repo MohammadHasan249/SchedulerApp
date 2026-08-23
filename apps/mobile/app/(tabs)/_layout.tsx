@@ -69,7 +69,9 @@ export default function TabLayout() {
         name="clock-in"
         options={{
           title: "Clock In",
-          href: isAdmin ? undefined : null,
+          // Kiosk setup is an occasional admin action, not daily nav — reach
+          // it via a button on the Dashboard instead of a permanent tab.
+          href: null,
           headerShown: false,
           tabBarIcon: ({ color, size }) => <Timer size={size} color={color} />,
         }}
