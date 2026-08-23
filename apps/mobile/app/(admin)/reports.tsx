@@ -66,11 +66,19 @@ export default function ReportsScreen() {
       <Stack.Screen options={{ title: "Attendance" }} />
       <View style={styles.container}>
         <View style={styles.dayBar}>
-          <TouchableOpacity onPress={() => shiftDay(-1)} style={styles.dayBtn}>
+          <TouchableOpacity
+            onPress={() => shiftDay(-1)}
+            style={styles.dayBtn}
+            accessibilityLabel="Previous day"
+          >
             <ChevronLeft size={20} color={theme.primary} />
           </TouchableOpacity>
           <Text style={styles.dayLabel}>{format(day, "EEEE, MMM d, yyyy")}</Text>
-          <TouchableOpacity onPress={() => shiftDay(1)} style={styles.dayBtn}>
+          <TouchableOpacity
+            onPress={() => shiftDay(1)}
+            style={styles.dayBtn}
+            accessibilityLabel="Next day"
+          >
             <ChevronRight size={20} color={theme.primary} />
           </TouchableOpacity>
         </View>

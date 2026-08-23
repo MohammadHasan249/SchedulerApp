@@ -142,7 +142,12 @@ const faqs = [
   {
     question: "Can employees check their schedules from their phones?",
     answer:
-      "Yes. Employees can view their schedule, request time off, and swap shifts from the mobile app. Clocking in and out happens at a PIN-based kiosk that an admin or branch manager sets up on-site, keeping time tracking tied to the actual location.",
+      "Yes. Employees can view their schedule, request time off, and swap shifts from the mobile app.",
+  },
+  {
+    question: "How does clocking in and out work?",
+    answer:
+      "Clocking in and out happens at a PIN-based kiosk that an admin sets up on-site, keeping time tracking tied to the actual location.",
   },
   {
     question: "Does Workplix support multiple branches or locations?",
@@ -621,7 +626,7 @@ export default function LandingPage() {
                   </Link>
                 </li>
                 <li>
-                  <a href="mailto:hello@workplix.com" className="hover:text-primary">
+                  <a href="mailto:contact@workplix.app" className="hover:text-primary">
                     Contact
                   </a>
                 </li>

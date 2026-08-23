@@ -196,7 +196,11 @@ export default function SettingsPermissionsScreen() {
             <View key={profile.id} style={styles.profileBlock}>
               <View style={styles.profileHeader}>
                 <Text style={styles.profileName}>{profile.name}</Text>
-                <TouchableOpacity onPress={() => confirmDelete(profile)} hitSlop={8}>
+                <TouchableOpacity
+                  onPress={() => confirmDelete(profile)}
+                  hitSlop={8}
+                  accessibilityLabel={`Delete ${profile.name}`}
+                >
                   <Trash2 size={16} color={theme.destructive} />
                 </TouchableOpacity>
               </View>

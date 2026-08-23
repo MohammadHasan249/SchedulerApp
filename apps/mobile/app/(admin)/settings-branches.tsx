@@ -143,6 +143,7 @@ export default function SettingsBranchesScreen() {
                 <TouchableOpacity
                   onPress={openCreate}
                   style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center" }}
+                  accessibilityLabel="Add branch"
                 >
                   <Plus size={22} color={theme.primary} />
                 </TouchableOpacity>
@@ -183,11 +184,19 @@ export default function SettingsBranchesScreen() {
                     <Text style={styles.branchMeta}>{branch.timezone}</Text>
                   </View>
                   <View style={styles.rowActions}>
-                    <TouchableOpacity onPress={() => openEdit(branch)} style={styles.actionBtn}>
+                    <TouchableOpacity
+                      onPress={() => openEdit(branch)}
+                      style={styles.actionBtn}
+                      accessibilityLabel={`Edit ${branch.name}`}
+                    >
                       <Pencil size={16} color={theme.secondary} />
                     </TouchableOpacity>
                     {canCreateOrDelete && (
-                      <TouchableOpacity onPress={() => confirmDelete(branch)} style={styles.actionBtn}>
+                      <TouchableOpacity
+                        onPress={() => confirmDelete(branch)}
+                        style={styles.actionBtn}
+                        accessibilityLabel={`Delete ${branch.name}`}
+                      >
                         <Trash2 size={16} color={theme.destructive} />
                       </TouchableOpacity>
                     )}

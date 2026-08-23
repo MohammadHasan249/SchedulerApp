@@ -129,10 +129,18 @@ export default function SettingsJobRolesScreen() {
                     <Text style={styles.rowName}>{role.name}</Text>
                   </View>
                   <View style={styles.rowActions}>
-                    <TouchableOpacity onPress={() => openEdit(role)} style={styles.iconBtn}>
+                    <TouchableOpacity
+                      onPress={() => openEdit(role)}
+                      style={styles.iconBtn}
+                      accessibilityLabel={`Edit ${role.name}`}
+                    >
                       <Pencil size={16} color={theme.secondary} />
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleDelete(role)} style={styles.iconBtn}>
+                    <TouchableOpacity
+                      onPress={() => handleDelete(role)}
+                      style={styles.iconBtn}
+                      accessibilityLabel={`Delete ${role.name}`}
+                    >
                       <Trash2 size={16} color={theme.destructive} />
                     </TouchableOpacity>
                   </View>
@@ -142,7 +150,12 @@ export default function SettingsJobRolesScreen() {
           </ScrollView>
         )}
 
-        <TouchableOpacity style={styles.fab} onPress={openCreate} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={openCreate}
+          activeOpacity={0.8}
+          accessibilityLabel="Add job role"
+        >
           <Plus size={20} color="#fff" />
         </TouchableOpacity>
       </View>
