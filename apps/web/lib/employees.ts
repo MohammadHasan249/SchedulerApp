@@ -40,3 +40,27 @@ export async function pinCollidesWithExisting(
   }
   return false;
 }
+
+/**
+ * Returns true if `employeeId` is currently the organization's only active
+ * org_admin — i.e. demoting, deactivating, or deleting them would leave the
+ * org with zero admins able to manage it.
+ */
+export async function isLastActiveOrgAdmin(
+  organizationId: string,
+  employeeId: string
+): Promise<boolean> {
+  const otherAdmins = await db
+    .select({ id: employees.id })
+    .from(employees)
+    .where(
+      and(
+        eq(employees.organizationId, organizationId),
+        eq(employees.role, "org_admin"),
+        eq(employees.isActive, true),
+        ne(employees.id, employeeId)
+      )
+    )
+    .limit(1);
+  return otherAdmins.length === 0;
+}

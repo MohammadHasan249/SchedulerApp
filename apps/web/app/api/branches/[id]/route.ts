@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { branches, employees, shifts } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
-import { requireOrgAdmin } from "@/lib/auth/policies";
+import { requireOrgAdmin, assertBranchScope } from "@/lib/auth/policies";
 import { eq, and, gte } from "drizzle-orm";
 
 const patchSchema = z.object({
@@ -27,10 +27,11 @@ async function getBranch(id: string, organizationId: string) {
 export const PATCH = withAuth(async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
 
-  const denied = requireOrgAdmin(user);
+  const { id } = await params;
+
+  const denied = assertBranchScope(user, id);
   if (denied) return denied;
 
-  const { id } = await params;
   const branch = await getBranch(id, user.organizationId);
   if (!branch) return NextResponse.json({ error: "Not found" }, { status: 404 });
 

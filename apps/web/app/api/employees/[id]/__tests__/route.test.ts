@@ -3,7 +3,7 @@ import { GET, PATCH, DELETE } from "../route";
 import { db } from "@/lib/db";
 import { getApiUser } from "@/lib/auth/getUser";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { pinCollidesWithExisting } from "@/lib/employees";
+import { pinCollidesWithExisting, isLastActiveOrgAdmin } from "@/lib/employees";
 import { chain } from "@/test/db-mock";
 
 vi.mock("@/lib/db", () => ({
@@ -11,7 +11,10 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("@/lib/auth/getUser", () => ({ getApiUser: vi.fn() }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
-vi.mock("@/lib/employees", () => ({ pinCollidesWithExisting: vi.fn() }));
+vi.mock("@/lib/employees", () => ({
+  pinCollidesWithExisting: vi.fn(),
+  isLastActiveOrgAdmin: vi.fn().mockResolvedValue(false),
+}));
 
 const orgAdmin = { id: "u1", role: "org_admin" as const, organizationId: "org-1", branchId: null };
 const manager = { id: "u2", role: "branch_manager" as const, organizationId: "org-1", branchId: "b1" };
@@ -49,7 +52,10 @@ describe("GET /api/employees/[id]", () => {
 });
 
 describe("PATCH /api/employees/[id]", () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    (isLastActiveOrgAdmin as any).mockResolvedValue(false);
+  });
 
   it("forbids employees from editing", async () => {
     (getApiUser as any).mockResolvedValue(employeeUser);
@@ -83,10 +89,46 @@ describe("PATCH /api/employees/[id]", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual(updated);
   });
+
+  it("refuses to demote the organization's last active admin", async () => {
+    (getApiUser as any).mockResolvedValue(orgAdmin);
+    (db.select as any).mockReturnValue(
+      chain([{ id: "emp-1", role: "org_admin", organizationId: "org-1", branchId: null }])
+    );
+    (isLastActiveOrgAdmin as any).mockResolvedValue(true);
+    const res = await PATCH(req("PATCH", { role: "employee" }), params("emp-1"));
+    expect(res.status).toBe(409);
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+
+  it("refuses to deactivate the organization's last active admin", async () => {
+    (getApiUser as any).mockResolvedValue(orgAdmin);
+    (db.select as any).mockReturnValue(
+      chain([{ id: "emp-1", role: "org_admin", organizationId: "org-1", branchId: null }])
+    );
+    (isLastActiveOrgAdmin as any).mockResolvedValue(true);
+    const res = await PATCH(req("PATCH", { isActive: false }), params("emp-1"));
+    expect(res.status).toBe(409);
+  });
+
+  it("allows demoting an admin when another active admin remains", async () => {
+    (getApiUser as any).mockResolvedValue(orgAdmin);
+    (db.select as any).mockReturnValue(
+      chain([{ id: "emp-1", role: "org_admin", organizationId: "org-1", branchId: null, authUserId: null }])
+    );
+    (isLastActiveOrgAdmin as any).mockResolvedValue(false);
+    const updated = { id: "emp-1", role: "employee" };
+    (db.transaction as any).mockImplementation(async (cb: any) => cb({ update: () => chain([updated]) }));
+    const res = await PATCH(req("PATCH", { role: "employee" }), params("emp-1"));
+    expect(res.status).toBe(200);
+  });
 });
 
 describe("DELETE /api/employees/[id]", () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    (isLastActiveOrgAdmin as any).mockResolvedValue(false);
+  });
 
   it("forbids non-admins", async () => {
     (getApiUser as any).mockResolvedValue(manager);
@@ -101,9 +143,20 @@ describe("DELETE /api/employees/[id]", () => {
     expect(res.status).toBe(404);
   });
 
+  it("refuses to delete the organization's last active admin", async () => {
+    (getApiUser as any).mockResolvedValue(orgAdmin);
+    (db.select as any).mockReturnValue(
+      chain([{ id: "emp-1", role: "org_admin", organizationId: "org-1", authUserId: "auth-1" }])
+    );
+    (isLastActiveOrgAdmin as any).mockResolvedValue(true);
+    const res = await DELETE(req("DELETE"), params("emp-1"));
+    expect(res.status).toBe(409);
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+
   it("deactivates the employee and bans their auth user", async () => {
     (getApiUser as any).mockResolvedValue(orgAdmin);
-    (db.select as any).mockReturnValue(chain([{ id: "emp-1", organizationId: "org-1", authUserId: "auth-1" }]));
+    (db.select as any).mockReturnValue(chain([{ id: "emp-1", role: "employee", organizationId: "org-1", authUserId: "auth-1" }]));
     const deactivated = { id: "emp-1", isActive: false };
     (db.transaction as any).mockImplementation(async (cb: any) =>
       cb({

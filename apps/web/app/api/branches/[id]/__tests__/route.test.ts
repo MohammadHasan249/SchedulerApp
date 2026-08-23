@@ -5,7 +5,7 @@ import { getApiUser } from "@/lib/auth/getUser";
 import { chain } from "@/test/db-mock";
 
 vi.mock("@/lib/db", () => ({ db: { select: vi.fn(), update: vi.fn(), delete: vi.fn() } }));
-vi.mock("@/lib/auth/getUser", () => ({ getApiUser: vi.fn() }));
+vi.mock("@/lib/auth/getUser", () => ({ getApiUser: vi.fn(), ApiAuthError: class ApiAuthError extends Error {} }));
 
 const orgAdmin = { id: "u1", role: "org_admin" as const, organizationId: "org-1", branchId: null };
 const manager = { id: "u2", role: "branch_manager" as const, organizationId: "org-1", branchId: "b1" };
@@ -18,10 +18,31 @@ function req(body?: unknown) {
 describe("PATCH /api/branches/[id]", () => {
   beforeEach(() => vi.resetAllMocks());
 
-  it("forbids non-admins", async () => {
-    (getApiUser as any).mockResolvedValue(manager);
+  it("forbids employees outright", async () => {
+    (getApiUser as any).mockResolvedValue({ id: "u3", role: "employee" as const, organizationId: "org-1", branchId: null });
     const res = await PATCH(req({ name: "x" }), params("b1"));
     expect(res.status).toBe(403);
+  });
+
+  it("forbids a branch_manager editing a branch other than their own", async () => {
+    (getApiUser as any).mockResolvedValue(manager); // manager.branchId === "b1"
+    const res = await PATCH(req({ name: "x" }), params("other-branch"));
+    expect(res.status).toBe(403);
+  });
+
+  it("forbids a branch_manager with no branch assigned", async () => {
+    (getApiUser as any).mockResolvedValue({ ...manager, branchId: null });
+    const res = await PATCH(req({ name: "x" }), params("b1"));
+    expect(res.status).toBe(403);
+  });
+
+  it("allows a branch_manager to edit their own branch", async () => {
+    (getApiUser as any).mockResolvedValue(manager);
+    (db.select as any).mockReturnValue(chain([{ id: "b1", slug: "old-slug" }]));
+    const updated = { id: "b1", name: "New Name" };
+    (db.update as any).mockReturnValue(chain([updated]));
+    const res = await PATCH(req({ name: "New Name" }), params("b1"));
+    expect(res.status).toBe(200);
   });
 
   it("404s when the branch isn't in the caller's org", async () => {

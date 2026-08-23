@@ -20,6 +20,7 @@ import {
   type Branch,
 } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
+import { useRole, useBranchId } from "@/lib/useRole";
 import { US_TIMEZONES } from "@scheduler/types";
 
 type FormState = {
@@ -34,6 +35,9 @@ const EMPTY_FORM: FormState = { name: "", slug: "", address: "", timezone: "Amer
 export default function SettingsBranchesScreen() {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
+  const role = useRole();
+  const myBranchId = useBranchId();
+  const canCreateOrDelete = role === "org_admin";
 
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,7 +51,7 @@ export default function SettingsBranchesScreen() {
   async function load() {
     try {
       const data = await getBranches();
-      setBranches(data);
+      setBranches(canCreateOrDelete ? data : data.filter((b) => b.id === myBranchId));
     } catch {
     } finally {
       setLoading(false);
@@ -134,14 +138,16 @@ export default function SettingsBranchesScreen() {
       <Stack.Screen
         options={{
           title: "Branches",
-          headerRight: () => (
-            <TouchableOpacity
-              onPress={openCreate}
-              style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center" }}
-            >
-              <Plus size={22} color={theme.primary} />
-            </TouchableOpacity>
-          ),
+          headerRight: canCreateOrDelete
+            ? () => (
+                <TouchableOpacity
+                  onPress={openCreate}
+                  style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center" }}
+                >
+                  <Plus size={22} color={theme.primary} />
+                </TouchableOpacity>
+              )
+            : undefined,
         }}
       />
 
@@ -155,9 +161,11 @@ export default function SettingsBranchesScreen() {
             <View style={styles.empty}>
               <GitBranch size={40} color={theme.muted} />
               <Text style={styles.emptyText}>No branches yet</Text>
-              <TouchableOpacity style={styles.addBtn} onPress={openCreate}>
-                <Text style={styles.addBtnText}>Add Branch</Text>
-              </TouchableOpacity>
+              {canCreateOrDelete && (
+                <TouchableOpacity style={styles.addBtn} onPress={openCreate}>
+                  <Text style={styles.addBtnText}>Add Branch</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : (
             <View style={styles.card}>
@@ -178,9 +186,11 @@ export default function SettingsBranchesScreen() {
                     <TouchableOpacity onPress={() => openEdit(branch)} style={styles.actionBtn}>
                       <Pencil size={16} color={theme.secondary} />
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => confirmDelete(branch)} style={styles.actionBtn}>
-                      <Trash2 size={16} color={theme.destructive} />
-                    </TouchableOpacity>
+                    {canCreateOrDelete && (
+                      <TouchableOpacity onPress={() => confirmDelete(branch)} style={styles.actionBtn}>
+                        <Trash2 size={16} color={theme.destructive} />
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
               ))}

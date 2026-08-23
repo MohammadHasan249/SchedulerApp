@@ -11,9 +11,10 @@ import type { Branch } from "@scheduler/types";
 
 type Props = {
   branches: Branch[];
+  canCreateOrDelete: boolean;
 };
 
-export function BranchesTable({ branches }: Props) {
+export function BranchesTable({ branches, canCreateOrDelete }: Props) {
   const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Branch | undefined>();
@@ -36,9 +37,11 @@ export function BranchesTable({ branches }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button size="sm" onClick={openNew}>+ Add Branch</Button>
-      </div>
+      {canCreateOrDelete && (
+        <div className="flex justify-end">
+          <Button size="sm" onClick={openNew}>+ Add Branch</Button>
+        </div>
+      )}
 
       <div className="rounded-md border">
         <Table>
@@ -69,14 +72,16 @@ export function BranchesTable({ branches }: Props) {
                 <TableCell>{branch.timezone}</TableCell>
                 <TableCell className="text-right space-x-2">
                   <Button size="sm" variant="ghost" onClick={() => openEdit(branch)}>Edit</Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-destructive hover:text-destructive"
-                    onClick={() => handleDelete(branch.id)}
-                  >
-                    Delete
-                  </Button>
+                  {canCreateOrDelete && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => handleDelete(branch.id)}
+                    >
+                      Delete
+                    </Button>
+                  )}
                 </TableCell>
               </TableRow>
             ))}

@@ -7,7 +7,7 @@ import { employees, branches, jobRoles, shifts, shiftAssignments, permissionProf
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { pinCollidesWithExisting } from "@/lib/employees";
+import { pinCollidesWithExisting, isLastActiveOrgAdmin } from "@/lib/employees";
 import { eq, and, gte, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
@@ -79,6 +79,20 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
   if (rest.role !== undefined) {
     if (user.role !== "org_admin") {
       return NextResponse.json({ error: "Forbidden: only org_admin can change roles" }, { status: 403 });
+    }
+  }
+
+  // Refuse to leave the org with zero admins: demoting or deactivating the
+  // last org_admin would lock everyone out of admin-only settings.
+  if (
+    employee.role === "org_admin" &&
+    ((rest.role !== undefined && rest.role !== "org_admin") || rest.isActive === false)
+  ) {
+    if (await isLastActiveOrgAdmin(user.organizationId, employee.id)) {
+      return NextResponse.json(
+        { error: "Cannot remove the organization's last admin. Promote another admin first." },
+        { status: 409 }
+      );
     }
   }
 
@@ -219,6 +233,13 @@ export const DELETE = withAuth(async function DELETE(request: Request, { params 
 
   const employee = await getEmployee(id, user.organizationId);
   if (!employee) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  if (employee.role === "org_admin" && (await isLastActiveOrgAdmin(user.organizationId, employee.id))) {
+    return NextResponse.json(
+      { error: "Cannot remove the organization's last admin. Promote another admin first." },
+      { status: 409 }
+    );
+  }
 
   // Deactivate rather than hard-delete, ban the Supabase auth user, AND
   // unassign them from any future shifts. Skipping the last step left
