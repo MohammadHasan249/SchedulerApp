@@ -22,14 +22,22 @@ function ConfirmedCard() {
 
   useEffect(() => {
     const code = searchParams.get("code");
-    if (!code) {
-      setStatus("error");
+    const supabase = createClient();
+
+    if (code) {
+      // PKCE flow: an explicit code to exchange for a session.
+      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
+        setStatus(error ? "error" : "success");
+      });
       return;
     }
 
-    const supabase = createClient();
-    supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
-      setStatus(error ? "error" : "success");
+    // Implicit flow: Supabase puts tokens in the URL hash fragment instead of
+    // a `code` query param. The client SDK auto-detects and consumes that
+    // hash on load (detectSessionInUrl), establishing a session before this
+    // effect runs — just check whether that already succeeded.
+    supabase.auth.getSession().then(({ data }) => {
+      setStatus(data.session ? "success" : "error");
     });
   }, [searchParams]);
 
