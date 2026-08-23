@@ -1,8 +1,8 @@
 import { logger } from "@/lib/logger";
 import { Resend } from "resend";
 import { db } from "@/lib/db";
-import { employees, organizations } from "@scheduler/database/schema";
-import { and, eq, isNotNull } from "drizzle-orm";
+import { organizations } from "@scheduler/database/schema";
+import { eq } from "drizzle-orm";
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, "&amp;")
@@ -48,67 +48,15 @@ export async function sendEmployeeInvitationEmail(
       return { sent: false };
     }
 
-    // Determine whether the invitee already has an account using the cheapest
-    // signal: any employee row with this email already linked to an auth user.
-    // This avoids the slow listUsers() anti-pattern; in the rare case where a
-    // Supabase auth user exists without a matching employee row we'll send the
-    // "create account" template — they'll still be able to log in.
-    const [existingLinked] = await db
-      .select({ id: employees.id })
-      .from(employees)
-      .where(and(eq(employees.email, employeeEmail), isNotNull(employees.authUserId)))
-      .limit(1);
-    const userExists = !!existingLinked;
-
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const safeOrgName = escapeHtml(org.name);
     const safeEmployeeName = escapeHtml(employeeName);
 
-    let emailHtml: string;
-    let subject: string;
-
-    if (userExists) {
-      subject = `You've been invited to join ${org.name}`;
-      emailHtml = `
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <style>
-      body { font-family: Arial, sans-serif; color: #333; }
-      .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-      .header { background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-      .content { line-height: 1.6; }
-      .details { background-color: #f9f9f9; padding: 15px; border-left: 4px solid #3b82f6; margin: 20px 0; }
-      .button { display: inline-block; margin-top: 20px; padding: 12px 24px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 6px; }
-      .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e5e5; font-size: 12px; color: #666; }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <div class="header">
-        <h2>Welcome to ${safeOrgName}!</h2>
-        <p style="margin: 0; color: #666;">You've been invited to join our team</p>
-      </div>
-      <div class="content">
-        <p>Hi ${safeEmployeeName},</p>
-        <p>You've been invited to join <strong>${safeOrgName}</strong> on Workplix. Your account is ready to use!</p>
-        <div class="details">
-          <p><strong>Organization:</strong> ${safeOrgName}</p>
-          <p><strong>Next Steps:</strong> Log in to your account to get started.</p>
-        </div>
-        <a href="${appUrl}/dashboard" class="button">Go to Dashboard</a>
-      </div>
-      <div class="footer">
-        <p>This is an automated message from Workplix. Please do not reply to this email.</p>
-      </div>
-    </div>
-  </body>
-</html>
-      `;
-    } else {
-      subject = `Join ${org.name} on Workplix`;
-      emailHtml = `
+    // Every invite creates a fresh employee row with authUserId: null, so the
+    // invitee always needs to create an account — there's no "already has an
+    // account, just log in" case for a brand-new invite.
+    const subject = `Join ${org.name} on Workplix`;
+    const emailHtml = `
 <!DOCTYPE html>
 <html>
   <head>
@@ -145,7 +93,6 @@ export async function sendEmployeeInvitationEmail(
   </body>
 </html>
       `;
-    }
 
     const result = await resendClient.emails.send({
       from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
