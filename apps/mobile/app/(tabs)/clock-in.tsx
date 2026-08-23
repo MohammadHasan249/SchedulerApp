@@ -17,6 +17,7 @@ import { Lock, Unlock, Delete, ChevronLeft } from "lucide-react-native";
 import { clockPunch, verifyExitPin, getBranches, type Branch } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useKioskStore } from "@/lib/kioskStore";
+import { useIsAdmin } from "@/lib/useRole";
 
 const PAD_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"];
 const PIN_LENGTH = 4;
@@ -31,8 +32,15 @@ export default function ClockInScreen() {
   const styles = makeStyles(theme);
   const navigation = useNavigation();
   const router = useRouter();
+  const isAdmin = useIsAdmin();
   const { isLocked, branchSlug, setLocked, setBranchSlug, clearBranchSlug } =
     useKioskStore();
+
+  // Kiosk mode is set up by an org admin or branch manager only — employees
+  // clock in/out at the kiosk device itself, not from their own account.
+  useEffect(() => {
+    if (!isAdmin) router.replace("/(tabs)/schedule");
+  }, [isAdmin, router]);
 
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -235,6 +243,7 @@ export default function ClockInScreen() {
       {isLocked && (
         <TouchableOpacity
           style={styles.exitBtn}
+          accessibilityLabel="Exit kiosk mode"
           onPress={() => {
             setExitPin("");
             setExitError(null);

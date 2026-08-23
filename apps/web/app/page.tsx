@@ -5,6 +5,12 @@ import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
   Calendar,
   Users,
   Clock,
@@ -14,7 +20,16 @@ import {
   BarChart3,
   Shield,
   Sparkles,
+  ListPlus,
+  Wand2,
+  BellRing,
+  CreditCard,
+  Wallet,
+  CalendarClock,
+  MessageSquare,
 } from "lucide-react";
+
+const MotionButton = motion.create(Button);
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -68,9 +83,9 @@ const features = [
 ];
 
 const stats = [
-  { label: "Shifts Managed", value: "10,000+" },
-  { label: "Team Members", value: "5,000+" },
-  { label: "Active Users", value: "500+" },
+  { label: "Shifts Managed", value: "1,000+" },
+  { label: "Team Members", value: "300+" },
+  { label: "Active Users", value: "200+" },
 ];
 
 const benefits = [
@@ -90,6 +105,62 @@ const mockShifts = [
   { day: "Fri", name: "James O.", time: "10AM–6PM", color: "bg-chart-4" },
 ];
 
+const howItWorks = [
+  {
+    step: "01",
+    icon: ListPlus,
+    title: "Set up your team",
+    description: "Add branches, job roles, and employee availability in a few minutes.",
+  },
+  {
+    step: "02",
+    icon: Wand2,
+    title: "Build the schedule",
+    description: "Drag and drop shifts, or let auto-assignment fill them based on availability.",
+  },
+  {
+    step: "03",
+    icon: BellRing,
+    title: "Team stays in sync",
+    description: "Everyone gets notified instantly and can swap shifts or request time off.",
+  },
+];
+
+const integrations = [
+  { icon: CreditCard, title: "POS Systems", description: "Sync shifts with point-of-sale hours" },
+  { icon: Wallet, title: "Payroll", description: "Export approved hours for payroll runs" },
+  { icon: CalendarClock, title: "Calendar Sync", description: "Push schedules to Google & Outlook" },
+  { icon: MessageSquare, title: "Team Chat", description: "Send shift alerts to Slack & Teams" },
+];
+
+const faqs = [
+  {
+    question: "How long does it take to get set up?",
+    answer:
+      "Most teams are up and running in under 5 minutes. Create your organization, add your branches and job roles, invite your team, and you're ready to build your first schedule.",
+  },
+  {
+    question: "Can employees check their schedules from their phones?",
+    answer:
+      "Yes. Employees can view their schedule, request time off, and swap shifts from the mobile app. Clocking in and out happens at a PIN-based kiosk that an admin or branch manager sets up on-site, keeping time tracking tied to the actual location.",
+  },
+  {
+    question: "Does Workplix support multiple branches or locations?",
+    answer:
+      "Yes. You can manage multiple branches under one organization, each with its own schedules, job roles, and staff, while still getting a unified view across all locations.",
+  },
+  {
+    question: "Is there a free plan?",
+    answer:
+      "Yes — Workplix is free to get started for small teams, with plans that scale as your team and number of branches grow.",
+  },
+  {
+    question: "Can I import my existing schedules and employees?",
+    answer:
+      "Yes. Our team can help you migrate existing employee lists and recurring schedules when you get started — just reach out after signing up.",
+  },
+];
+
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
@@ -104,13 +175,23 @@ export default function LandingPage() {
           <span className="text-xl font-bold tracking-tight text-foreground">Workplix</span>
           <div className="flex items-center gap-3">
             <Link href="/login">
-              <Button variant="ghost">Log in</Button>
+              <MotionButton
+                variant="ghost"
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
+              >
+                Log in
+              </MotionButton>
             </Link>
             <Link href="/signup">
-              <Button>
+              <MotionButton
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
+                className="group"
+              >
                 Get Started
-                <ArrowRight className="ml-1.5 h-4 w-4" />
-              </Button>
+                <ArrowRight className="ml-1.5 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </MotionButton>
             </Link>
           </div>
         </div>
@@ -164,15 +245,26 @@ export default function LandingPage() {
               className="mt-10 flex flex-col justify-center gap-4 sm:flex-row"
             >
               <Link href="/signup">
-                <Button size="lg" className="h-12 px-6 text-base">
+                <MotionButton
+                  size="lg"
+                  className="group h-12 px-6 text-base"
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.96 }}
+                >
                   Start Free Trial
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
+                  <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-0.5" />
+                </MotionButton>
               </Link>
               <Link href="/login">
-                <Button size="lg" variant="outline" className="h-12 px-6 text-base">
+                <MotionButton
+                  size="lg"
+                  variant="outline"
+                  className="h-12 px-6 text-base"
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.96 }}
+                >
                   Sign In
-                </Button>
+                </MotionButton>
               </Link>
             </motion.div>
           </motion.div>
@@ -194,8 +286,56 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* How It Works Section */}
+      <section id="how-it-works" className="border-t border-border py-24 sm:py-32">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, amount: 0.3 }}
+            variants={container()}
+            className="mx-auto mb-16 max-w-2xl text-center"
+          >
+            <motion.h2 variants={fadeUp} className="text-4xl font-bold text-foreground sm:text-5xl">
+              How it works
+            </motion.h2>
+            <motion.p variants={fadeUp} className="mt-4 text-lg text-muted-foreground">
+              From setup to a fully staffed schedule in three steps
+            </motion.p>
+          </motion.div>
+
+          <motion.div
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, amount: 0.2 }}
+            variants={container(0.12)}
+            className="grid gap-6 md:grid-cols-3"
+          >
+            {howItWorks.map((item) => {
+              const Icon = item.icon;
+              return (
+                <motion.div key={item.step} variants={fadeUp} whileHover={{ y: -4 }}>
+                  <Card className="h-full border border-border p-8 text-center shadow-sm transition-shadow hover:shadow-lg hover:shadow-primary/5">
+                    <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-lg shadow-primary/20">
+                      <Icon className="h-6 w-6 text-primary-foreground" />
+                    </div>
+                    <div className="mb-1 text-xs font-semibold tracking-wide text-primary">
+                      STEP {item.step}
+                    </div>
+                    <h3 className="mb-2 text-lg font-semibold text-foreground">{item.title}</h3>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
+                      {item.description}
+                    </p>
+                  </Card>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        </div>
+      </section>
+
       {/* Features Section */}
-      <section className="border-t border-border py-24 sm:py-32">
+      <section id="features" className="border-t border-border py-24 sm:py-32">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div
             initial="hidden"
@@ -299,6 +439,89 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Integrations Section */}
+      <section id="integrations" className="border-t border-border py-24 sm:py-32">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, amount: 0.3 }}
+            variants={container()}
+            className="mx-auto mb-16 max-w-2xl text-center"
+          >
+            <motion.h2 variants={fadeUp} className="text-4xl font-bold text-foreground sm:text-5xl">
+              Fits into your stack
+            </motion.h2>
+            <motion.p variants={fadeUp} className="mt-4 text-lg text-muted-foreground">
+              Workplix connects with the tools you already use to run your business
+            </motion.p>
+          </motion.div>
+
+          <motion.div
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, amount: 0.15 }}
+            variants={container(0.08)}
+            className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
+          >
+            {integrations.map((item) => {
+              const Icon = item.icon;
+              return (
+                <motion.div key={item.title} variants={fadeUp} whileHover={{ y: -4 }}>
+                  <Card className="h-full items-center border border-border p-6 text-center shadow-sm transition-shadow hover:shadow-lg hover:shadow-primary/5">
+                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                      <Icon className="h-6 w-6 text-primary" />
+                    </div>
+                    <h3 className="mb-1 text-sm font-semibold text-foreground">{item.title}</h3>
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      {item.description}
+                    </p>
+                  </Card>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section id="faq" className="border-t border-border py-24 sm:py-32">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, amount: 0.3 }}
+            variants={container()}
+            className="mx-auto mb-12 max-w-2xl text-center"
+          >
+            <motion.h2 variants={fadeUp} className="text-4xl font-bold text-foreground sm:text-5xl">
+              Frequently asked questions
+            </motion.h2>
+            <motion.p variants={fadeUp} className="mt-4 text-lg text-muted-foreground">
+              Everything you need to know before getting started
+            </motion.p>
+          </motion.div>
+
+          <motion.div
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, amount: 0.2 }}
+            variants={fadeUp}
+          >
+            <Card className="border border-border px-6 py-2 shadow-sm">
+              <Accordion>
+                {faqs.map((faq) => (
+                  <AccordionItem key={faq.question} value={faq.question}>
+                    <AccordionTrigger>{faq.question}</AccordionTrigger>
+                    <AccordionContent>{faq.answer}</AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </Card>
+          </motion.div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="border-t border-border py-24 sm:py-32">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
@@ -320,29 +543,33 @@ export default function LandingPage() {
               variants={fadeUp}
               className="mx-auto mt-4 max-w-xl text-lg text-primary-foreground/80"
             >
-              Join hundreds of teams already using Workplix to manage their workforce.
+              Set up your first schedule in minutes — no credit card required.
             </motion.p>
             <motion.div
               variants={fadeUp}
               className="mt-8 flex flex-col justify-center gap-4 sm:flex-row"
             >
               <Link href="/signup">
-                <Button
+                <MotionButton
                   size="lg"
-                  className="h-12 bg-background px-6 text-base text-foreground hover:bg-background/90"
+                  className="group h-12 bg-background px-6 text-base text-foreground hover:bg-background/90"
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.96 }}
                 >
                   Start Your Free Trial
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
+                  <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-0.5" />
+                </MotionButton>
               </Link>
               <Link href="/login">
-                <Button
+                <MotionButton
                   size="lg"
                   variant="outline"
                   className="h-12 border-primary-foreground/40 bg-transparent px-6 text-base text-primary-foreground hover:bg-primary-foreground/10"
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.96 }}
                 >
                   Sign In to Your Account
-                </Button>
+                </MotionButton>
               </Link>
             </motion.div>
             <motion.p variants={fadeUp} className="mt-6 text-sm text-primary-foreground/70">
@@ -353,10 +580,71 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border py-12">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <span className="font-semibold text-foreground">Workplix</span>
-          <p className="text-sm text-muted-foreground">© 2026 Workplix. All rights reserved.</p>
+      <footer className="border-t border-border py-16">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="lg:col-span-2">
+              <span className="text-lg font-semibold text-foreground">Workplix</span>
+              <p className="mt-3 max-w-xs text-sm text-muted-foreground">
+                Workforce scheduling made simple. Manage shifts, time-off, and your whole team in
+                one place.
+              </p>
+            </div>
+
+            <div>
+              <h4 className="mb-3 text-sm font-semibold text-foreground">Product</h4>
+              <ul className="space-y-2.5 text-sm text-muted-foreground">
+                <li>
+                  <Link href="#features" className="hover:text-primary">
+                    Features
+                  </Link>
+                </li>
+                <li>
+                  <Link href="#how-it-works" className="hover:text-primary">
+                    How it works
+                  </Link>
+                </li>
+                <li>
+                  <Link href="#integrations" className="hover:text-primary">
+                    Integrations
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="mb-3 text-sm font-semibold text-foreground">Company</h4>
+              <ul className="space-y-2.5 text-sm text-muted-foreground">
+                <li>
+                  <Link href="#faq" className="hover:text-primary">
+                    FAQ
+                  </Link>
+                </li>
+                <li>
+                  <a href="mailto:hello@workplix.com" className="hover:text-primary">
+                    Contact
+                  </a>
+                </li>
+                <li>
+                  <Link href="/signup" className="hover:text-primary">
+                    Get Started
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="mb-3 text-sm font-semibold text-foreground">Legal</h4>
+              <ul className="space-y-2.5 text-sm text-muted-foreground">
+                <li className="cursor-default">Privacy Policy</li>
+                <li className="cursor-default">Terms of Service</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="mt-12 border-t border-border pt-8 text-center">
+            <p className="text-sm text-muted-foreground">© 2026 Workplix. All rights reserved.</p>
+          </div>
         </div>
       </footer>
     </div>

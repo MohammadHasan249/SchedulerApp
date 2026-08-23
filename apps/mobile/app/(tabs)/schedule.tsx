@@ -304,6 +304,7 @@ export default function ScheduleScreen() {
                       <TouchableOpacity
                         onPress={() => handleUnassign(selectedShift, a.id)}
                         disabled={modalAssigning}
+                        accessibilityLabel={`Remove ${a.employeeName}`}
                       >
                         <UserMinus size={18} color={theme.inactive} />
                       </TouchableOpacity>
@@ -326,6 +327,7 @@ export default function ScheduleScreen() {
                             style={styles.plusBtn}
                             onPress={() => handleAssign(selectedShift, emp.id)}
                             disabled={modalAssigning}
+                            accessibilityLabel={`Add ${emp.name}`}
                           >
                             <Plus size={16} color={theme.primary} />
                           </TouchableOpacity>

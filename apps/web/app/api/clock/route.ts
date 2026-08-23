@@ -74,6 +74,15 @@ const clockSchema = z.object({
 });
 
 export const POST = withAuth(async function POST(request: Request) {
+  // Clock-in only happens through a kiosk that an org admin or branch manager
+  // has set up (see app/kiosk/[branchSlug]/page.tsx). Employees authenticate
+  // with a shared PIN at that kiosk, not from their own mobile/web session —
+  // so only admin/manager sessions may call this endpoint at all.
+  const user = await getUser();
+  if (user.role !== "org_admin" && user.role !== "branch_manager") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const [body, jsonErr] = await safeJson(request);
   if (jsonErr) return jsonErr;
   const parsed = clockSchema.safeParse(body);

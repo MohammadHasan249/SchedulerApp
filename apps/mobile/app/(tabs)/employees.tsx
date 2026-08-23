@@ -312,6 +312,7 @@ export default function EmployeesScreen() {
               </View>
               <TouchableOpacity
                 style={styles.editBtn}
+                accessibilityLabel={`Edit ${emp.name}`}
                 onPress={(e) => {
                   e.stopPropagation();
                   openEdit(emp);
