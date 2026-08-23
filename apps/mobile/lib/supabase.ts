@@ -7,11 +7,11 @@ const supabasePublishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
 // Supabase uses storage keys like `sb-<project-ref>-auth-token`. Match by
 // prefix/suffix so we actually strip the session blob down to the tokens we
 // need (iOS SecureStore has a ~2 KB per-key limit).
-function isAuthTokenKey(key: string): boolean {
+export function isAuthTokenKey(key: string): boolean {
   return key.startsWith("sb-") && key.endsWith("-auth-token");
 }
 
-const ExpoSecureStoreAdapter = {
+export const ExpoSecureStoreAdapter = {
   getItem: (key: string) => SecureStore.getItemAsync(key),
   setItem: (key: string, value: string) => {
     if (isAuthTokenKey(key)) {

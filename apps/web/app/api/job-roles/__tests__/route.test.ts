@@ -1,48 +1,52 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { GET, POST } from "../route";
+import { db } from "@/lib/db";
+import { getApiUser } from "@/lib/auth/getUser";
+import { chain } from "@/test/db-mock";
 
-describe('GET /api/job-roles - Example Test', () => {
-  it('should validate job role structure', () => {
-    const jobRole = {
-      id: 'role-1',
-      organizationId: 'org-123',
-      name: 'Cashier',
-      departmentId: 'dept-1',
-    };
+vi.mock("@/lib/db", () => ({ db: { select: vi.fn(), insert: vi.fn() } }));
+vi.mock("@/lib/auth/getUser", () => ({ getApiUser: vi.fn() }));
 
-    expect(jobRole).toMatchObject({
-      id: expect.any(String),
-      organizationId: expect.any(String),
-      name: expect.any(String),
-    });
-  });
+const manager = { id: "u1", role: "branch_manager" as const, organizationId: "org-1", branchId: "b1" };
+const employeeUser = { id: "u2", role: "employee" as const, organizationId: "org-1", branchId: null };
 
-  it('should validate multiple role types', () => {
-    const roles = [
-      { id: '1', name: 'Cashier' },
-      { id: '2', name: 'Shift Lead' },
-      { id: '3', name: 'Manager' },
-    ];
+function req(body?: unknown) {
+  return new Request("http://test", { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) });
+}
 
-    expect(roles).toHaveLength(3);
-    expect(roles.every(r => r.name.length > 0)).toBe(true);
+describe("GET /api/job-roles", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  it("lists job roles for the org", async () => {
+    (getApiUser as any).mockResolvedValue(employeeUser);
+    const rows = [{ id: "jr1", name: "Cook" }];
+    (db.select as any).mockReturnValue(chain(rows));
+    const res = await GET();
+    expect(await res.json()).toEqual(rows);
   });
 });
 
-describe('POST /api/job-roles - Example Test', () => {
-  it('should validate job role name is required', () => {
-    const isValidName = (name: string) => name.trim().length > 0;
+describe("POST /api/job-roles", () => {
+  beforeEach(() => vi.resetAllMocks());
 
-    expect(isValidName('Cashier')).toBe(true);
-    expect(isValidName('')).toBe(false);
+  it("forbids employees from creating job roles", async () => {
+    (getApiUser as any).mockResolvedValue(employeeUser);
+    const res = await POST(req({ name: "Cook" }));
+    expect(res.status).toBe(403);
   });
 
-  it('should accept optional department', () => {
-    const createPayload = {
-      name: 'Manager',
-      departmentId: null as string | null,
-    };
+  it("rejects an invalid payload", async () => {
+    (getApiUser as any).mockResolvedValue(manager);
+    const res = await POST(req({ name: "" }));
+    expect(res.status).toBe(400);
+  });
 
-    expect(createPayload.name).toBeTruthy();
-    // departmentId can be null or a valid UUID
+  it("allows a branch_manager to create a job role", async () => {
+    (getApiUser as any).mockResolvedValue(manager);
+    const created = { id: "jr1", name: "Cook" };
+    (db.insert as any).mockReturnValue(chain([created]));
+    const res = await POST(req({ name: "Cook" }));
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual(created);
   });
 });

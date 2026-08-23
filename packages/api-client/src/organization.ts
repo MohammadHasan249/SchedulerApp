@@ -1,6 +1,10 @@
 import { apiFetch } from "./client";
 import type { OrganizationTheme } from "@scheduler/types";
 
+export function getOrganizationInfo(): Promise<{ name: string | null }> {
+  return apiFetch("/api/org/info");
+}
+
 // Keys are day-of-week strings "0"–"6". A missing key means the day is closed.
 export type HoursSchedule = Record<string, { startTime: string; endTime: string }>;
 

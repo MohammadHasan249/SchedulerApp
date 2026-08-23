@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { Stack } from "expo-router";
 import { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, X, GitBranch } from "lucide-react-native";
+import { Plus, Pencil, Trash2, X, GitBranch, Check } from "lucide-react-native";
 import {
   getBranches,
   createBranch,
@@ -20,6 +20,7 @@ import {
   type Branch,
 } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
+import { US_TIMEZONES } from "@scheduler/types";
 
 type FormState = {
   name: string;
@@ -28,7 +29,7 @@ type FormState = {
   timezone: string;
 };
 
-const EMPTY_FORM: FormState = { name: "", slug: "", address: "", timezone: "UTC" };
+const EMPTY_FORM: FormState = { name: "", slug: "", address: "", timezone: "America/New_York" };
 
 export default function SettingsBranchesScreen() {
   const theme = useAppTheme();
@@ -41,6 +42,7 @@ export default function SettingsBranchesScreen() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  const [tzPickerVisible, setTzPickerVisible] = useState(false);
 
   async function load() {
     try {
@@ -87,7 +89,7 @@ export default function SettingsBranchesScreen() {
         name: form.name.trim(),
         slug: form.slug.trim() || undefined,
         address: form.address.trim() || undefined,
-        timezone: form.timezone.trim() || "UTC",
+        timezone: form.timezone.trim() || "America/New_York",
       };
       if (editing) {
         const updated = await updateBranch(editing.id, payload);
@@ -236,14 +238,14 @@ export default function SettingsBranchesScreen() {
 
             <View style={styles.field}>
               <Text style={styles.fieldLabel}>Timezone</Text>
-              <TextInput
-                style={[styles.input, { color: theme.text, borderColor: theme.surface2, backgroundColor: theme.bg }]}
-                value={form.timezone}
-                onChangeText={(v) => setForm((f) => ({ ...f, timezone: v }))}
-                placeholder="UTC"
-                placeholderTextColor={theme.muted}
-                autoCapitalize="none"
-              />
+              <TouchableOpacity
+                style={[styles.input, { borderColor: theme.surface2, backgroundColor: theme.bg, justifyContent: "center" }]}
+                onPress={() => setTzPickerVisible(true)}
+              >
+                <Text style={{ color: theme.text, fontSize: 14 }}>
+                  {US_TIMEZONES.find((tz) => tz.value === form.timezone)?.label ?? form.timezone}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {formError ? <Text style={styles.error}>{formError}</Text> : null}
@@ -257,6 +259,32 @@ export default function SettingsBranchesScreen() {
                 {saving ? "Saving…" : editing ? "Save Changes" : "Create Branch"}
               </Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={tzPickerVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Timezone</Text>
+              <TouchableOpacity onPress={() => setTzPickerVisible(false)}>
+                <X size={20} color={theme.muted} />
+              </TouchableOpacity>
+            </View>
+            {US_TIMEZONES.map((tz) => (
+              <TouchableOpacity
+                key={tz.value}
+                style={styles.tzOption}
+                onPress={() => {
+                  setForm((f) => ({ ...f, timezone: tz.value }));
+                  setTzPickerVisible(false);
+                }}
+              >
+                <Text style={{ color: theme.text, fontSize: 14 }}>{tz.label}</Text>
+                {form.timezone === tz.value && <Check size={18} color={theme.primary} />}
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
       </Modal>
@@ -320,6 +348,14 @@ function makeStyles(theme: ReturnType<typeof useAppTheme>) {
     },
     modalTitle: { fontSize: 16, fontWeight: "700", color: theme.text },
     field: { gap: 6 },
+    tzOption: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingVertical: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.bg,
+    },
     fieldLabel: { fontSize: 12, color: theme.muted, fontWeight: "500" },
     input: {
       borderWidth: 1,

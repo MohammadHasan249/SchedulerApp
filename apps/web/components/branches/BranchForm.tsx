@@ -6,7 +6,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { Branch } from "@scheduler/types";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { US_TIMEZONES, type Branch } from "@scheduler/types";
 
 type Props = {
   open: boolean;
@@ -21,7 +22,7 @@ export function BranchForm({ open, onOpenChange, branch }: Props) {
   const [name, setName] = useState(branch?.name ?? "");
   const [slug, setSlug] = useState(branch?.slug ?? "");
   const [address, setAddress] = useState(branch?.address ?? "");
-  const [timezone, setTimezone] = useState(branch?.timezone ?? "EST");
+  const [timezone, setTimezone] = useState(branch?.timezone ?? "America/New_York");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -36,7 +37,7 @@ export function BranchForm({ open, onOpenChange, branch }: Props) {
         setName("");
         setSlug("");
         setAddress("");
-        setTimezone("EST");
+        setTimezone("America/New_York");
       }
       setError("");
     }
@@ -94,7 +95,18 @@ export function BranchForm({ open, onOpenChange, branch }: Props) {
           </div>
           <div className="space-y-1">
             <Label>Timezone</Label>
-            <Input value={timezone} onChange={(e) => setTimezone(e.target.value)} placeholder="UTC" />
+            <Select value={timezone} onValueChange={(v) => setTimezone(v ?? "America/New_York")}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {US_TIMEZONES.map((tz) => (
+                  <SelectItem key={tz.value} value={tz.value}>
+                    {tz.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <DialogFooter>

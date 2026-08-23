@@ -1,0 +1,125 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { GET, PATCH, DELETE } from "../route";
+import { db } from "@/lib/db";
+import { getApiUser } from "@/lib/auth/getUser";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { pinCollidesWithExisting } from "@/lib/employees";
+import { chain } from "@/test/db-mock";
+
+vi.mock("@/lib/db", () => ({
+  db: { select: vi.fn(), transaction: vi.fn() },
+}));
+vi.mock("@/lib/auth/getUser", () => ({ getApiUser: vi.fn() }));
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
+vi.mock("@/lib/employees", () => ({ pinCollidesWithExisting: vi.fn() }));
+
+const orgAdmin = { id: "u1", role: "org_admin" as const, organizationId: "org-1", branchId: null };
+const manager = { id: "u2", role: "branch_manager" as const, organizationId: "org-1", branchId: "b1" };
+const employeeUser = { id: "u3", role: "employee" as const, organizationId: "org-1", branchId: null };
+const params = (id: string) => ({ params: Promise.resolve({ id }) });
+
+function req(method: string, body?: unknown) {
+  return new Request("http://test", { method, body: body === undefined ? undefined : JSON.stringify(body) });
+}
+
+describe("GET /api/employees/[id]", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  it("404s when the target isn't in the caller's org", async () => {
+    (getApiUser as any).mockResolvedValue(orgAdmin);
+    (db.select as any).mockReturnValue(chain([]));
+    const res = await GET(req("GET"), params("emp-1"));
+    expect(res.status).toBe(404);
+  });
+
+  it("404s (not 403) when an employee requests someone else's record", async () => {
+    (getApiUser as any).mockResolvedValue(employeeUser);
+    (db.select as any).mockReturnValue(chain([{ id: "emp-1", authUserId: "someone-else", organizationId: "org-1" }]));
+    const res = await GET(req("GET"), params("emp-1"));
+    expect(res.status).toBe(404);
+  });
+
+  it("returns the employee record for an org admin", async () => {
+    (getApiUser as any).mockResolvedValue(orgAdmin);
+    const employee = { id: "emp-1", organizationId: "org-1", authUserId: "someone" };
+    (db.select as any).mockReturnValue(chain([employee]));
+    const res = await GET(req("GET"), params("emp-1"));
+    expect(await res.json()).toEqual(employee);
+  });
+});
+
+describe("PATCH /api/employees/[id]", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  it("forbids employees from editing", async () => {
+    (getApiUser as any).mockResolvedValue(employeeUser);
+    const res = await PATCH(req("PATCH", { name: "x" }), params("emp-1"));
+    expect(res.status).toBe(403);
+  });
+
+  it("forbids a branch_manager from changing roles", async () => {
+    (getApiUser as any).mockResolvedValue(manager);
+    (db.select as any).mockReturnValue(chain([{ id: "emp-1", branchId: "b1", organizationId: "org-1" }]));
+    const res = await PATCH(req("PATCH", { role: "branch_manager" }), params("emp-1"));
+    expect(res.status).toBe(403);
+  });
+
+  it("rejects a PIN collision", async () => {
+    (getApiUser as any).mockResolvedValue(orgAdmin);
+    (db.select as any).mockReturnValue(chain([{ id: "emp-1", organizationId: "org-1", branchId: "b1" }]));
+    (pinCollidesWithExisting as any).mockResolvedValue(true);
+    const res = await PATCH(req("PATCH", { pin: "1234" }), params("emp-1"));
+    expect(res.status).toBe(409);
+  });
+
+  it("updates fields via a transaction", async () => {
+    (getApiUser as any).mockResolvedValue(orgAdmin);
+    (db.select as any).mockReturnValue(chain([{ id: "emp-1", organizationId: "org-1", branchId: "b1", authUserId: null }]));
+    const updated = { id: "emp-1", name: "New Name" };
+    (db.transaction as any).mockImplementation(async (cb: any) =>
+      cb({ update: () => chain([updated]) })
+    );
+    const res = await PATCH(req("PATCH", { name: "New Name" }), params("emp-1"));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(updated);
+  });
+});
+
+describe("DELETE /api/employees/[id]", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  it("forbids non-admins", async () => {
+    (getApiUser as any).mockResolvedValue(manager);
+    const res = await DELETE(req("DELETE"), params("emp-1"));
+    expect(res.status).toBe(403);
+  });
+
+  it("404s when not found", async () => {
+    (getApiUser as any).mockResolvedValue(orgAdmin);
+    (db.select as any).mockReturnValue(chain([]));
+    const res = await DELETE(req("DELETE"), params("emp-1"));
+    expect(res.status).toBe(404);
+  });
+
+  it("deactivates the employee and bans their auth user", async () => {
+    (getApiUser as any).mockResolvedValue(orgAdmin);
+    (db.select as any).mockReturnValue(chain([{ id: "emp-1", organizationId: "org-1", authUserId: "auth-1" }]));
+    const deactivated = { id: "emp-1", isActive: false };
+    (db.transaction as any).mockImplementation(async (cb: any) =>
+      cb({
+        update: () => chain([deactivated]),
+        select: () => chain([]),
+        delete: () => chain([]),
+      })
+    );
+    const supabase = { auth: { admin: { updateUserById: vi.fn().mockResolvedValue({}) } } };
+    (createAdminClient as any).mockReturnValue(supabase);
+
+    const res = await DELETE(req("DELETE"), params("emp-1"));
+    expect(res.status).toBe(200);
+    expect(supabase.auth.admin.updateUserById).toHaveBeenCalledWith(
+      "auth-1",
+      expect.objectContaining({ ban_duration: expect.any(String) })
+    );
+  });
+});

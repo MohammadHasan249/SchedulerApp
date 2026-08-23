@@ -11,7 +11,7 @@ export const branches = pgTable(
     name: text("name").notNull(),
     slug: text("slug").notNull(),
     address: text("address"),
-    timezone: text("timezone").notNull().default("UTC"),
+    timezone: text("timezone").notNull().default("America/New_York"),
   },
   (t) => [unique("branches_org_slug_unique").on(t.organizationId, t.slug)]
 );

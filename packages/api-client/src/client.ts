@@ -42,12 +42,14 @@ export async function apiFetch<T>(
 
   if (!res.ok) {
     const text = await res.text();
+    let parsed: { error?: unknown } | null = null;
     try {
-      const err = JSON.parse(text);
-      throw new Error(err.error ?? `Request failed: ${res.status}`);
+      parsed = JSON.parse(text);
     } catch {
-      throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+      // not JSON — fall through to the generic message below
     }
+    const message = typeof parsed?.error === "string" ? parsed.error : null;
+    throw new Error(message ?? `Request failed: ${res.status} ${res.statusText}`);
   }
 
   if (res.status === 204) {

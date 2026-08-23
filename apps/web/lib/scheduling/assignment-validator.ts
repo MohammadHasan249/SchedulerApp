@@ -6,7 +6,7 @@ import {
   timeOffRequests,
 } from "@scheduler/database/schema";
 import { eq, and, gte, lte, ne } from "drizzle-orm";
-import { getZonedParts } from "@/lib/utils/timezone";
+import { getZonedParts, getZonedWeekStart } from "@/lib/utils/timezone";
 import { violatesAvailability } from "./availability";
 
 export type AssignmentValidationError =
@@ -129,10 +129,12 @@ export async function validateAssignment(
     };
   }
 
-  // Weekly hours cap
-  const weekStart = new Date(shiftStart);
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-  weekStart.setHours(0, 0, 0, 0);
+  // Weekly hours cap — boundary computed in the branch's timezone (not the
+  // server's) so it lines up with the availability/time-off checks above.
+  // Using server-local getDay() here let a shift near a week boundary be
+  // bucketed into the wrong week whenever the server and branch timezones
+  // disagreed on what day it was.
+  const weekStart = getZonedWeekStart(timezone, shiftStart);
   const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   const weekAssignments = await db

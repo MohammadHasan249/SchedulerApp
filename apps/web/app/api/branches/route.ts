@@ -13,7 +13,7 @@ const createSchema = z.object({
   name: z.string().min(1),
   slug: z.string().min(1).regex(/^[a-z0-9-]+$/).optional(),
   address: z.string().optional(),
-  timezone: z.string().default("UTC"),
+  timezone: z.string().default("America/New_York"),
 });
 
 export const GET = withAuth(async function GET() {
