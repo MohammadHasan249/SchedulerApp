@@ -68,7 +68,7 @@ export default function ScheduleScreen() {
 
   // Employees: resolve own record so their shifts can be highlighted.
   useEffect(() => {
-    if (!isAdmin && session) {
+    if (!isAdmin && session?.user?.id) {
       fetchMyEmployee(session.user.id).then((me) => setMyEmployeeId(me?.id ?? null));
     }
   }, [session, isAdmin]);

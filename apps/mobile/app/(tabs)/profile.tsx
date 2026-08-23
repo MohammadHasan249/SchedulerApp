@@ -64,7 +64,7 @@ export default function ProfileScreen() {
         setLoadingHours(false);
       }
 
-      if (!employeeName && session) {
+      if (!employeeName && session?.user?.id) {
         const fullName = session.user.user_metadata?.full_name as string | undefined;
         if (fullName) {
           setEmployeeName(fullName);

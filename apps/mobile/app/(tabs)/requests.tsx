@@ -326,7 +326,7 @@ function SwapSection() {
 
   async function load() {
     try {
-      const me = session ? await fetchMyEmployee(session.user.id) : null;
+      const me = session?.user?.id ? await fetchMyEmployee(session.user.id) : null;
       setEmployeeId(me?.id);
 
       const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
@@ -565,9 +565,19 @@ function makeStyles(theme: ReturnType<typeof useAppTheme>) {
     segActive: { backgroundColor: theme.bg },
     segText: { fontSize: 13, fontWeight: "500", color: theme.muted },
     segTextActive: { color: theme.text, fontWeight: "600" },
-    headerRow: { flexDirection: "row", justifyContent: "flex-end", paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
-    newBtn: { backgroundColor: theme.primary + "33", borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
-    newBtnText: { color: theme.primary, fontSize: 13, fontWeight: "600" },
+    headerRow: { position: "absolute", left: 16, bottom: 16, zIndex: 10 },
+    newBtn: {
+      backgroundColor: theme.primary,
+      borderRadius: 24,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 4,
+    },
+    newBtnText: { color: "#fff", fontSize: 13, fontWeight: "600" },
     form: { marginHorizontal: 16, backgroundColor: theme.surface, borderRadius: 12, padding: 14, gap: 10, marginBottom: 8 },
     formRow: { flexDirection: "row", gap: 10 },
     formField: { flex: 1, gap: 4 },

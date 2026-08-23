@@ -35,7 +35,7 @@ export default function AvailabilityScreen() {
 
   useEffect(() => {
     async function load() {
-      if (!session) return;
+      if (!session?.user?.id) return;
       try {
         const [hours, me] = await Promise.all([
           getOrganizationHours(),
