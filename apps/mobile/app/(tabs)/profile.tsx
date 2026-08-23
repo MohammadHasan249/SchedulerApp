@@ -26,8 +26,9 @@ import { useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/lib/authStore";
 import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
-import { getOrganizationHours, type HoursSchedule } from "@/lib/api";
+import { getOrganizationHours, unregisterPushToken, type HoursSchedule } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
+import * as Notifications from "expo-notifications";
 import { useIsAdmin, useRole } from "@/lib/useRole";
 import { useEffect, useState } from "react";
 
@@ -88,6 +89,12 @@ export default function ProfileScreen() {
         text: "Sign out",
         style: "destructive",
         onPress: async () => {
+          try {
+            const { data } = await Notifications.getExpoPushTokenAsync();
+            if (data) await unregisterPushToken(data);
+          } catch {
+            // best-effort — a stale token just goes unused, not sent to
+          }
           await supabase.auth.signOut();
         },
       },

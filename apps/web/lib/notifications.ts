@@ -1,6 +1,7 @@
 import { logger } from "@/lib/logger";
 import { db } from "@/lib/db";
 import { notifications } from "@scheduler/database/schema";
+import { sendPushToEmployees } from "@/lib/push";
 
 type CreateNotificationInput = {
   employeeId: string;
@@ -18,6 +19,7 @@ export async function createNotification(input: CreateNotificationInput): Promis
   } catch (error) {
     logger.error("Failed to create notification:", error);
   }
+  await sendPushToEmployees([input.employeeId], input.message);
 }
 
 export async function createNotifications(inputs: CreateNotificationInput[]): Promise<void> {
@@ -27,4 +29,5 @@ export async function createNotifications(inputs: CreateNotificationInput[]): Pr
   } catch (error) {
     logger.error("Failed to create notifications:", error);
   }
+  await Promise.all(inputs.map((input) => sendPushToEmployees([input.employeeId], input.message)));
 }

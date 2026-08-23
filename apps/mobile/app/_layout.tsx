@@ -1,11 +1,21 @@
 import { useEffect, useRef } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import * as Notifications from "expo-notifications";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/lib/authStore";
 import { useThemeStore } from "@/lib/themeStore";
 import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
 import { getOrganizationTheme } from "@/lib/api";
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 export default function RootLayout() {
   const { session, setSession, setEmployeeName } = useAuthStore();

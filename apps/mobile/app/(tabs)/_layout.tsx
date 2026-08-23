@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Timer,
   Users,
+  Bell,
 } from "lucide-react-native";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useAuthStore } from "@/lib/authStore";
@@ -15,6 +16,8 @@ import { useOrgStore } from "@/lib/orgStore";
 import { OrgTabHeader } from "@/components/OrgTabHeader";
 import { useIsAdmin } from "@/lib/useRole";
 import { useKioskStore } from "@/lib/kioskStore";
+import { registerForPushNotificationsAsync } from "@/lib/pushNotifications";
+import { registerPushToken } from "@/lib/api";
 
 export default function TabLayout() {
   const theme = useAppTheme();
@@ -28,6 +31,11 @@ export default function TabLayout() {
     if (session) {
       fetchOrgInfo();
       hydrateKiosk();
+      registerForPushNotificationsAsync()
+        .then((token) => {
+          if (token) return registerPushToken(token);
+        })
+        .catch(() => {});
     }
   }, [session]);
 
@@ -108,6 +116,13 @@ export default function TabLayout() {
           title: "Employees",
           href: isAdmin ? undefined : null,
           tabBarIcon: ({ color, size }) => <Users size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          title: "Notifications",
+          tabBarIcon: ({ color, size }) => <Bell size={size} color={color} />,
         }}
       />
       <Tabs.Screen

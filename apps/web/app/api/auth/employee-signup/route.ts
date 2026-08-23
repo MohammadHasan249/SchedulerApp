@@ -62,6 +62,7 @@ export async function POST(request: Request) {
     email,
     password,
     email_confirm: false,
+    user_metadata: { full_name: employee.name },
     app_metadata: {
       role: employee.role,
       organization_id: employee.organizationId,
