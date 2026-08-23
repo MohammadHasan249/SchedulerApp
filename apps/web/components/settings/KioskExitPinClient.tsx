@@ -56,29 +56,31 @@ export function KioskExitPinClient({ initialIsSet }: Props) {
           ? "An exit PIN is set. Staff on a mobile kiosk device enter it to leave kiosk mode."
           : "No exit PIN is set yet — kiosk mode on mobile devices cannot be exited until you set one."}
       </p>
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <input
-          type="password"
-          inputMode="numeric"
-          maxLength={6}
-          placeholder="New PIN"
-          value={pin}
-          onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-          className="border rounded-md px-3 py-2 text-sm"
-        />
-        <input
-          type="password"
-          inputMode="numeric"
-          maxLength={6}
-          placeholder="Confirm PIN"
-          value={confirmPin}
-          onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
-          className="border rounded-md px-3 py-2 text-sm"
-        />
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            type="password"
+            inputMode="numeric"
+            maxLength={6}
+            placeholder="New PIN"
+            value={pin}
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+            className="border rounded-md px-3 py-2 text-sm sm:flex-1"
+          />
+          <input
+            type="password"
+            inputMode="numeric"
+            maxLength={6}
+            placeholder="Confirm PIN"
+            value={confirmPin}
+            onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
+            className="border rounded-md px-3 py-2 text-sm sm:flex-1"
+          />
+        </div>
         <button
           onClick={handleSave}
           disabled={saving}
-          className="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium disabled:opacity-60"
+          className="self-start whitespace-nowrap rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium disabled:opacity-60"
         >
           {saving ? "Saving…" : isSet ? "Update PIN" : "Set PIN"}
         </button>

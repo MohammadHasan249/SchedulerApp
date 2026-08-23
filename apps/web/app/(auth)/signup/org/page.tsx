@@ -12,6 +12,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+const INDUSTRY_LABELS: Record<string, string> = {
+  restaurant: "Restaurant",
+  retail: "Retail store",
+  other: "Other",
+};
 
 const schema = z.object({
   orgName: z.string().min(2, "Organization name must be at least 2 characters"),
@@ -19,6 +32,7 @@ const schema = z.object({
     .string()
     .min(2, "Slug must be at least 2 characters")
     .regex(/^[a-z0-9-]+$/, "Slug must be lowercase letters, numbers, and hyphens only"),
+  industry: z.enum(["restaurant", "retail", "other"]),
   fullName: z.string().min(1, "Full name is required"),
   email: z.string().email("Invalid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
@@ -36,7 +50,12 @@ export default function OrgSignupPage() {
     watch,
     setValue,
     formState: { errors },
-  } = useForm<FormData>({ resolver: zodResolver(schema) });
+  } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: { industry: "restaurant" },
+  });
+
+  const industry = watch("industry");
 
   const orgName = watch("orgName");
 
@@ -99,6 +118,31 @@ export default function OrgSignupPage() {
             {errors.orgSlug && (
               <p className="text-sm text-destructive">{errors.orgSlug.message}</p>
             )}
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="industry">What kind of business is this?</Label>
+            <Select
+              value={industry}
+              onValueChange={(v) => setValue("industry", v as FormData["industry"], { shouldValidate: true })}
+            >
+              <SelectTrigger id="industry" className="w-full">
+                <SelectValue placeholder="Select a business type">
+                  {INDUSTRY_LABELS[industry]}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="restaurant">Restaurant</SelectItem>
+                <SelectItem value="retail">Retail store</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+            {errors.industry && (
+              <p className="text-sm text-destructive">{errors.industry.message}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              We&apos;ll pre-fill some common job roles to get you started.
+            </p>
           </div>
 
           <div className="space-y-1">

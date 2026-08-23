@@ -4,13 +4,20 @@ import { z } from "zod";
 import { safeJson } from "@/lib/utils/safe-json";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { db } from "@/lib/db";
-import { organizations, employees, branches } from "@scheduler/database/schema";
+import { organizations, employees, branches, jobRoles } from "@scheduler/database/schema";
 import { slugify } from "@/lib/utils/slugify";
 import { eq } from "drizzle-orm";
+
+const INDUSTRY_STARTER_JOB_ROLES: Record<"restaurant" | "retail" | "other", string[]> = {
+  restaurant: ["Server", "Cook", "Cashier", "Shift Manager"],
+  retail: ["Sales Associate", "Cashier", "Stock Associate", "Store Manager", "Shift Lead"],
+  other: [],
+};
 
 const schema = z.object({
   orgName: z.string().min(2),
   orgSlug: z.string().min(2).regex(/^[a-z0-9-]+$/, "Slug must be lowercase letters, numbers, and hyphens only"),
+  industry: z.enum(["restaurant", "retail", "other"]),
   fullName: z.string().min(1),
   email: z.string().email(),
   password: z.string().min(8),
@@ -25,7 +32,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { orgName, orgSlug, fullName, email, password } = parsed.data;
+  const { orgName, orgSlug, industry, fullName, email, password } = parsed.data;
 
   // Check slug uniqueness
   const existing = await db
@@ -70,7 +77,7 @@ export async function POST(request: Request) {
     orgId = await db.transaction(async (tx) => {
       const [org] = await tx
         .insert(organizations)
-        .values({ name: orgName, slug: orgSlug })
+        .values({ name: orgName, slug: orgSlug, industry })
         .returning();
 
       await tx.insert(branches).values({
@@ -86,6 +93,13 @@ export async function POST(request: Request) {
         email,
         role: "org_admin",
       });
+
+      const starterRoles = INDUSTRY_STARTER_JOB_ROLES[industry];
+      if (starterRoles.length > 0) {
+        await tx.insert(jobRoles).values(
+          starterRoles.map((name) => ({ organizationId: org.id, name }))
+        );
+      }
 
       return org.id;
     });
