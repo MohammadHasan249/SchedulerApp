@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { motion } from "motion/react";
+import { motion, useInView, animate } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -30,6 +31,29 @@ import {
 } from "lucide-react";
 
 const MotionButton = motion.create(Button);
+
+function AnimatedCounter({ value, suffix = "" }: { value: number; suffix?: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const isInView = useInView(ref, { once: true, amount: 0.5 });
+  const [display, setDisplay] = useState(1);
+
+  useEffect(() => {
+    if (!isInView) return;
+    const controls = animate(1, value, {
+      duration: 1.5,
+      ease: "easeOut",
+      onUpdate: (latest) => setDisplay(Math.round(latest)),
+    });
+    return () => controls.stop();
+  }, [isInView, value]);
+
+  return (
+    <span ref={ref}>
+      {display.toLocaleString()}
+      {suffix}
+    </span>
+  );
+}
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -83,9 +107,9 @@ const features = [
 ];
 
 const stats = [
-  { label: "Shifts Managed", value: "1,000+" },
-  { label: "Team Members", value: "300+" },
-  { label: "Active Users", value: "200+" },
+  { label: "Shifts Managed", value: 1200, suffix: "+" },
+  { label: "Team Members", value: 350, suffix: "+" },
+  { label: "Active Users", value: 200, suffix: "+" },
 ];
 
 const benefits = [
@@ -283,7 +307,9 @@ export default function LandingPage() {
           >
             {stats.map((stat) => (
               <motion.div key={stat.label} variants={fadeUp} className="text-center">
-                <div className="text-3xl font-bold text-foreground sm:text-4xl">{stat.value}</div>
+                <div className="text-3xl font-bold text-foreground sm:text-4xl">
+                  <AnimatedCounter value={stat.value} suffix={stat.suffix} />
+                </div>
                 <div className="mt-1 text-sm text-muted-foreground">{stat.label}</div>
               </motion.div>
             ))}
@@ -491,15 +517,18 @@ export default function LandingPage() {
 
       {/* FAQ Section */}
       <section id="faq" className="border-t border-border py-24 sm:py-32">
-        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
           <motion.div
             initial="hidden"
             whileInView="show"
             viewport={{ once: true, amount: 0.3 }}
             variants={container()}
-            className="mx-auto mb-12 max-w-2xl text-center"
+            className="mx-auto mb-16 max-w-2xl text-center"
           >
-            <motion.h2 variants={fadeUp} className="text-4xl font-bold text-foreground sm:text-5xl">
+            <motion.h2
+              variants={fadeUp}
+              className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl"
+            >
               Frequently asked questions
             </motion.h2>
             <motion.p variants={fadeUp} className="mt-4 text-lg text-muted-foreground">
@@ -510,19 +539,27 @@ export default function LandingPage() {
           <motion.div
             initial="hidden"
             whileInView="show"
-            viewport={{ once: true, amount: 0.2 }}
-            variants={fadeUp}
+            viewport={{ once: true, amount: 0.15 }}
+            variants={container(0.06)}
+            className="grid gap-3"
           >
-            <Card className="border border-border px-6 py-2 shadow-sm">
-              <Accordion>
-                {faqs.map((faq) => (
-                  <AccordionItem key={faq.question} value={faq.question}>
-                    <AccordionTrigger>{faq.question}</AccordionTrigger>
-                    <AccordionContent>{faq.answer}</AccordionContent>
+            <Accordion className="grid gap-3">
+              {faqs.map((faq) => (
+                <motion.div key={faq.question} variants={fadeUp}>
+                  <AccordionItem
+                    value={faq.question}
+                    className="overflow-hidden rounded-2xl border border-border bg-card px-6 shadow-sm transition-colors data-[panel-open]:border-primary/30"
+                  >
+                    <AccordionTrigger className="py-6 text-lg font-medium tracking-tight text-foreground hover:text-primary">
+                      {faq.question}
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-6 text-base leading-relaxed text-muted-foreground">
+                      {faq.answer}
+                    </AccordionContent>
                   </AccordionItem>
-                ))}
-              </Accordion>
-            </Card>
+                </motion.div>
+              ))}
+            </Accordion>
           </motion.div>
         </div>
       </section>
@@ -563,17 +600,6 @@ export default function LandingPage() {
                 >
                   Start Your Free Trial
                   <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-0.5" />
-                </MotionButton>
-              </Link>
-              <Link href="/login">
-                <MotionButton
-                  size="lg"
-                  variant="outline"
-                  className="h-12 border-primary-foreground/40 bg-transparent px-6 text-base text-primary-foreground hover:bg-primary-foreground/10"
-                  whileHover={{ scale: 1.04 }}
-                  whileTap={{ scale: 0.96 }}
-                >
-                  Sign In to Your Account
                 </MotionButton>
               </Link>
             </motion.div>
