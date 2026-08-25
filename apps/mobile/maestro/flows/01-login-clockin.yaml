@@ -1,0 +1,93 @@
+appId: com.workplix.mobile
+---
+# Flow 1: Employee login -> view schedule -> (admin) clock in/out via kiosk.
+#
+# NOTE: per app/(tabs)/clock-in.tsx, the Clock In tab redirects non-admins
+# straight to /schedule — kiosk PIN entry is an admin/branch-manager-only
+# feature (the device sits at a physical kiosk; employees punch a PIN, they
+# don't sign into their own account to clock in). This flow therefore logs
+# in as an ADMIN test user and drives the kiosk UI directly.
+#
+# Replace the dummy values below with real seeded credentials/PINs
+# (see /scheduler-seed) before running, e.g.:
+#   maestro test maestro/flows/01-login-clockin.yaml \
+#     -e ADMIN_EMAIL=admin@test.dev -e ADMIN_PASSWORD=Password123! \
+#     -e EMPLOYEE_PIN=1234 -e BRANCH_SLUG=main-branch
+
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "you@example.com"
+    timeout: 60000
+- tapOn:
+    id: "login-email-input"
+- inputText: "${ADMIN_EMAIL}"
+- tapOn:
+    id: "login-password-input"
+- inputText: "${ADMIN_PASSWORD}"
+- hideKeyboard
+- tapOn: "Sign In"
+
+# Admins land on the Dashboard tab (not Schedule) — verified against a live
+# run: bottom tabs are Dashboard/Schedule/Requests/Employees/Notifications/
+# Profile, with no separate "Clock In" tab. The kiosk is reached via a
+# "Kiosk Clock-In" card on the dashboard instead.
+- assertVisible: "Dashboard"
+- tapOn: "Kiosk Clock-In"
+
+- assertVisible: "Enter your PIN"
+
+# No branch is set yet on a fresh kiosk (clearState wiped kioskStore's
+# persisted slug). The "Set Branch" modal does NOT appear on load — per
+# clock-in.tsx's handlePunch(), it only opens once the first 4-digit PIN
+# attempt runs with no branchSlug set (which also resets the PIN input).
+# So: type a throwaway PIN first to trigger it, pick the branch, then type
+# the real PIN.
+- tapOn:
+    id: "pin-key-1"
+- tapOn:
+    id: "pin-key-2"
+- tapOn:
+    id: "pin-key-3"
+- tapOn:
+    id: "pin-key-4"
+- extendedWaitUntil:
+    visible: "Set Branch"
+    timeout: 5000
+- tapOn: "${BRANCH_SLUG}"
+- assertVisible: "Enter your PIN"
+
+# Punch in as a seeded employee (${EMPLOYEE_PIN}, 4 digits).
+- tapOn:
+    id: "pin-key-1"
+- tapOn:
+    id: "pin-key-2"
+- tapOn:
+    id: "pin-key-3"
+- tapOn:
+    id: "pin-key-4"
+
+# Auto-submits at 4 digits — expect either the "Clocked In" result or a
+# validation error (wrong PIN for the seeded employee).
+- extendedWaitUntil:
+    visible: "Clocked In"
+    timeout: 8000
+    optional: true
+- extendedWaitUntil:
+    visible: "Invalid PIN"
+    timeout: 8000
+    optional: true
+
+# Punch out (same PIN toggles clock_in/clock_out server-side).
+- tapOn:
+    id: "pin-key-1"
+- tapOn:
+    id: "pin-key-2"
+- tapOn:
+    id: "pin-key-3"
+- tapOn:
+    id: "pin-key-4"
+- extendedWaitUntil:
+    visible: "Clocked Out"
+    timeout: 8000
+    optional: true

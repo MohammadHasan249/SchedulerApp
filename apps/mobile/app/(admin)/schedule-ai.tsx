@@ -8,7 +8,9 @@ import { useNavigation } from "expo-router";
 import { Bot, Send } from "lucide-react-native";
 import { chatScheduleAI } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
-import type { ScheduleChatMessage } from "@scheduler/types";
+import type { ScheduleChatMessage, ScheduleChatAction } from "@scheduler/types";
+
+type DisplayMessage = ScheduleChatMessage & { actions?: ScheduleChatAction[] };
 
 const GREETING: ScheduleChatMessage = {
   role: "assistant",
@@ -22,7 +24,7 @@ export default function ScheduleAIScreen() {
   const navigation = useNavigation();
   const listRef = useRef<FlatList>(null);
 
-  const [messages, setMessages] = useState<ScheduleChatMessage[]>([GREETING]);
+  const [messages, setMessages] = useState<DisplayMessage[]>([GREETING]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -44,8 +46,8 @@ export default function ScheduleAIScreen() {
     setLoading(true);
 
     try {
-      const { reply } = await chatScheduleAI(apiMessages);
-      setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+      const { reply, actions } = await chatScheduleAI(apiMessages);
+      setMessages((prev) => [...prev, { role: "assistant", content: reply, actions }]);
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -98,6 +100,7 @@ export default function ScheduleAIScreen() {
             onSubmitEditing={send}
           />
           <TouchableOpacity
+            testID="ai-chat-send-button"
             style={[styles.sendBtn, (!input.trim() || loading) && styles.sendBtnDisabled]}
             onPress={send}
             disabled={!input.trim() || loading}
@@ -110,10 +113,11 @@ export default function ScheduleAIScreen() {
   );
 }
 
-function MessageBubble({ msg }: { msg: ScheduleChatMessage }) {
+function MessageBubble({ msg }: { msg: DisplayMessage }) {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
   const isUser = msg.role === "user";
+  const assignCount = msg.actions?.filter((a) => a.type === "assign_employee").length ?? 0;
 
   return (
     <View style={[styles.bubbleRow, isUser && styles.bubbleRowUser]}>
@@ -122,8 +126,17 @@ function MessageBubble({ msg }: { msg: ScheduleChatMessage }) {
           <Bot size={16} color={theme.primary} />
         </View>
       )}
-      <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAI]}>
-        <Text style={[styles.bubbleText, isUser && styles.bubbleTextUser]}>{msg.content}</Text>
+      <View style={{ flexShrink: 1, gap: 4 }}>
+        <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAI]}>
+          <Text style={[styles.bubbleText, isUser && styles.bubbleTextUser]}>{msg.content}</Text>
+        </View>
+        {assignCount > 0 && (
+          <View style={styles.confirmChip} testID="ai-assign-confirmed">
+            <Text style={styles.confirmChipText}>
+              ✓ {assignCount === 1 ? "1 assignment made" : `${assignCount} assignments made`}
+            </Text>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -147,6 +160,14 @@ function makeStyles(theme: ReturnType<typeof useAppTheme>) {
     bubbleUser: { backgroundColor: theme.primary, borderBottomRightRadius: 4 },
     bubbleText: { fontSize: 15, color: theme.text, lineHeight: 21 },
     bubbleTextUser: { color: "#fff" },
+    confirmChip: {
+      alignSelf: "flex-start",
+      backgroundColor: "#22c55e33",
+      borderRadius: 10,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    confirmChipText: { fontSize: 12, fontWeight: "600", color: "#16a34a" },
     typingRow: {
       flexDirection: "row", alignItems: "center",
       paddingHorizontal: 16, paddingVertical: 8,

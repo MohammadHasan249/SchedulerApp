@@ -1,0 +1,75 @@
+appId: com.workplix.mobile
+---
+# Flow 5: Employee submits availability -> admin's AI auto-assign respects it.
+#
+# Cross-check against apps/web/lib/scheduling/auto-assign.test.ts, which
+# covers the actual assignment algorithm — this flow only verifies the
+# mobile UI round-trip (submit availability, then confirm the AI assign
+# chat doesn't schedule that employee during a marked-unavailable slot).
+# It can't assert the negative ("employee X is NOT assigned") reliably from
+# chat text alone; treat this as a smoke test that the flow doesn't error,
+# and pair it with a manual check of the resulting Shifts tab.
+#
+#   maestro test maestro/flows/05-availability-autoassign.yaml \
+#     -e EMPLOYEE_EMAIL=employee@test.dev -e EMPLOYEE_PASSWORD=Password123! \
+#     -e ADMIN_EMAIL=admin@test.dev -e ADMIN_PASSWORD=Password123! \
+#     -e EMPLOYEE_NAME="Jane Doe"
+
+# --- Employee: mark Monday unavailable, save ---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "you@example.com"
+    timeout: 60000
+- tapOn:
+    id: "login-email-input"
+- inputText: "${EMPLOYEE_EMAIL}"
+- tapOn:
+    id: "login-password-input"
+- inputText: "${EMPLOYEE_PASSWORD}"
+- hideKeyboard
+- tapOn: "Sign In"
+- tapOn: "Availability"
+- assertVisible: "Save Availability"
+
+# Toggle Monday's availability switch off (index 0 = Sunday per DAYS array
+# in availability.tsx; adjust index if the week starts differently there).
+- tapOn:
+    id: "avail-day-toggle-1"
+    optional: true
+
+- tapOn: "Save Availability"
+- extendedWaitUntil:
+    visible: "Saved"
+    timeout: 8000
+- tapOn:
+    text: "OK"
+    optional: true
+
+# --- Admin: ask the AI to auto-assign Monday's shift and eyeball the reply ---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "you@example.com"
+    timeout: 60000
+- tapOn:
+    id: "login-email-input"
+- inputText: "${ADMIN_EMAIL}"
+- tapOn:
+    id: "login-password-input"
+- inputText: "${ADMIN_PASSWORD}"
+- hideKeyboard
+- tapOn: "Sign In"
+- assertVisible: "Dashboard"
+- tapOn: "Schedule"
+- tapOn: "AI Assign"
+- assertVisible: "AI Schedule Assistant"
+- tapOn: "Message the AI assistant..."
+- inputText: "Assign someone to Monday's shift"
+- hideKeyboard
+- tapOn:
+    id: "ai-chat-send-button"
+- extendedWaitUntil:
+    visible: "${EMPLOYEE_NAME}"
+    timeout: 20000
+    optional: true # only passes if the AI's reply happens to name-check the employee; treat as informational

@@ -82,6 +82,13 @@ export interface ScheduleChatMessage {
   content: string;
 }
 
+export interface ScheduleChatAction {
+  type: "assign_employee";
+  assignmentId: string;
+  shiftId: string;
+  employeeId: string;
+}
+
 export interface ShiftAssignment {
   id: string;
   shiftId: string;

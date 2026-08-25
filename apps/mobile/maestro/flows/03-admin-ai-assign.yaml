@@ -1,0 +1,78 @@
+appId: com.workplix.mobile
+---
+# Flow 3: Admin creates + auto-assigns a shift via the AI chat, then verifies
+# it shows up on an employee's schedule.
+#
+# NOTE: apps/mobile has no manual "create shift" form — schedule-ai.tsx (the
+# DeepSeek-backed chat at app/(admin)/schedule-ai.tsx) is the only mobile-native
+# way to create/assign shifts, and there's no publish toggle on mobile either
+# (shifts show a "Draft" badge until published elsewhere, e.g. web). This flow
+# therefore drives the whole thing through the chat and checks the shift
+# renders in the admin's own Shifts tab. A true cross-account verification
+# (switching to the employee's login) needs either two devices/two `maestro
+# test` runs with different ADMIN_EMAIL/EMPLOYEE_EMAIL env values, or Maestro's
+# `runFlow` with a fresh `clearState` between accounts — see the two-flow
+# split below.
+#
+#   maestro test maestro/flows/03-admin-ai-assign.yaml \
+#     -e ADMIN_EMAIL=admin@test.dev -e ADMIN_PASSWORD=Password123! \
+#     -e EMPLOYEE_NAME="Jane Doe" \
+#     -e SHIFT_PROMPT="Create a shift for Jane Doe this Friday 9am-5pm and assign her" \
+#     -e TARGET_DAY_LABEL="28" # the day-of-month shown in the week strip, e.g. "Fri 28" -> tap "28"
+
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "you@example.com"
+    timeout: 60000
+- tapOn:
+    id: "login-email-input"
+- inputText: "${ADMIN_EMAIL}"
+- tapOn:
+    id: "login-password-input"
+- inputText: "${ADMIN_PASSWORD}"
+- hideKeyboard
+- tapOn: "Sign In"
+
+# Admins land on Dashboard, not Schedule — navigate there via the bottom tab.
+- assertVisible: "Dashboard"
+- tapOn: "Schedule"
+- assertVisible: "Shifts"
+- tapOn: "AI Assign"
+- assertVisible: "AI Schedule Assistant"
+
+- tapOn: "Message the AI assistant..."
+- inputText: "${SHIFT_PROMPT}"
+- hideKeyboard
+- tapOn:
+    id: "ai-chat-send-button"
+
+# Wait for the assistant's reply bubble (content is model-generated, so we
+# only assert the typing indicator clears, not exact text).
+- extendedWaitUntil:
+    notVisible:
+      id: "typing-indicator" # optional if testID added; otherwise rely on timeout below
+    timeout: 20000
+    optional: true
+
+- hideKeyboard
+- back
+
+# `back` from the pushed AI Assign screen resets the tab navigator back to
+# its initial tab (Dashboard) rather than returning to Schedule — verified
+# against a live run. Navigate to Schedule explicitly instead of assuming
+# where `back` lands.
+- tapOn: "Schedule"
+- assertVisible: "Shifts"
+
+# Schedule defaults to today's day in the week strip — select the day
+# SHIFT_PROMPT targeted (adjust if it targets a day outside this week).
+- tapOn: "${TARGET_DAY_LABEL}"
+
+# KNOWN FINDING (2026-08-24 live run): the mechanical flow works end-to-end
+# (login, chat, send, navigate), but the AI did NOT actually assign the
+# employee — the shift still showed "Tap to assign employees" after a
+# prompt of "Assign Jane Requester to Wednesday's shift". Worth a manual
+# follow-up on the DeepSeek tool-calling path (apps/web/app/api/ai/schedule)
+# before trusting this assertion to mean anything either way.
+- assertVisible: "${EMPLOYEE_NAME}"

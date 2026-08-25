@@ -73,6 +73,7 @@ export default function SignupEmployeeScreen() {
           <View style={styles.field}>
             <Text style={styles.label}>Email</Text>
             <TextInput
+              testID="signup-employee-email-input"
               style={styles.input}
               value={email}
               onChangeText={setEmail}
@@ -88,6 +89,7 @@ export default function SignupEmployeeScreen() {
           <View style={styles.field}>
             <Text style={styles.label}>Password</Text>
             <TextInput
+              testID="signup-employee-password-input"
               style={styles.input}
               value={password}
               onChangeText={setPassword}

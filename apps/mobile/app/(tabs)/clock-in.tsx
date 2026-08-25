@@ -302,6 +302,7 @@ export default function ClockInScreen() {
           {PAD_KEYS.map((key, i) => (
             <TouchableOpacity
               key={i}
+              testID={key === "" ? undefined : `pin-key-${key === "⌫" ? "backspace" : key}`}
               style={[
                 styles.padKey,
                 {
@@ -421,6 +422,7 @@ export default function ClockInScreen() {
               {branches.map((b) => (
                 <TouchableOpacity
                   key={b.id}
+                  testID={`branch-option-${b.slug}`}
                   style={[
                     styles.branchOption,
                     {

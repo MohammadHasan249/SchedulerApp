@@ -318,9 +318,11 @@ function SwapSection() {
   const [shiftMap, setShiftMap] = useState<Record<string, Shift>>({});
   const [employeeMap, setEmployeeMap] = useState<Record<string, Employee>>({});
   const [upcomingShifts, setUpcomingShifts] = useState<Shift[]>([]);
+  const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
+  const [swapShift, setSwapShift] = useState<Shift | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [actioning, setActioning] = useState<string | null>(null);
 
@@ -361,10 +363,11 @@ function SwapSection() {
         );
       }
 
-      if (isAdmin) {
-        const emps = await getEmployees();
-        setEmployeeMap(Object.fromEntries(emps.map((e) => [e.id, e])));
-      }
+      // Needed for admins to label swap cards, and for employees to pick an
+      // eligible cover — fetch for everyone.
+      const emps = await getEmployees();
+      setEmployeeMap(Object.fromEntries(emps.map((e) => [e.id, e])));
+      setAllEmployees(emps);
     } catch (e) {
       Alert.alert("Couldn't load swap requests", e instanceof Error ? e.message : "Please try again.");
     } finally {
@@ -375,11 +378,12 @@ function SwapSection() {
 
   useEffect(() => { load(); }, []);
 
-  async function handleCreateSwap(shiftId: string) {
+  async function handleCreateSwap(shiftId: string, coverId: string) {
     setSubmitting(true);
     try {
-      await createShiftSwap({ shiftId });
+      await createShiftSwap({ shiftId, coverId });
       setShowPicker(false);
+      setSwapShift(null);
       await load();
     } catch (e) {
       Alert.alert("Error", e instanceof Error ? e.message : "Failed to create swap request");
@@ -425,13 +429,16 @@ function SwapSection() {
     <>
       {!isAdmin && (
         <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.newBtn} onPress={() => setShowPicker((v) => !v)}>
+          <TouchableOpacity
+            style={styles.newBtn}
+            onPress={() => { setShowPicker((v) => !v); setSwapShift(null); }}
+          >
             <Text style={styles.newBtnText}>{showPicker ? "Cancel" : "+ Request"}</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {!isAdmin && showPicker && (
+      {!isAdmin && showPicker && !swapShift && (
         <View style={styles.form}>
           <Text style={styles.label}>Select a shift to swap</Text>
           {upcomingShifts.length === 0 ? (
@@ -439,15 +446,9 @@ function SwapSection() {
           ) : upcomingShifts.map((shift) => (
             <TouchableOpacity
               key={shift.id}
+              testID={`swap-shift-picker-${shift.id}`}
               style={styles.shiftPickerItem}
-              onPress={() => Alert.alert(
-                "Request Swap",
-                `${format(new Date(shift.startTime), "EEE MMM d, h:mm a")} – ${format(new Date(shift.endTime), "h:mm a")}`,
-                [
-                  { text: "Cancel", style: "cancel" },
-                  { text: "Request", onPress: () => handleCreateSwap(shift.id) },
-                ]
-              )}
+              onPress={() => setSwapShift(shift)}
             >
               <Text style={styles.shiftPickerDay}>{format(new Date(shift.startTime), "EEE, MMM d")}</Text>
               <Text style={styles.shiftPickerTime}>
@@ -457,6 +458,42 @@ function SwapSection() {
           ))}
         </View>
       )}
+
+      {!isAdmin && showPicker && swapShift && (() => {
+        const eligibleCovers = allEmployees.filter(
+          (e) => e.id !== employeeId && e.branchId === swapShift.branchId && e.isActive
+        );
+        return (
+          <View style={styles.form}>
+            <Text style={styles.label}>
+              Who should cover {format(new Date(swapShift.startTime), "EEE MMM d, h:mm a")}?
+            </Text>
+            {eligibleCovers.length === 0 ? (
+              <Text style={styles.emptyText}>No eligible employees at this branch to cover the shift</Text>
+            ) : eligibleCovers.map((emp) => (
+              <TouchableOpacity
+                key={emp.id}
+                testID={`swap-cover-picker-${emp.id}`}
+                style={styles.shiftPickerItem}
+                disabled={submitting}
+                onPress={() => Alert.alert(
+                  "Request Swap",
+                  `Ask ${emp.name} to cover this shift?`,
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Request", onPress: () => handleCreateSwap(swapShift.id, emp.id) },
+                  ]
+                )}
+              >
+                <Text style={styles.shiftPickerDay}>{emp.name}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity onPress={() => setSwapShift(null)}>
+              <Text style={styles.label}>← Back to shift selection</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      })()}
 
       {loading ? (
         <ActivityIndicator color={theme.primary} style={{ marginTop: 32 }} />

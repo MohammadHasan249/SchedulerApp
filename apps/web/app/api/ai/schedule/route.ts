@@ -392,8 +392,10 @@ Hard constraints enforced by the system (the assign_employee tool will reject vi
 4. Employees cannot exceed their maximum hours per week.
 
 Your job:
-- Use list_shifts and list_employees to understand what's available before assigning.
+- If the user refers to a shift or employee by day/name rather than by ID, you MUST call list_shifts and/or list_employees first to resolve that reference to a concrete ID before doing anything else — never guess an ID.
 - Prefer employees whose job role matches what the shift needs.
+- Once you have resolved the shift and employee, you MUST actually call assign_employee — do not just describe the assignment in words. Never tell the user an employee has been assigned unless you called assign_employee and it returned success.
+- If a reference is genuinely ambiguous (e.g. multiple shifts match "Monday"), ask a clarifying question instead of guessing, and do not claim an assignment was made.
 - When a constraint blocks an assignment, explain why and suggest alternatives if possible.
 - After completing assignments, summarize what was done (names, times, roles).
 - Today is ${new Date().toDateString()}.`;
@@ -412,6 +414,9 @@ Your job:
     { role: "system", content: systemPrompt },
     ...parsed.data.messages.map((m) => ({ role: m.role, content: m.content } as DeepSeekMessage)),
   ];
+
+  type ScheduleAction = { type: "assign_employee"; assignmentId: string; shiftId: string; employeeId: string };
+  const actions: ScheduleAction[] = [];
 
   for (let i = 0; i < 10; i++) {
     let res: Response;
@@ -477,6 +482,15 @@ Your job:
         let result: unknown;
         try {
           result = await executeTool(tc.function.name, args);
+          const assignResult = result as { success?: boolean; assignmentId?: string } | undefined;
+          if (tc.function.name === "assign_employee" && assignResult?.success && assignResult.assignmentId) {
+            actions.push({
+              type: "assign_employee",
+              assignmentId: assignResult.assignmentId,
+              shiftId: args.shiftId as string,
+              employeeId: args.employeeId as string,
+            });
+          }
         } catch (e) {
           logger.error(`AI tool ${tc.function.name} failed:`, e);
           result = {
@@ -492,9 +506,12 @@ Your job:
       }
       messages.push(...toolResults);
     } else {
-      return NextResponse.json({ reply: msg.content ?? "" });
+      return NextResponse.json({ reply: msg.content ?? "", actions });
     }
   }
 
-  return NextResponse.json({ reply: "I wasn't able to complete that request. Please try again." });
+  return NextResponse.json({
+    reply: "I wasn't able to complete that request. Please try again.",
+    actions,
+  });
 });

@@ -90,12 +90,12 @@ describe("POST /api/ai/schedule", () => {
     expect(res.status).toBe(500);
   });
 
-  it("returns the assistant's reply when no tool calls are made", async () => {
+  it("returns the assistant's reply and an empty actions list when no tool calls are made", async () => {
     (getApiUser as any).mockResolvedValue(orgAdmin);
     mockDeepSeekReply("Here is the schedule summary.");
     const res = await POST(req(validBody));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ reply: "Here is the schedule summary." });
+    expect(await res.json()).toEqual({ reply: "Here is the schedule summary.", actions: [] });
   });
 
   it("runs assign_employee via the tool loop and returns the follow-up reply", async () => {
@@ -106,7 +106,8 @@ describe("POST /api/ai/schedule", () => {
       .mockReturnValueOnce(chain([{ id: "emp-1" }])) // employee lookup
       .mockReturnValueOnce(chain([{ timezone: "UTC" }])); // branch timezone
     (validateAssignment as any).mockResolvedValue({ ok: true });
-    (db.insert as any).mockReturnValue(chain([{ id: "assignment-1" }]));
+    const valuesSpy = vi.fn().mockReturnValue(chain([{ id: "assignment-1" }]));
+    (db.insert as any).mockReturnValue({ values: valuesSpy });
     (createNotification as any).mockResolvedValue(undefined);
 
     let call = 0;
@@ -143,8 +144,65 @@ describe("POST /api/ai/schedule", () => {
 
     const res = await POST(req(validBody));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ reply: "Assigned emp-1 to the shift." });
+    expect(await res.json()).toEqual({
+      reply: "Assigned emp-1 to the shift.",
+      actions: [
+        { type: "assign_employee", assignmentId: "assignment-1", shiftId: "shift-1", employeeId: "emp-1" },
+      ],
+    });
     expect(createNotification).toHaveBeenCalled();
+    expect(valuesSpy).toHaveBeenCalledWith({
+      shiftId: "shift-1",
+      employeeId: "emp-1",
+      jobRoleId: null,
+    });
+  });
+
+  it("does not report an action when assign_employee is rejected by validation", async () => {
+    (getApiUser as any).mockResolvedValue(orgAdmin);
+    (db.select as any)
+      .mockReturnValueOnce(chain([{ id: "b1" }]))
+      .mockReturnValueOnce(chain([{ id: "shift-1", branchId: "b1", startTime: new Date("2024-01-01T09:00:00Z"), endTime: new Date("2024-01-01T13:00:00Z") }]))
+      .mockReturnValueOnce(chain([{ id: "emp-1" }]))
+      .mockReturnValueOnce(chain([{ timezone: "UTC" }]));
+    (validateAssignment as any).mockResolvedValue({ ok: false, message: "Employee is unavailable that day." });
+
+    let call = 0;
+    global.fetch = vi.fn().mockImplementation(async () => {
+      call += 1;
+      if (call === 1) {
+        return {
+          ok: true,
+          json: async () => ({
+            choices: [
+              {
+                finish_reason: "tool_calls",
+                message: {
+                  role: "assistant",
+                  content: null,
+                  tool_calls: [
+                    {
+                      id: "call-1",
+                      type: "function",
+                      function: { name: "assign_employee", arguments: JSON.stringify({ shiftId: "shift-1", employeeId: "emp-1" }) },
+                    },
+                  ],
+                },
+              },
+            ],
+          }),
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({ choices: [{ finish_reason: "stop", message: { role: "assistant", content: "Can't assign — unavailable." } }] }),
+      };
+    }) as any;
+
+    const res = await POST(req(validBody));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ reply: "Can't assign — unavailable.", actions: [] });
+    expect(db.insert).not.toHaveBeenCalled();
   });
 
   it("feeds a tool error back to the model instead of crashing on malformed tool arguments", async () => {

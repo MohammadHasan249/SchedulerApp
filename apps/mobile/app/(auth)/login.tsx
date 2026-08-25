@@ -37,6 +37,7 @@ export default function LoginScreen() {
           <View style={styles.field}>
             <Text style={styles.label}>Email</Text>
             <TextInput
+              testID="login-email-input"
               style={styles.input}
               value={email}
               onChangeText={setEmail}
@@ -51,6 +52,7 @@ export default function LoginScreen() {
           <View style={styles.field}>
             <Text style={styles.label}>Password</Text>
             <TextInput
+              testID="login-password-input"
               style={styles.input}
               value={password}
               onChangeText={setPassword}

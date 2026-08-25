@@ -134,7 +134,7 @@ export default function AvailabilityScreen() {
       <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
         {DAYS.map((day, i) => (
           <View key={i} style={styles.row}>
-            <TouchableOpacity style={styles.toggle} onPress={() => toggle(i)}>
+            <TouchableOpacity testID={`avail-day-toggle-${i}`} style={styles.toggle} onPress={() => toggle(i)}>
               <View style={[styles.toggleTrack, slots[i].enabled && styles.toggleTrackOn]}>
                 <View style={[styles.toggleThumb, slots[i].enabled && styles.toggleThumbOn]} />
               </View>

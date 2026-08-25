@@ -1,0 +1,6 @@
+# Maestro workspace config — applies to every flow in maestro/flows/.
+# Docs: https://docs.maestro.dev/api-reference/workspace-configuration
+executionOrder:
+  continueOnFailure: true
+flows:
+  - "flows/*.yaml"

@@ -1,0 +1,111 @@
+appId: com.workplix.mobile
+---
+# Flow 4: Shift swap — requester creates a swap, cover accepts, manager approves.
+#
+# This is a 3-actor flow (requester employee, cover employee, admin/manager)
+# on one device, so it logs out and back in between each role rather than
+# running as 3 separate Maestro sessions. `clearState` wipes SecureStore
+# (the auth token) between logins to force a clean sign-in each time — see
+# CLAUDE.md's note on the "sb-*-auth-token" SecureStore key.
+#
+# CONFIRMED BUG (2026-08-24 live run): swap requests created via mobile can
+# never be accepted by anyone. apps/web/app/api/shift-swaps/route.ts's POST
+# accepts an optional `coverId` and, when set, notifies that employee and
+# makes the request visible to them (GET filters employees on
+# `coverId === theirEmployeeId`). But app/(tabs)/requests.tsx's
+# `createShiftSwap({ shiftId })` never passes a coverId — there's no cover
+# picker in the mobile UI at all. So every mobile-created swap request has
+# coverId = null forever, and no employee's GET query ever matches it — it
+# just sits as "No swap requests" for the intended cover, permanently
+# orphaned. Verified live: Jane Requester's request succeeded, then Cody
+# Cover's Requests > Swap Shifts showed "No swap requests".
+#
+# This flow's remaining steps (cover accept, manager approve) cannot pass
+# until requests.tsx adds a cover-employee picker to the request form and
+# wires coverId through to createShiftSwap(). Not fixed tonight — flagging
+# for the team.
+#
+#   maestro test maestro/flows/04-shift-swap.yaml \
+#     -e REQUESTER_EMAIL=requester@test.dev -e REQUESTER_PASSWORD=Password123! \
+#     -e COVER_EMAIL=cover@test.dev -e COVER_PASSWORD=Password123! \
+#     -e ADMIN_EMAIL=admin@test.dev -e ADMIN_PASSWORD=Password123!
+
+# NOTE (2026-08-24): an earlier run of this flow found Jane Requester's
+# assignment missing from the DB despite the admin UI having shown it
+# assigned. Root cause was NOT a product bug — the dev server's Next.js
+# build workers had crashed from resource exhaustion (many heavy processes
+# running concurrently for hours: Android emulator, Metro, Playwright,
+# Next.js), so an earlier PATCH /api/shifts/[id] silently 500'd. Restarting
+# the dev server and re-saving the assignment fixed it; re-verified via a
+# direct DB query. Leaving this note in case the picker-empty symptom
+# recurs — check dev server health (`Failed to update shift` toast, 500s in
+# server logs) before assuming it's requests.tsx's assignment-fetch logic.
+
+# --- Requester: create the swap request ---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "you@example.com"
+    timeout: 60000
+- tapOn:
+    id: "login-email-input"
+- inputText: "${REQUESTER_EMAIL}"
+- tapOn:
+    id: "login-password-input"
+- inputText: "${REQUESTER_PASSWORD}"
+- hideKeyboard
+- tapOn: "Sign In"
+- assertVisible: "Schedule"
+- tapOn: "Requests"
+- tapOn: "Swap Shifts"
+- tapOn: "+ Request"
+- extendedWaitUntil:
+    visible: "Select a shift to swap"
+    timeout: 5000
+- tapOn:
+    id: "swap-shift-picker-.*" # first upcoming shift row in the picker list (regex match, any shift id)
+    index: 0
+- tapOn: "Request"
+
+# --- Cover: accept the swap ---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "you@example.com"
+    timeout: 60000
+- tapOn:
+    id: "login-email-input"
+- inputText: "${COVER_EMAIL}"
+- tapOn:
+    id: "login-password-input"
+- inputText: "${COVER_PASSWORD}"
+- hideKeyboard
+- tapOn: "Sign In"
+- tapOn: "Requests"
+- tapOn: "Swap Shifts"
+- extendedWaitUntil:
+    visible: "Accept Swap"
+    timeout: 8000
+- tapOn: "Accept Swap"
+
+# --- Manager: approve the swap ---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "you@example.com"
+    timeout: 60000
+- tapOn:
+    id: "login-email-input"
+- inputText: "${ADMIN_EMAIL}"
+- tapOn:
+    id: "login-password-input"
+- inputText: "${ADMIN_PASSWORD}"
+- hideKeyboard
+- tapOn: "Sign In"
+- tapOn: "Requests"
+- tapOn: "Swap Shifts"
+- extendedWaitUntil:
+    visible: "Approve"
+    timeout: 8000
+- tapOn: "Approve"
+- assertNotVisible: "Approve"

@@ -1,0 +1,46 @@
+appId: com.workplix.mobile
+---
+# Flow 2: Employee signup via invite (app/(auth)/signup.tsx -> signup-employee.tsx).
+#
+# The employee-signup endpoint (POST /api/auth/employee-signup) requires the
+# email to already exist as a pending-invite employee record in the org
+# (created by an admin via the web/mobile "Employees" screen). This flow
+# assumes that invite already exists — seed it first, e.g. via
+# /scheduler-seed or the admin invite flow, then pass the same email here:
+#   maestro test maestro/flows/02-signup-invite.yaml \
+#     -e INVITED_EMAIL=invited@test.dev -e NEW_PASSWORD=Password123!
+
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Sign up"
+    timeout: 60000
+- tapOn: "Sign up"
+- assertVisible: "Join Scheduler"
+
+- tapOn: "Join as Employee"
+- assertVisible: "Join as Employee"
+
+- tapOn:
+    id: "signup-employee-email-input"
+- inputText: "${INVITED_EMAIL}"
+- tapOn:
+    id: "signup-employee-password-input"
+- inputText: "${NEW_PASSWORD}"
+- hideKeyboard
+- tapOn: "Create Account"
+
+# Success surfaces a native Alert ("Check your email") that routes back to
+# login on dismiss; failure surfaces "Signup failed" with the server's
+# reason (e.g. "no pending invite found for this email").
+- extendedWaitUntil:
+    visible: "Check your email"
+    timeout: 10000
+    optional: true
+- tapOn:
+    text: "OK"
+    optional: true
+- extendedWaitUntil:
+    visible: "Signup failed"
+    timeout: 10000
+    optional: true
