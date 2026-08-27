@@ -16,7 +16,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
       .where(and(eq(employees.authUserId, user.id), eq(employees.organizationId, user.organizationId)))
       .limit(1),
     db
-      .select({ name: organizations.name, theme: organizations.theme, logoUrl: organizations.logoUrl })
+      .select({
+        name: organizations.name,
+        theme: organizations.theme,
+        logoUrl: organizations.logoUrl,
+        webKioskEnabled: organizations.webKioskEnabled,
+      })
       .from(organizations)
       .where(eq(organizations.id, user.organizationId))
       .limit(1),
@@ -38,6 +43,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         employeeId={emp?.id}
         employeeName={emp?.name}
         orgName={org?.name}
+        webKioskEnabled={org?.webKioskEnabled ?? false}
       >
         {children}
       </DashboardShell>

@@ -11,10 +11,11 @@ type Props = {
   employeeId?: string;
   employeeName?: string;
   orgName?: string;
+  webKioskEnabled?: boolean;
   children: React.ReactNode;
 };
 
-export function DashboardShell({ user, employeeId, employeeName, orgName, children }: Props) {
+export function DashboardShell({ user, employeeId, employeeName, orgName, webKioskEnabled, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
@@ -32,6 +33,7 @@ export function DashboardShell({ user, employeeId, employeeName, orgName, childr
         orgName={orgName}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        webKioskEnabled={webKioskEnabled}
       />
 
       <div className="flex flex-col flex-1 overflow-hidden">

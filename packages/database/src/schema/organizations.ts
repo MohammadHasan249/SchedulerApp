@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, jsonb, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, jsonb, pgEnum, boolean } from "drizzle-orm/pg-core";
 
 export const organizationIndustryEnum = pgEnum("organization_industry", [
   "restaurant",
@@ -42,6 +42,7 @@ export const organizations = pgTable("organizations", {
   }),
   hoursSchedule: jsonb("hours_schedule").$type<HoursSchedule>().default(DEFAULT_HOURS).notNull(),
   exitPinHash: text("exit_pin_hash"),
+  webKioskEnabled: boolean("web_kiosk_enabled").default(false).notNull(),
   industry: organizationIndustryEnum("industry").default("other").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });

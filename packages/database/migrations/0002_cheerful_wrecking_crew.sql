@@ -1,0 +1,1 @@
+ALTER TABLE "organizations" ADD COLUMN "web_kiosk_enabled" boolean DEFAULT false NOT NULL;

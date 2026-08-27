@@ -14,6 +14,7 @@ import {
   Briefcase,
   ShieldCheck,
   X,
+  Timer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type AppUser } from "@/lib/auth/getUser";
@@ -32,6 +33,7 @@ const NAV: NavItem[] = [
   { label: "Availability", href: "/dashboard/availability", icon: CalendarCheck2, roles: ["org_admin", "branch_manager", "employee"], group: "main" },
   { label: "Time Off", href: "/dashboard/time-off", icon: Clock, roles: ["org_admin", "branch_manager", "employee"], group: "main" },
   { label: "Shift Swaps", href: "/dashboard/shift-swaps", icon: ArrowLeftRight, roles: ["org_admin", "branch_manager", "employee"], group: "main" },
+  { label: "Clock In / Out", href: "/dashboard/kiosk", icon: Timer, roles: ["org_admin", "branch_manager"], group: "manage" },
   { label: "Employees", href: "/dashboard/employees", icon: Users, roles: ["org_admin", "branch_manager"], group: "manage" },
   { label: "Reports", href: "/dashboard/reports", icon: BarChart2, roles: ["org_admin", "branch_manager"], group: "manage" },
   { label: "Job Roles", href: "/dashboard/settings/job-roles", icon: Briefcase, roles: ["org_admin"], group: "settings" },
@@ -57,11 +59,14 @@ type Props = {
   orgName?: string;
   isOpen?: boolean;
   onClose?: () => void;
+  webKioskEnabled?: boolean;
 };
 
-export function Sidebar({ role, orgName, isOpen = false, onClose }: Props) {
+export function Sidebar({ role, orgName, isOpen = false, onClose, webKioskEnabled = false }: Props) {
   const pathname = usePathname();
-  const visible = NAV.filter((item) => item.roles.includes(role));
+  const visible = NAV.filter(
+    (item) => item.roles.includes(role) && (item.href !== "/dashboard/kiosk" || webKioskEnabled)
+  );
   const groups = ["main", "manage", "settings"] as const;
 
   return (
