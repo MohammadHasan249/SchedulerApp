@@ -76,7 +76,7 @@ describe("POST /api/employees (invite)", () => {
     (db.insert as any).mockReturnValue(chain([created]));
     (sendEmployeeInvitationEmail as any).mockResolvedValue({ sent: true });
 
-    const res = await POST(postReq({ name: "New", email: "new@x.com" }));
+    const res = await POST(postReq({ name: "New", email: "new@x.com", role: "org_admin" }));
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual({ ...created, emailSent: true });
     expect(sendEmployeeInvitationEmail).toHaveBeenCalledWith("New", "new@x.com", "org-1", "4321");

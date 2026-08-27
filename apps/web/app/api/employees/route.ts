@@ -101,6 +101,12 @@ export const POST = withAuth(async function POST(request: Request) {
   const targetBranchId =
     user.role === "branch_manager" ? user.branchId : (branchId ?? null);
 
+  // Branch managers and employees are scoped to one branch throughout the
+  // app — only an org admin can be branch-less (they oversee everything).
+  if (role !== "org_admin" && !targetBranchId) {
+    return NextResponse.json({ error: "branchId is required for this role" }, { status: 400 });
+  }
+
   // Verify branchId belongs to this organization (prevent cross-tenant assignment)
   if (targetBranchId) {
     const [branch] = await db

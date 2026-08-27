@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  ActivityIndicator, RefreshControl, Modal, FlatList, Pressable, Alert,
+  ActivityIndicator, RefreshControl, Modal, FlatList, Pressable, Alert, TextInput,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ChevronLeft, ChevronRight, Bot, X, Plus, UserMinus } from "lucide-react-native";
@@ -9,11 +9,13 @@ import { format, addDays, startOfWeek, isSameDay, getDay } from "date-fns";
 import { useRouter, useFocusEffect } from "expo-router";
 import {
   getShifts, getEmployees, assignEmployee, unassignEmployee, getJobRoles,
+  createShift, getBranches, type Branch,
 } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useAuthStore } from "@/lib/authStore";
 import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
-import { useIsAdmin } from "@/lib/useRole";
+import { useIsAdmin, useBranchId } from "@/lib/useRole";
+import { BranchSelector } from "@/components/BranchSelector";
 import type { Shift, Employee, ShiftAssignmentDetail } from "@scheduler/types";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -22,6 +24,7 @@ export default function ScheduleScreen() {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
   const isAdmin = useIsAdmin();
+  const myBranchId = useBranchId();
   const router = useRouter();
   const { session } = useAuthStore();
   const { fetchMyEmployee } = useMyEmployeeStore();
@@ -39,6 +42,19 @@ export default function ScheduleScreen() {
   // Assignment modal
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [modalAssigning, setModalAssigning] = useState(false);
+
+  // Branch (org admins can manage multiple)
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string | null>(myBranchId);
+
+  // Create-shift modal
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createBranchId, setCreateBranchId] = useState<string | null>(null);
+  const [createStart, setCreateStart] = useState("09:00");
+  const [createEnd, setCreateEnd] = useState("17:00");
+  const [createAssignedIds, setCreateAssignedIds] = useState<string[]>([]);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
 
   const loadShifts = useCallback(async (start: Date) => {
     try {
@@ -65,6 +81,18 @@ export default function ScheduleScreen() {
     if (isAdmin) tasks.push(loadEmployees());
     Promise.all(tasks).finally(() => setLoading(false));
   }, [weekStart]);
+
+  // Org admins oversee multiple branches — load the list once and default
+  // the selection to the admin's own branch, or the first branch otherwise.
+  useEffect(() => {
+    if (!isAdmin || myBranchId) return;
+    getBranches()
+      .then((brs) => {
+        setBranches(brs);
+        setSelectedBranchId((prev) => prev ?? brs[0]?.id ?? null);
+      })
+      .catch(() => {});
+  }, [isAdmin, myBranchId]);
 
   // Employees: resolve own record so their shifts can be highlighted.
   useEffect(() => {
@@ -94,7 +122,12 @@ export default function ScheduleScreen() {
   }, [view]);
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  const dayShifts = shifts.filter((s) => isSameDay(new Date(s.startTime), selectedDay));
+  const branchEmployees = selectedBranchId
+    ? teamEmployees.filter((e) => e.branchId === selectedBranchId)
+    : teamEmployees;
+  const dayShifts = shifts.filter(
+    (s) => isSameDay(new Date(s.startTime), selectedDay) && (!selectedBranchId || s.branchId === selectedBranchId)
+  );
 
   function prevWeek() {
     const prev = addDays(weekStart, -7);
@@ -141,9 +174,54 @@ export default function ScheduleScreen() {
   }
 
   const assignedIds = new Set((selectedShift?.assignments ?? []).map((a) => a.employeeId));
-  const unassignedEmployees = teamEmployees.filter(
+  const unassignedEmployees = branchEmployees.filter(
     (e) => e.role === "employee" && !assignedIds.has(e.id)
   );
+
+  function openCreateShift() {
+    setCreateError("");
+    setCreateStart("09:00");
+    setCreateEnd("17:00");
+    setCreateAssignedIds([]);
+    setCreateBranchId(selectedBranchId ?? branches[0]?.id ?? null);
+    if (teamEmployees.length === 0) loadEmployees();
+    setCreateOpen(true);
+  }
+
+  function toggleCreateAssign(id: string) {
+    setCreateAssignedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
+
+  async function handleCreateShift() {
+    if (!createBranchId) {
+      setCreateError("No branch selected");
+      return;
+    }
+    if (createStart >= createEnd) {
+      setCreateError("End time must be after start time");
+      return;
+    }
+    setCreating(true);
+    setCreateError("");
+    try {
+      const dateStr = format(selectedDay, "yyyy-MM-dd");
+      const startISO = new Date(`${dateStr}T${createStart}:00`).toISOString();
+      const endISO = new Date(`${dateStr}T${createEnd}:00`).toISOString();
+      const newShift = await createShift({ branchId: createBranchId, startTime: startISO, endTime: endISO });
+      for (const empId of createAssignedIds) {
+        await assignEmployee(newShift.id, empId);
+      }
+      const updated = await getShifts(weekStart.toISOString());
+      setShifts(updated);
+      setCreateOpen(false);
+    } catch (e) {
+      setCreateError(e instanceof Error ? e.message : "Please try again.");
+    } finally {
+      setCreating(false);
+    }
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={[]}>
@@ -181,6 +259,9 @@ export default function ScheduleScreen() {
               </Text>
             </TouchableOpacity>
           </View>
+        )}
+        {isAdmin && (
+          <BranchSelector branches={branches} value={selectedBranchId} onChange={setSelectedBranchId} />
         )}
       </View>
 
@@ -224,10 +305,24 @@ export default function ScheduleScreen() {
           contentContainerStyle={styles.listContent}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
         >
-          <Text style={styles.dayHeading}>{format(selectedDay, "EEEE, MMMM d")}</Text>
+          <View style={styles.dayHeadingRow}>
+            <Text style={styles.dayHeading}>{format(selectedDay, "EEEE, MMMM d")}</Text>
+            {isAdmin && (
+              <TouchableOpacity style={styles.addShiftBtn} onPress={openCreateShift}>
+                <Plus size={14} color={theme.primary} />
+                <Text style={styles.addShiftBtnText}>Add Shift</Text>
+              </TouchableOpacity>
+            )}
+          </View>
           {dayShifts.length === 0 ? (
             <View style={styles.empty}>
               <Text style={styles.emptyText}>No shifts scheduled</Text>
+              {isAdmin && (
+                <TouchableOpacity style={[styles.addShiftBtn, { marginTop: 12 }]} onPress={openCreateShift}>
+                  <Plus size={14} color={theme.primary} />
+                  <Text style={styles.addShiftBtnText}>Add Shift</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : (
             dayShifts.map((shift) => (
@@ -248,12 +343,12 @@ export default function ScheduleScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
         >
           <Text style={styles.dayHeading}>{format(selectedDay, "EEEE, MMMM d")}</Text>
-          {teamEmployees.length === 0 ? (
+          {branchEmployees.length === 0 ? (
             <View style={styles.empty}>
               <Text style={styles.emptyText}>No employees found</Text>
             </View>
           ) : (
-            teamEmployees
+            branchEmployees
               .filter((emp) => emp.role !== "org_admin")
               .map((emp) => (
                 <AvailabilityRow key={emp.id} employee={emp} day={selectedDay} roleMap={roleMap} />
@@ -338,6 +433,103 @@ export default function ScheduleScreen() {
                 )}
               </>
             )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Create shift modal */}
+      <Modal
+        visible={createOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setCreateOpen(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setCreateOpen(false)}>
+          <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Add Shift</Text>
+                <Text style={styles.modalSub}>{format(selectedDay, "EEE, MMM d")}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setCreateOpen(false)}>
+                <X size={22} color={theme.muted} />
+              </TouchableOpacity>
+            </View>
+
+            {branches.length > 1 && (
+              <>
+                <Text style={styles.sectionLabel}>Branch</Text>
+                <BranchSelector
+                  branches={branches}
+                  value={createBranchId}
+                  onChange={setCreateBranchId}
+                />
+              </>
+            )}
+
+            <View style={styles.timeRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sectionLabel}>Start (HH:MM)</Text>
+                <TextInput
+                  style={styles.timeInput}
+                  value={createStart}
+                  onChangeText={setCreateStart}
+                  placeholder="09:00"
+                  placeholderTextColor={theme.inactive}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sectionLabel}>End (HH:MM)</Text>
+                <TextInput
+                  style={styles.timeInput}
+                  value={createEnd}
+                  onChangeText={setCreateEnd}
+                  placeholder="17:00"
+                  placeholderTextColor={theme.inactive}
+                />
+              </View>
+            </View>
+
+            <Text style={[styles.sectionLabel, { marginTop: 16 }]}>Assign Employees</Text>
+            <FlatList
+              data={(createBranchId
+                ? teamEmployees.filter((e) => e.branchId === createBranchId)
+                : teamEmployees
+              ).filter((e) => e.role === "employee")}
+              keyExtractor={(e) => e.id}
+              scrollEnabled={false}
+              ListEmptyComponent={<Text style={styles.emptyText}>No employees found</Text>}
+              renderItem={({ item: emp }) => (
+                <TouchableOpacity
+                  style={styles.assignedRow}
+                  onPress={() => toggleCreateAssign(emp.id)}
+                >
+                  <Text style={styles.assignedName}>{emp.name}</Text>
+                  <View
+                    style={[
+                      styles.checkbox,
+                      createAssignedIds.includes(emp.id) && styles.checkboxChecked,
+                    ]}
+                  >
+                    {createAssignedIds.includes(emp.id) && <Text style={styles.checkboxMark}>✓</Text>}
+                  </View>
+                </TouchableOpacity>
+              )}
+            />
+
+            {createError !== "" && <Text style={styles.errorText}>{createError}</Text>}
+
+            <TouchableOpacity
+              style={[styles.createBtn, creating && { opacity: 0.6 }]}
+              onPress={handleCreateShift}
+              disabled={creating}
+            >
+              {creating ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.createBtnText}>Create Shift</Text>
+              )}
+            </TouchableOpacity>
           </Pressable>
         </Pressable>
       </Modal>
@@ -482,6 +674,13 @@ function makeStyles(theme: ReturnType<typeof useAppTheme>) {
     list: { flex: 1, paddingHorizontal: 16 },
     listContent: { paddingTop: 16, paddingBottom: 32, gap: 10 },
     dayHeading: { fontSize: 15, fontWeight: "600", color: theme.muted, marginBottom: 4 },
+    dayHeadingRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    addShiftBtn: {
+      flexDirection: "row", alignItems: "center", gap: 4,
+      borderWidth: 1.5, borderColor: theme.primary, borderRadius: 16,
+      paddingHorizontal: 10, paddingVertical: 5,
+    },
+    addShiftBtnText: { fontSize: 12, fontWeight: "600", color: theme.primary },
     empty: { alignItems: "center", paddingVertical: 48 },
     emptyText: { color: theme.inactive, fontSize: 14 },
     card: {
@@ -529,5 +728,23 @@ function makeStyles(theme: ReturnType<typeof useAppTheme>) {
       borderWidth: 1.5, borderColor: theme.primary,
       alignItems: "center", justifyContent: "center",
     },
+    timeRow: { flexDirection: "row", gap: 12 },
+    timeInput: {
+      borderWidth: 1, borderColor: theme.surface2, borderRadius: 8,
+      paddingHorizontal: 12, paddingVertical: 8, fontSize: 15, color: theme.text,
+    },
+    checkbox: {
+      width: 22, height: 22, borderRadius: 5,
+      borderWidth: 1.5, borderColor: theme.inactive,
+      alignItems: "center", justifyContent: "center",
+    },
+    checkboxChecked: { backgroundColor: theme.primary, borderColor: theme.primary },
+    checkboxMark: { color: "#fff", fontSize: 13, fontWeight: "700" },
+    errorText: { color: "#e5484d", fontSize: 13, marginTop: 10 },
+    createBtn: {
+      backgroundColor: theme.primary, borderRadius: 10,
+      paddingVertical: 12, alignItems: "center", marginTop: 18,
+    },
+    createBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
   });
 }

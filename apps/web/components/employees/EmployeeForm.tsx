@@ -40,13 +40,18 @@ export function EmployeeForm({ open, onOpenChange, employee, branches, jobRoles,
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const availableBranches =
+    currentUserRole === "branch_manager"
+      ? branches.filter((b) => b.id === currentUserBranchId)
+      : branches;
+
   useEffect(() => {
     if (open) {
       if (employee) {
         setName(employee.name);
         setEmail(employee.email);
         setRole(employee.role);
-        setBranchId(employee.branchId ?? "");
+        setBranchId(employee.branchId ?? (employee.role === "org_admin" ? "" : currentUserBranchId ?? ""));
         setMaxHours(String(employee.maxHoursPerWeek));
         setJobRoleId(employee.jobRoleId ?? "");
         setPin("");
@@ -54,17 +59,34 @@ export function EmployeeForm({ open, onOpenChange, employee, branches, jobRoles,
         setName("");
         setEmail("");
         setRole("employee");
-        setBranchId("");
+        setBranchId(currentUserRole === "branch_manager" ? currentUserBranchId ?? "" : "");
         setMaxHours("40");
         setJobRoleId("");
         setPin("");
       }
       setError("");
     }
-  }, [open, employee]);
+  }, [open, employee, currentUserRole, currentUserBranchId]);
+
+  // Only an org admin can go without a branch — a branch manager or
+  // employee's whole app experience is scoped to their branch.
+  useEffect(() => {
+    if (role === "org_admin") {
+      setBranchId("");
+    } else if (!branchId && availableBranches.length === 1) {
+      setBranchId(availableBranches[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (role !== "org_admin" && !branchId) {
+      setError("Select a branch for this role");
+      return;
+    }
+
     setLoading(true);
     setError("");
 
@@ -102,11 +124,6 @@ export function EmployeeForm({ open, onOpenChange, employee, branches, jobRoles,
     onOpenChange(false);
     router.refresh();
   }
-
-  const availableBranches =
-    currentUserRole === "branch_manager"
-      ? branches.filter((b) => b.id === currentUserBranchId)
-      : branches;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -146,15 +163,22 @@ export function EmployeeForm({ open, onOpenChange, employee, branches, jobRoles,
           </div>
 
           <div className="space-y-1">
-            <Label>Branch</Label>
-            <Select value={branchId} onValueChange={(v) => setBranchId(v ?? "")}>
+            <Label>Branch{role !== "org_admin" && " *"}</Label>
+            <Select
+              value={branchId}
+              onValueChange={(v) => setBranchId(v ?? "")}
+              disabled={role === "org_admin"}
+            >
               <SelectTrigger>
-                <SelectValue placeholder="No branch">
-                  {branchId ? branches.find((b) => b.id === branchId)?.name : "No branch"}
+                <SelectValue placeholder={role === "org_admin" ? "Whole organization" : "Select a branch"}>
+                  {role === "org_admin"
+                    ? "Whole organization"
+                    : branchId
+                    ? branches.find((b) => b.id === branchId)?.name
+                    : "Select a branch"}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No branch</SelectItem>
                 {availableBranches.map((b) => (
                   <SelectItem key={b.id} value={b.id}>
                     {b.name}
@@ -162,6 +186,9 @@ export function EmployeeForm({ open, onOpenChange, employee, branches, jobRoles,
                 ))}
               </SelectContent>
             </Select>
+            {role === "org_admin" && (
+              <p className="text-xs text-muted-foreground">Org admins oversee every branch, not just one.</p>
+            )}
           </div>
 
           <div className="space-y-1">

@@ -10,6 +10,7 @@ import { ShiftCreateDialog } from "./ShiftCreateDialog";
 import { WeekNavigator } from "./WeekNavigator";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { BranchSelector } from "@/components/branch/BranchSelector";
 import { toast } from "sonner";
 import type { Shift, ShiftAssignment, Employee, Branch, ScheduleChatAction } from "@scheduler/types";
 
@@ -175,6 +176,7 @@ export function WeeklyScheduleGrid({
   const [publishing, setPublishing] = useState(false);
   const [autoAssigning, setAutoAssigning] = useState(false);
   const [mobileDay, setMobileDay] = useState(new Date());
+  const [selectedBranchId, setSelectedBranchId] = useState(currentBranchId);
 
   // AI chat state
   const [aiChatOpen, setAiChatOpen] = useState(false);
@@ -200,7 +202,7 @@ export function WeeklyScheduleGrid({
 
   const visibleShifts = shifts.filter((s) => {
     const d = new Date(s.startTime);
-    return d >= weekStart && d < addDays(weekStart, 7);
+    return d >= weekStart && d < addDays(weekStart, 7) && s.branchId === selectedBranchId;
   });
 
   const unpublishedCount = visibleShifts.filter((s) => !s.isPublished).length;
@@ -264,7 +266,7 @@ export function WeeklyScheduleGrid({
     await fetch("/api/shifts/publish", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ branchId: currentBranchId, weekStart: weekStart.toISOString() }),
+      body: JSON.stringify({ branchId: selectedBranchId, weekStart: weekStart.toISOString() }),
     });
     setShifts((prev) =>
       prev.map((s) => {
@@ -283,7 +285,7 @@ export function WeeklyScheduleGrid({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          branchId: currentBranchId,
+          branchId: selectedBranchId,
           fromDate: weekStart.toISOString(),
           toDate: weekEnd.toISOString(),
         }),
@@ -371,6 +373,7 @@ export function WeeklyScheduleGrid({
         {/* Desktop controls */}
         <div className="hidden md:flex items-center gap-4 flex-wrap">
           <WeekNavigator weekStart={weekStart} onWeekChange={loadWeek} />
+          <BranchSelector branches={branches} value={selectedBranchId} onChange={setSelectedBranchId} />
           {canShowAdminControls && (
             <div className="flex gap-2">
               <Button size="sm" onClick={handleAutoAssign} disabled={autoAssigning} variant="secondary">
@@ -399,6 +402,7 @@ export function WeeklyScheduleGrid({
         {/* Mobile controls */}
         <div className="flex md:hidden items-center gap-2 w-full flex-wrap">
           <WeekNavigator weekStart={weekStart} onWeekChange={loadWeek} />
+          <BranchSelector branches={branches} value={selectedBranchId} onChange={setSelectedBranchId} className="w-full" />
           {canEdit && unpublishedCount > 0 && (
             <Button size="sm" onClick={handlePublish} disabled={publishing} className="flex-1">
               {publishing ? "Publishing…" : `Publish (${unpublishedCount})`}
@@ -612,7 +616,7 @@ export function WeeklyScheduleGrid({
       <ShiftCreateDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        branchId={currentBranchId}
+        branchId={selectedBranchId}
         defaultDate={defaultDate}
         employees={employees}
         availability={availability}

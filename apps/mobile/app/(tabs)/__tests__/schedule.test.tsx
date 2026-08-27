@@ -14,6 +14,8 @@ jest.mock("@/lib/api", () => ({
   getJobRoles: jest.fn(),
   assignEmployee: jest.fn(),
   unassignEmployee: jest.fn(),
+  getBranches: jest.fn().mockResolvedValue([]),
+  createShift: jest.fn(),
 }));
 
 const mockPush = jest.fn();

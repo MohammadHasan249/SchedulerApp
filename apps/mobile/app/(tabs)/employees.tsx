@@ -138,10 +138,24 @@ export default function EmployeesScreen() {
     setInviteVisible(true);
   }
 
+  // Only org admins can go without a branch — everyone else's app is
+  // scoped to their one branch, so switching to "Org Admin" clears it,
+  // and picking any other role auto-selects the sole branch if there's
+  // just one to choose from.
+  useEffect(() => {
+    if (inviteForm.role === "org_admin") {
+      if (inviteForm.branchId) setInviteForm((f) => ({ ...f, branchId: "" }));
+    } else if (!inviteForm.branchId && availableBranches.length === 1) {
+      setInviteForm((f) => ({ ...f, branchId: availableBranches[0].id }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inviteForm.role, inviteVisible]);
+
   async function handleInvite() {
     if (!inviteForm.name.trim()) { setInviteError("Name is required."); return; }
     if (!inviteForm.email.trim()) { setInviteError("Email is required."); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteForm.email)) { setInviteError("Enter a valid email."); return; }
+    if (inviteForm.role !== "org_admin" && !inviteForm.branchId) { setInviteError("Select a branch for this role."); return; }
     const maxHours = parseInt(inviteForm.maxHoursPerWeek);
     if (isNaN(maxHours) || maxHours < 1 || maxHours > 168) { setInviteError("Max hours must be 1–168."); return; }
     if (inviteForm.pin && !/^\d{4,6}$/.test(inviteForm.pin)) { setInviteError("PIN must be 4–6 digits."); return; }
@@ -175,8 +189,11 @@ export default function EmployeesScreen() {
   // ── Edit ──────────────────────────────────────────────────────
   function openEdit(emp: Employee) {
     setEditTarget(emp);
+    const scopedBranches = role === "branch_manager" ? branches.filter((b) => b.id === userBranchId) : branches;
+    const defaultBranchId =
+      emp.branchId ?? (emp.role !== "org_admin" && scopedBranches.length === 1 ? scopedBranches[0].id : "");
     setEditForm({
-      branchId: emp.branchId ?? "",
+      branchId: defaultBranchId,
       jobRoleId: emp.jobRoleId ?? "",
       maxHoursPerWeek: String(emp.maxHoursPerWeek),
     });
@@ -185,6 +202,7 @@ export default function EmployeesScreen() {
 
   async function handleSaveEdit() {
     if (!editTarget) return;
+    if (editTarget.role !== "org_admin" && !editForm.branchId) { setEditError("Select a branch for this role."); return; }
     const maxHours = parseInt(editForm.maxHoursPerWeek);
     if (isNaN(maxHours) || maxHours < 1 || maxHours > 168) { setEditError("Max hours must be 1–168."); return; }
 
@@ -192,7 +210,7 @@ export default function EmployeesScreen() {
     setEditError("");
     try {
       await updateEmployee(editTarget.id, {
-        branchId: editForm.branchId || null,
+        branchId: editTarget.role === "org_admin" ? null : editForm.branchId || null,
         jobRoleId: editForm.jobRoleId || null,
         maxHoursPerWeek: maxHours,
       });
@@ -355,15 +373,17 @@ export default function EmployeesScreen() {
                 </>
               )}
 
-              {availableBranches.length > 0 && (
+              {inviteForm.role === "org_admin" ? (
                 <>
                   <Text style={[styles.fieldLabel, { color: theme.muted }]}>Branch</Text>
+                  <Text style={{ color: theme.muted, fontSize: 12, marginBottom: 8 }}>
+                    Org admins oversee every branch, not just one.
+                  </Text>
+                </>
+              ) : availableBranches.length > 0 && (
+                <>
+                  <Text style={[styles.fieldLabel, { color: theme.muted }]}>Branch *</Text>
                   <View style={styles.segmented}>
-                    {role === "org_admin" && (
-                      <TouchableOpacity style={[styles.segment, { borderColor: theme.primary }, !inviteForm.branchId && { backgroundColor: theme.primary }]} onPress={() => setInviteForm((f) => ({ ...f, branchId: "" }))}>
-                        <Text style={[styles.segmentText, { color: !inviteForm.branchId ? "#fff" : theme.primary }]}>None</Text>
-                      </TouchableOpacity>
-                    )}
                     {availableBranches.map((b) => (
                       <TouchableOpacity key={b.id} style={[styles.segment, { borderColor: theme.primary }, inviteForm.branchId === b.id && { backgroundColor: theme.primary }]} onPress={() => setInviteForm((f) => ({ ...f, branchId: b.id }))}>
                         <Text style={[styles.segmentText, { color: inviteForm.branchId === b.id ? "#fff" : theme.primary }]}>{b.name}</Text>
@@ -403,9 +423,16 @@ export default function EmployeesScreen() {
             </View>
             <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
 
-              {availableBranches.length > 0 && (
+              {editTarget?.role === "org_admin" ? (
                 <>
                   <Text style={[styles.fieldLabel, { color: theme.muted }]}>Branch</Text>
+                  <Text style={{ color: theme.muted, fontSize: 12, marginBottom: 8 }}>
+                    Org admins oversee every branch, not just one.
+                  </Text>
+                </>
+              ) : availableBranches.length > 0 && (
+                <>
+                  <Text style={[styles.fieldLabel, { color: theme.muted }]}>Branch *</Text>
                   <PillSelect
                     options={availableBranches.map((b) => b.id)}
                     labels={branchLabels}

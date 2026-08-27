@@ -113,13 +113,18 @@ describe("PATCH /api/employees/[id]", () => {
 
   it("allows demoting an admin when another active admin remains", async () => {
     (getApiUser as any).mockResolvedValue(orgAdmin);
-    (db.select as any).mockReturnValue(
-      chain([{ id: "emp-1", role: "org_admin", organizationId: "org-1", branchId: null, authUserId: null }])
-    );
+    (db.select as any)
+      .mockReturnValueOnce(
+        chain([{ id: "emp-1", role: "org_admin", organizationId: "org-1", branchId: null, authUserId: null }])
+      )
+      .mockReturnValueOnce(chain([{ id: "11111111-1111-4111-8111-111111111111" }]));
     (isLastActiveOrgAdmin as any).mockResolvedValue(false);
     const updated = { id: "emp-1", role: "employee" };
     (db.transaction as any).mockImplementation(async (cb: any) => cb({ update: () => chain([updated]) }));
-    const res = await PATCH(req("PATCH", { role: "employee" }), params("emp-1"));
+    const res = await PATCH(
+      req("PATCH", { role: "employee", branchId: "11111111-1111-4111-8111-111111111111" }),
+      params("emp-1")
+    );
     expect(res.status).toBe(200);
   });
 });

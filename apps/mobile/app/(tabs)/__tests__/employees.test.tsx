@@ -179,7 +179,7 @@ describe("EmployeesScreen", () => {
           name: "New Person",
           email: "new@example.com",
           role: "employee",
-          branchId: null,
+          branchId: "branch-1",
           maxHoursPerWeek: 40,
         })
       );

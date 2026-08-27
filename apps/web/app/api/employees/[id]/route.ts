@@ -103,6 +103,14 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
     }
   }
 
+  // Branch managers and employees are scoped to one branch throughout the
+  // app — only an org admin can be branch-less (they oversee everything).
+  const effectiveRole = rest.role ?? employee.role;
+  const effectiveBranchId = rest.branchId !== undefined ? rest.branchId : employee.branchId;
+  if (effectiveRole !== "org_admin" && !effectiveBranchId) {
+    return NextResponse.json({ error: "branchId is required for this role" }, { status: 400 });
+  }
+
   // Verify branchId belongs to this organization
   if (rest.branchId) {
     const [branch] = await db
