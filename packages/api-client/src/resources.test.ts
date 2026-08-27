@@ -16,6 +16,7 @@ import { setExitPin, verifyExitPin } from "./exitPin";
 import { getJobRoles, createJobRole, updateJobRole, deleteJobRole } from "./jobRoles";
 import {
   getNotifications,
+  getUnreadNotificationCount,
   markNotificationRead,
   registerPushToken,
   unregisterPushToken,
@@ -259,6 +260,16 @@ describe("notifications", () => {
   it("getNotifications", () => {
     getNotifications();
     expect(apiFetch).toHaveBeenCalledWith("/api/notifications");
+  });
+
+  it("getNotifications with pagination", () => {
+    getNotifications({ limit: 5, offset: 5 });
+    expect(apiFetch).toHaveBeenCalledWith("/api/notifications?limit=5&offset=5");
+  });
+
+  it("getUnreadNotificationCount", () => {
+    getUnreadNotificationCount();
+    expect(apiFetch).toHaveBeenCalledWith("/api/notifications?unreadCount=true");
   });
 
   it("markNotificationRead", () => {

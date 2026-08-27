@@ -2,12 +2,13 @@ import React from "react";
 import { Alert } from "react-native";
 import { render, fireEvent, waitFor } from "@testing-library/react-native";
 import NotificationsScreen from "../notifications";
-import { getNotifications, markNotificationRead } from "@/lib/api";
+import { getNotifications, markNotificationRead, getUnreadNotificationCount } from "@/lib/api";
 import type { Notification } from "@scheduler/types";
 
 jest.mock("@/lib/api", () => ({
   getNotifications: jest.fn(),
   markNotificationRead: jest.fn(),
+  getUnreadNotificationCount: jest.fn(),
 }));
 
 function makeNotification(overrides: Partial<Notification> = {}): Notification {
@@ -26,6 +27,7 @@ describe("NotificationsScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    (getUnreadNotificationCount as jest.Mock).mockResolvedValue({ count: 0 });
   });
 
   it("shows the empty state when there are no notifications", async () => {
@@ -71,5 +73,26 @@ describe("NotificationsScreen", () => {
     await fireEvent.press(await findByText("Your shift was updated"));
 
     expect(markNotificationRead).not.toHaveBeenCalled();
+  });
+
+  it("fetches only the first page and loads more on demand", async () => {
+    const firstPage = Array.from({ length: 5 }, (_, i) =>
+      makeNotification({ id: `n${i}`, message: `Message ${i}` })
+    );
+    const secondPage = [makeNotification({ id: "n5", message: "Message 5" })];
+    (getNotifications as jest.Mock)
+      .mockResolvedValueOnce(firstPage)
+      .mockResolvedValueOnce(secondPage);
+
+    const { findByText } = await render(<NotificationsScreen />);
+
+    expect(getNotifications).toHaveBeenNthCalledWith(1, { limit: 5, offset: 0 });
+    const seeMore = await findByText("See more");
+    await fireEvent.press(seeMore);
+
+    await waitFor(() =>
+      expect(getNotifications).toHaveBeenNthCalledWith(2, { limit: 5, offset: 5 })
+    );
+    expect(await findByText("Message 5")).toBeTruthy();
   });
 });

@@ -15,7 +15,7 @@ describe("GET /api/notifications", () => {
   it("returns an empty list when the caller has no employee row", async () => {
     (getApiUser as any).mockResolvedValue(employeeUser);
     (db.select as any).mockReturnValue(chain([]));
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/notifications"));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual([]);
   });
@@ -26,7 +26,16 @@ describe("GET /api/notifications", () => {
     (db.select as any)
       .mockReturnValueOnce(chain([{ id: "emp-1" }]))
       .mockReturnValueOnce(chain(rows));
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/notifications"));
     expect(await res.json()).toEqual(rows);
+  });
+
+  it("returns the unread count when unreadCount=true", async () => {
+    (getApiUser as any).mockResolvedValue(employeeUser);
+    (db.select as any)
+      .mockReturnValueOnce(chain([{ id: "emp-1" }]))
+      .mockReturnValueOnce(chain([{ id: "n1" }, { id: "n2" }]));
+    const res = await GET(new Request("http://localhost/api/notifications?unreadCount=true"));
+    expect(await res.json()).toEqual({ count: 2 });
   });
 });

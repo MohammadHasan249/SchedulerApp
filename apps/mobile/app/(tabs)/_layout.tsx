@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   Timer,
   Users,
-  Bell,
 } from "lucide-react-native";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useAuthStore } from "@/lib/authStore";
@@ -18,6 +17,7 @@ import { useIsAdmin } from "@/lib/useRole";
 import { useKioskStore } from "@/lib/kioskStore";
 import { registerForPushNotificationsAsync } from "@/lib/pushNotifications";
 import { registerPushToken } from "@/lib/api";
+import { useNotificationsStore } from "@/lib/notificationsStore";
 
 export default function TabLayout() {
   const theme = useAppTheme();
@@ -25,12 +25,14 @@ export default function TabLayout() {
   const { fetchOrgInfo } = useOrgStore();
   const isAdmin = useIsAdmin();
   const { isLocked, hydrate: hydrateKiosk } = useKioskStore();
+  const { refreshUnreadCount } = useNotificationsStore();
   const router = useRouter();
 
   useEffect(() => {
     if (session) {
       fetchOrgInfo();
       hydrateKiosk();
+      refreshUnreadCount();
       registerForPushNotificationsAsync()
         .then((token) => {
           if (token) return registerPushToken(token);
@@ -122,7 +124,8 @@ export default function TabLayout() {
         name="notifications"
         options={{
           title: "Notifications",
-          tabBarIcon: ({ color, size }) => <Bell size={size} color={color} />,
+          // Surfaced via the bell icon in the header instead of a permanent tab.
+          href: null,
         }}
       />
       <Tabs.Screen
