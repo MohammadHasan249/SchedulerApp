@@ -1,5 +1,4 @@
 import { logger } from "@/lib/logger";
-import { writeAuditLog } from "@/lib/audit";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { safeJson } from "@/lib/utils/safe-json";
@@ -161,14 +160,6 @@ export const POST = withAuth(async function POST(request: Request) {
       availabilitySchedule: defaultSchedule,
     })
     .returning();
-
-  void writeAuditLog({
-    organizationId: user.organizationId,
-    action: "employee.invite",
-    resourceType: "employee",
-    resourceId: employee.id,
-    after: { name, email, role },
-  });
 
   let emailSent = false;
   try {

@@ -4,14 +4,12 @@ import { db } from "@/lib/db";
 import { getApiUser } from "@/lib/auth/getUser";
 import { pinCollidesWithExisting } from "@/lib/employees";
 import { sendEmployeeInvitationEmail } from "@/lib/email/send-employee-invitation";
-import { writeAuditLog } from "@/lib/audit";
 import { chain } from "@/test/db-mock";
 
 vi.mock("@/lib/db", () => ({ db: { select: vi.fn(), insert: vi.fn() } }));
 vi.mock("@/lib/auth/getUser", () => ({ getApiUser: vi.fn() }));
 vi.mock("@/lib/employees", () => ({ pinCollidesWithExisting: vi.fn() }));
 vi.mock("@/lib/email/send-employee-invitation", () => ({ sendEmployeeInvitationEmail: vi.fn() }));
-vi.mock("@/lib/audit", () => ({ writeAuditLog: vi.fn() }));
 
 const orgAdmin = { id: "u1", role: "org_admin" as const, organizationId: "org-1", branchId: null };
 const manager = { id: "u2", role: "branch_manager" as const, organizationId: "org-1", branchId: "b1" };
@@ -78,7 +76,7 @@ describe("POST /api/employees (invite)", () => {
     expect(res.status).toBe(409);
   });
 
-  it("creates the employee, logs an audit event, and sends the invite email", async () => {
+  it("creates the employee and sends the invite email", async () => {
     (getApiUser as any).mockResolvedValue(orgAdmin);
     (pinCollidesWithExisting as any).mockResolvedValue(false);
     const created = { id: "emp-new", name: "New", email: "new@x.com" };
@@ -88,6 +86,5 @@ describe("POST /api/employees (invite)", () => {
     const res = await POST(postReq({ name: "New", email: "new@x.com" }));
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual({ ...created, emailSent: true });
-    expect(writeAuditLog).toHaveBeenCalled();
   });
 });
