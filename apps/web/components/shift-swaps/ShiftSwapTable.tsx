@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ShiftSwapForm } from "./ShiftSwapForm";
 import type { ShiftSwapRequest, Shift, Employee } from "@scheduler/types";
 
 type SwapWithDetails = ShiftSwapRequest & { shift?: Shift };
@@ -16,6 +17,7 @@ type Props = {
   swaps: SwapWithDetails[];
   shifts: Shift[];
   employees: Employee[];
+  mySwappableShifts?: Shift[];
   currentEmployeeId?: string;
   canApprove: boolean;
 };
@@ -27,9 +29,12 @@ const statusVariant: Record<string, "default" | "secondary" | "destructive" | "o
   denied: "destructive",
 };
 
-export function ShiftSwapTable({ swaps, shifts, employees, currentEmployeeId, canApprove }: Props) {
+export function ShiftSwapTable({
+  swaps, shifts, employees, mySwappableShifts = [], currentEmployeeId, canApprove,
+}: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
 
   const empMap = Object.fromEntries(employees.map((e) => [e.id, e.name]));
   const shiftMap = Object.fromEntries(shifts.map((s) => [s.id, s]));
@@ -46,7 +51,16 @@ export function ShiftSwapTable({ swaps, shifts, employees, currentEmployeeId, ca
   }
 
   return (
-    <div className="rounded-md border">
+    <div className="space-y-4">
+      {!canApprove && (
+        <div className="flex justify-end">
+          <Button size="sm" onClick={() => setFormOpen(true)}>
+            + Request Swap
+          </Button>
+        </div>
+      )}
+
+      <div className="rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>
@@ -138,6 +152,17 @@ export function ShiftSwapTable({ swaps, shifts, employees, currentEmployeeId, ca
           })}
         </TableBody>
       </Table>
+      </div>
+
+      {!canApprove && (
+        <ShiftSwapForm
+          open={formOpen}
+          onOpenChange={setFormOpen}
+          shifts={mySwappableShifts}
+          employees={employees}
+          currentEmployeeId={currentEmployeeId}
+        />
+      )}
     </div>
   );
 }

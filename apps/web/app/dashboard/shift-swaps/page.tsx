@@ -1,7 +1,7 @@
 import { getUser } from "@/lib/auth/getUser";
 import { db } from "@/lib/db";
 import { shiftSwapRequests, employees, shifts, branches, shiftAssignments } from "@scheduler/database/schema";
-import { eq, and, or, inArray } from "drizzle-orm";
+import { eq, and, or, inArray, gte } from "drizzle-orm";
 import { ShiftSwapTable } from "@/components/shift-swaps/ShiftSwapTable";
 import {
   serializeEmployee,
@@ -16,6 +16,7 @@ export default async function ShiftSwapsPage() {
   let swaps: typeof shiftSwapRequests.$inferSelect[] = [];
   let employeeRows: typeof employees.$inferSelect[] = [];
   let shiftRows: typeof shifts.$inferSelect[] = [];
+  let mySwappableShiftRows: typeof shifts.$inferSelect[] = [];
   let currentEmployeeId: string | undefined;
 
   if (user.role === "employee") {
@@ -58,6 +59,14 @@ export default async function ShiftSwapsPage() {
         for (const s of openSwaps) {
           if (!existingIds.has(s.id)) swaps.push(s);
         }
+
+        // Upcoming shifts this employee is assigned to, for the "request a
+        // swap" picker — separate from swapShiftIds below, which only covers
+        // shifts already part of an existing swap.
+        mySwappableShiftRows = await db
+          .select()
+          .from(shifts)
+          .where(and(inArray(shifts.id, assignedShiftIds), gte(shifts.startTime, new Date())));
       }
 
       // Get all employees and shifts in the org for display
@@ -101,6 +110,7 @@ export default async function ShiftSwapsPage() {
         swaps={swaps.map(serializeShiftSwap)}
         shifts={shiftRows.map((s) => serializeShift(s))}
         employees={employeeRows.map(serializeEmployee)}
+        mySwappableShifts={mySwappableShiftRows.map((s) => serializeShift(s))}
         currentEmployeeId={currentEmployeeId}
         canApprove={canApprove}
       />

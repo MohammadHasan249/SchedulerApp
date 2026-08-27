@@ -11,12 +11,12 @@ import { WeekNavigator } from "./WeekNavigator";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import type { Shift, ShiftAssignment, Employee, Branch } from "@scheduler/types";
+import type { Shift, ShiftAssignment, Employee, Branch, ScheduleChatAction } from "@scheduler/types";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DAY_LABELS_FULL = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-type ChatMessage = { role: "user" | "assistant"; content: string };
+type ChatMessage = { role: "user" | "assistant"; content: string; actions?: ScheduleChatAction[] };
 
 const GREETING: ChatMessage = {
   role: "assistant",
@@ -328,7 +328,7 @@ export function WeeklyScheduleGrid({
           { role: "assistant", content: data.error ?? "Something went wrong. Please try again." },
         ]);
       } else {
-        setAiMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
+        setAiMessages((prev) => [...prev, { role: "assistant", content: data.reply, actions: data.actions }]);
         // Refresh the schedule in case assignments were made
         refreshWeek();
       }
@@ -452,14 +452,24 @@ export function WeeklyScheduleGrid({
                     <Bot className="h-3.5 w-3.5 text-primary" />
                   </div>
                 )}
-                <div
-                  className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
-                    msg.role === "user"
-                      ? "bg-primary text-primary-foreground rounded-br-sm"
-                      : "bg-muted rounded-bl-sm"
-                  }`}
-                >
-                  {msg.content}
+                <div className="flex flex-col gap-1 max-w-[80%]">
+                  <div
+                    className={`rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
+                      msg.role === "user"
+                        ? "bg-primary text-primary-foreground rounded-br-sm"
+                        : "bg-muted rounded-bl-sm"
+                    }`}
+                  >
+                    {msg.content}
+                  </div>
+                  {(() => {
+                    const assignCount = msg.actions?.filter((a) => a.type === "assign_employee").length ?? 0;
+                    return assignCount > 0 ? (
+                      <span className="self-start rounded-full bg-green-500/15 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
+                        ✓ {assignCount === 1 ? "1 assignment made" : `${assignCount} assignments made`}
+                      </span>
+                    ) : null;
+                  })()}
                 </div>
               </div>
             ))}
