@@ -2,13 +2,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET, POST } from "../route";
 import { db } from "@/lib/db";
 import { getApiUser } from "@/lib/auth/getUser";
-import { pinCollidesWithExisting } from "@/lib/employees";
+import { generateUniquePin } from "@/lib/employees";
 import { sendEmployeeInvitationEmail } from "@/lib/email/send-employee-invitation";
 import { chain } from "@/test/db-mock";
 
 vi.mock("@/lib/db", () => ({ db: { select: vi.fn(), insert: vi.fn() } }));
 vi.mock("@/lib/auth/getUser", () => ({ getApiUser: vi.fn() }));
-vi.mock("@/lib/employees", () => ({ pinCollidesWithExisting: vi.fn() }));
+vi.mock("@/lib/employees", () => ({ generateUniquePin: vi.fn() }));
 vi.mock("@/lib/email/send-employee-invitation", () => ({ sendEmployeeInvitationEmail: vi.fn() }));
 
 const orgAdmin = { id: "u1", role: "org_admin" as const, organizationId: "org-1", branchId: null };
@@ -69,16 +69,9 @@ describe("POST /api/employees (invite)", () => {
     expect(res.status).toBe(403);
   });
 
-  it("rejects a PIN collision", async () => {
+  it("creates the employee with an auto-generated PIN and sends the invite email", async () => {
     (getApiUser as any).mockResolvedValue(orgAdmin);
-    (pinCollidesWithExisting as any).mockResolvedValue(true);
-    const res = await POST(postReq({ name: "New", email: "new@x.com", pin: "1234" }));
-    expect(res.status).toBe(409);
-  });
-
-  it("creates the employee and sends the invite email", async () => {
-    (getApiUser as any).mockResolvedValue(orgAdmin);
-    (pinCollidesWithExisting as any).mockResolvedValue(false);
+    (generateUniquePin as any).mockResolvedValue("4321");
     const created = { id: "emp-new", name: "New", email: "new@x.com" };
     (db.insert as any).mockReturnValue(chain([created]));
     (sendEmployeeInvitationEmail as any).mockResolvedValue({ sent: true });
@@ -86,5 +79,6 @@ describe("POST /api/employees (invite)", () => {
     const res = await POST(postReq({ name: "New", email: "new@x.com" }));
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual({ ...created, emailSent: true });
+    expect(sendEmployeeInvitationEmail).toHaveBeenCalledWith("New", "new@x.com", "org-1", "4321");
   });
 });

@@ -11,7 +11,7 @@ import { checkRateLimit, getClientIp } from "@/lib/utils/rate-limit";
 import { eq, and } from "drizzle-orm";
 
 const pinSchema = z.object({
-  pin: z.string().regex(/^\d{4,6}$/),
+  pin: z.string().regex(/^\d{4}$/),
 });
 
 // Setting a PIN runs an O(N) bcrypt collision scan. Cap attempts per-user so a

@@ -24,14 +24,14 @@ describe("sendEmployeeInvitationEmail", () => {
 
   it("no-ops without calling Supabase admin APIs when RESEND_API_KEY is unset", async () => {
     delete process.env.RESEND_API_KEY;
-    const result = await sendEmployeeInvitationEmail("Jane", "jane@x.com", "org-1");
+    const result = await sendEmployeeInvitationEmail("Jane", "jane@x.com", "org-1", "4321");
     expect(result).toEqual({ sent: false });
     expect(db.select).not.toHaveBeenCalled();
   });
 
   it("returns sent:false when the organization can't be found", async () => {
     (db.select as any).mockReturnValue(chain([]));
-    const result = await sendEmployeeInvitationEmail("Jane", "jane@x.com", "org-1");
+    const result = await sendEmployeeInvitationEmail("Jane", "jane@x.com", "org-1", "4321");
     expect(result).toEqual({ sent: false });
     expect(sendMock).not.toHaveBeenCalled();
   });
@@ -40,11 +40,15 @@ describe("sendEmployeeInvitationEmail", () => {
     (db.select as any).mockReturnValue(chain([{ id: "org-1", name: "Acme Co" }]));
     sendMock.mockResolvedValue({ data: { id: "email-1" }, error: null });
 
-    const result = await sendEmployeeInvitationEmail("Jane", "jane@x.com", "org-1");
+    const result = await sendEmployeeInvitationEmail("Jane", "jane@x.com", "org-1", "4321");
 
     expect(result).toEqual({ sent: true });
     expect(sendMock).toHaveBeenCalledWith(
-      expect.objectContaining({ to: "jane@x.com", subject: expect.stringContaining("Acme Co") })
+      expect.objectContaining({
+        to: "jane@x.com",
+        subject: expect.stringContaining("Acme Co"),
+        html: expect.stringContaining("4321"),
+      })
     );
   });
 
@@ -54,7 +58,7 @@ describe("sendEmployeeInvitationEmail", () => {
     );
     sendMock.mockResolvedValue({ data: { id: "email-1" }, error: null });
 
-    await sendEmployeeInvitationEmail('<script>alert("xss")</script>', "jane@x.com", "org-1");
+    await sendEmployeeInvitationEmail('<script>alert("xss")</script>', "jane@x.com", "org-1", "4321");
 
     const call = sendMock.mock.calls[0][0];
     expect(call.html).not.toContain("<script>");
@@ -66,7 +70,7 @@ describe("sendEmployeeInvitationEmail", () => {
     (db.select as any).mockReturnValue(chain([{ id: "org-1", name: "Acme Co" }]));
     sendMock.mockResolvedValue({ data: null, error: { message: "bounced" } });
 
-    const result = await sendEmployeeInvitationEmail("Jane", "jane@x.com", "org-1");
+    const result = await sendEmployeeInvitationEmail("Jane", "jane@x.com", "org-1", "4321");
     expect(result).toEqual({ sent: false });
   });
 
@@ -74,7 +78,7 @@ describe("sendEmployeeInvitationEmail", () => {
     (db.select as any).mockReturnValue(chain([{ id: "org-1", name: "Acme Co" }]));
     sendMock.mockRejectedValue(new Error("network error"));
 
-    const result = await sendEmployeeInvitationEmail("Jane", "jane@x.com", "org-1");
+    const result = await sendEmployeeInvitationEmail("Jane", "jane@x.com", "org-1", "4321");
     expect(result).toEqual({ sent: false });
   });
 });

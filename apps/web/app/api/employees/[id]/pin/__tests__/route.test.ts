@@ -48,6 +48,13 @@ describe("PATCH /api/employees/[id]/pin", () => {
     expect(res.status).toBe(400);
   });
 
+  it("rejects a PIN longer than 4 digits", async () => {
+    (getApiUser as any).mockResolvedValue(employeeUser);
+    (db.select as any).mockReturnValue(chain([{ id: "emp-1", organizationId: "org-1", branchId: "b1" }]));
+    const res = await PATCH(req({ pin: "123456" }), params("emp-1"));
+    expect(res.status).toBe(400);
+  });
+
   it("rejects a colliding PIN", async () => {
     (getApiUser as any).mockResolvedValue(employeeUser);
     (db.select as any).mockReturnValue(chain([{ id: "emp-1", organizationId: "org-1", branchId: "b1" }]));

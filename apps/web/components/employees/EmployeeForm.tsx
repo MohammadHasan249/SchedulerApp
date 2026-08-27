@@ -195,19 +195,21 @@ export function EmployeeForm({ open, onOpenChange, employee, branches, jobRoles,
             />
           </div>
 
-          <div className="space-y-1">
-            <Label htmlFor="emp-pin">Kiosk PIN (4–6 digits){!isEdit && " — optional"}</Label>
-            <Input
-              id="emp-pin"
-              type="password"
-              inputMode="numeric"
-              pattern="\d{4,6}"
-              maxLength={6}
-              value={pin}
-              onChange={(e) => setPin(e.target.value)}
-              placeholder="Leave blank to skip"
-            />
-          </div>
+          {isEdit && (
+            <div className="space-y-1">
+              <Label htmlFor="emp-pin">Kiosk PIN (4 digits) — optional</Label>
+              <Input
+                id="emp-pin"
+                type="password"
+                inputMode="numeric"
+                pattern="\d{4}"
+                maxLength={4}
+                value={pin}
+                onChange={(e) => setPin(e.target.value)}
+                placeholder="Leave blank to skip"
+              />
+            </div>
+          )}
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 

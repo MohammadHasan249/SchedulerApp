@@ -28,7 +28,8 @@ function getResend(): Resend | null {
 export async function sendEmployeeInvitationEmail(
   employeeName: string,
   employeeEmail: string,
-  organizationId: string
+  organizationId: string,
+  pin: string
 ): Promise<{ sent: boolean }> {
   const resendClient = getResend();
   if (!resendClient) {
@@ -67,6 +68,7 @@ export async function sendEmployeeInvitationEmail(
       .header { background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
       .content { line-height: 1.6; }
       .details { background-color: #f9f9f9; padding: 15px; border-left: 4px solid #3b82f6; margin: 20px 0; }
+      .pin { display: inline-block; margin-top: 8px; padding: 10px 20px; background-color: #fff; border: 2px dashed #3b82f6; border-radius: 6px; font-size: 28px; font-weight: bold; letter-spacing: 6px; color: #1e40af; }
       .button { display: inline-block; margin-top: 20px; padding: 12px 24px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 6px; }
       .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e5e5; font-size: 12px; color: #666; }
     </style>
@@ -82,7 +84,10 @@ export async function sendEmployeeInvitationEmail(
         <p>You've been invited to join <strong>${safeOrgName}</strong> on Workplix, a modern workforce scheduling platform.</p>
         <div class="details">
           <p><strong>Organization:</strong> ${safeOrgName}</p>
-          <p><strong>Next Steps:</strong> Create your account to start managing schedules and time off.</p>
+          <p><strong>Your kiosk PIN:</strong></p>
+          <div class="pin">${pin}</div>
+          <p style="margin-top: 12px;">Use this PIN to clock in and out at your workplace kiosk.</p>
+          <p><strong>Next Steps:</strong> Create your account below to view your schedule, manage availability, and request time off.</p>
         </div>
         <a href="${appUrl}/signup/employee" class="button">Create Account</a>
       </div>

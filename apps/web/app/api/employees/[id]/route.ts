@@ -19,7 +19,7 @@ const patchSchema = z.object({
   maxHoursPerWeek: z.number().int().min(1).max(168).optional(),
   isActive: z.boolean().optional(),
   permissionProfileId: z.string().uuid().nullable().optional(),
-  pin: z.string().regex(/^\d{4,6}$/).optional(),
+  pin: z.string().regex(/^\d{4}$/).optional(),
 });
 
 async function getEmployee(id: string, organizationId: string) {

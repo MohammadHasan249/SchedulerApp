@@ -8,7 +8,7 @@ import { employees, branches, jobRoles } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { sendEmployeeInvitationEmail } from "@/lib/email/send-employee-invitation";
-import { pinCollidesWithExisting } from "@/lib/employees";
+import { generateUniquePin } from "@/lib/employees";
 import { eq, and, gt } from "drizzle-orm";
 
 const inviteSchema = z.object({
@@ -18,7 +18,6 @@ const inviteSchema = z.object({
   branchId: z.string().uuid().nullable().optional(),
   jobRoleId: z.string().uuid().nullable().optional(),
   maxHoursPerWeek: z.number().int().min(1).max(168).default(40),
-  pin: z.string().regex(/^\d{4,6}$/).optional(),
 });
 
 const PAGE_SIZE = 100;
@@ -88,7 +87,7 @@ export const POST = withAuth(async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { name, email, role, branchId, jobRoleId, maxHoursPerWeek, pin } = parsed.data;
+  const { name, email, role, branchId, jobRoleId, maxHoursPerWeek } = parsed.data;
 
   if (user.role === "branch_manager" && role !== "employee") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -126,18 +125,8 @@ export const POST = withAuth(async function POST(request: Request) {
     }
   }
 
-  if (pin) {
-    // Use a placeholder employeeId so the "other employees" filter still matches everyone.
-    const placeholderId = "00000000-0000-0000-0000-000000000000";
-    const collides = await pinCollidesWithExisting(pin, placeholderId, user.organizationId, targetBranchId);
-    if (collides) {
-      return NextResponse.json(
-        { error: "Another employee at this branch already uses that PIN. Pick a different one." },
-        { status: 409 }
-      );
-    }
-  }
-  const pinHash = pin ? await bcryptjs.hash(pin, 10) : null;
+  const pin = await generateUniquePin(user.organizationId, targetBranchId);
+  const pinHash = await bcryptjs.hash(pin, 10);
 
   // Initialize default availability schedule for all 7 days (9am-11pm)
   const defaultSchedule: Record<number, { startTime: string; endTime: string }> = {};
@@ -163,7 +152,7 @@ export const POST = withAuth(async function POST(request: Request) {
 
   let emailSent = false;
   try {
-    const result = await sendEmployeeInvitationEmail(name, email, user.organizationId);
+    const result = await sendEmployeeInvitationEmail(name, email, user.organizationId, pin);
     emailSent = result.sent;
   } catch (error) {
     logger.error("Failed to send invitation email:", error);

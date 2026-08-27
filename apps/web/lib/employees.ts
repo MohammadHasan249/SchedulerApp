@@ -42,6 +42,24 @@ export async function pinCollidesWithExisting(
 }
 
 /**
+ * Generates a random 4-digit PIN that doesn't collide with any existing
+ * employee at the given branch (or any org_admin in the organization).
+ */
+export async function generateUniquePin(
+  organizationId: string,
+  branchId: string | null
+): Promise<string> {
+  const placeholderId = "00000000-0000-0000-0000-000000000000";
+  for (let i = 0; i < 20; i++) {
+    const pin = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+    if (!(await pinCollidesWithExisting(pin, placeholderId, organizationId, branchId))) {
+      return pin;
+    }
+  }
+  throw new Error("Could not generate a unique PIN");
+}
+
+/**
  * Returns true if `employeeId` is currently the organization's only active
  * org_admin — i.e. demoting, deactivating, or deleting them would leave the
  * org with zero admins able to manage it.
