@@ -89,7 +89,14 @@ export function ShiftSwapForm({ open, onOpenChange, shifts, employees, currentEm
             ) : (
               <Select value={shiftId} onValueChange={(v) => setShiftId(v ?? undefined)}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a shift" />
+                  <SelectValue placeholder="Select a shift">
+                    {(() => {
+                      const s = shifts.find((s) => s.id === shiftId);
+                      return s
+                        ? `${format(new Date(s.startTime), "EEE MMM d, h:mm a")} – ${format(new Date(s.endTime), "h:mm a")}`
+                        : "Select a shift";
+                    })()}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {shifts.map((s) => (
@@ -110,7 +117,9 @@ export function ShiftSwapForm({ open, onOpenChange, shifts, employees, currentEm
               ) : (
                 <Select value={coverId} onValueChange={(v) => setCoverId(v ?? undefined)}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Who should cover this shift?" />
+                    <SelectValue placeholder="Who should cover this shift?">
+                      {coverId ? eligibleCovers.find((e) => e.id === coverId)?.name : "Who should cover this shift?"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {eligibleCovers.map((e) => (

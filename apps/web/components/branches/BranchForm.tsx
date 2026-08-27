@@ -97,7 +97,9 @@ export function BranchForm({ open, onOpenChange, branch }: Props) {
             <Label>Timezone</Label>
             <Select value={timezone} onValueChange={(v) => setTimezone(v ?? "America/New_York")}>
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue>
+                  {US_TIMEZONES.find((tz) => tz.value === timezone)?.label ?? timezone}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {US_TIMEZONES.map((tz) => (

@@ -25,7 +25,9 @@ export function BranchSelector({ branches, value, onChange, className }: Props) 
   return (
     <Select value={value} onValueChange={(v) => v && onChange(v)}>
       <SelectTrigger size="sm" className={className ?? "w-[160px]"}>
-        <SelectValue placeholder="Branch" />
+        <SelectValue placeholder="Branch">
+          {branches.find((b) => b.id === value)?.name}
+        </SelectValue>
       </SelectTrigger>
       <SelectContent>
         {branches.map((b) => (
