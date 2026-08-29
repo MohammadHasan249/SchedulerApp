@@ -34,36 +34,57 @@ export async function sendConfirmationEmail(
     return { sent: false };
   }
 
-  const safeGreeting = fullName ? `Hi ${escapeHtml(fullName)},` : "Hi,";
+  const safeName = fullName ? escapeHtml(fullName) : null;
   const subject = "Confirm your email for Workplix";
   const emailHtml = `
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <style>
-      body { font-family: Arial, sans-serif; color: #333; }
-      .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-      .header { background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-      .content { line-height: 1.6; }
-      .button { display: inline-block; margin-top: 20px; padding: 12px 24px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 6px; }
-      .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e5e5; font-size: 12px; color: #666; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${subject}</title>
   </head>
-  <body>
-    <div class="container">
-      <div class="header">
-        <h2>Confirm your email</h2>
-      </div>
-      <div class="content">
-        <p>${safeGreeting}</p>
-        <p>Please confirm your email address to finish setting up your Workplix account.</p>
-        <a href="${confirmUrl}" class="button">Confirm Email</a>
-      </div>
-      <div class="footer">
-        <p>This is an automated message from Workplix. Please do not reply to this email.</p>
-      </div>
-    </div>
+  <body style="margin:0; padding:0; background-color:#f4f4f7; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f7; padding:32px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px; width:100%; background-color:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(16,24,40,0.08);">
+            <tr>
+              <td style="padding:32px 40px 0 40px;">
+                <div style="font-size:20px; font-weight:700; color:#4f46e5; letter-spacing:-0.01em;">Workplix</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px 40px 8px 40px;">
+                <h1 style="margin:0; font-size:20px; line-height:1.3; color:#101828; font-weight:600;">Confirm your email address</h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 40px; color:#475467; font-size:15px; line-height:1.6;">
+                <p style="margin:12px 0;">${safeName ? `Hi ${safeName},` : "Hi,"}</p>
+                <p style="margin:12px 0;">Thanks for signing up for Workplix. Please confirm your email address to finish setting up your account.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px 40px 8px 40px;">
+                <a href="${confirmUrl}" style="display:inline-block; width:100%; box-sizing:border-box; text-align:center; padding:12px 24px; background-color:#4f46e5; color:#ffffff; font-size:15px; font-weight:600; text-decoration:none; border-radius:8px;">Confirm email</a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 40px 32px 40px; color:#98a2b3; font-size:13px; line-height:1.6;">
+                <p style="margin:0;">If the button above doesn't work, copy and paste this link into your browser:</p>
+                <p style="margin:8px 0 0 0; word-break:break-all;"><a href="${confirmUrl}" style="color:#4f46e5; text-decoration:underline;">${confirmUrl}</a></p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:20px 40px; background-color:#f9fafb; border-top:1px solid #eaecf0;">
+                <p style="margin:0; font-size:12px; color:#98a2b3; line-height:1.5;">If you didn't request this email, you can safely ignore it. This is an automated message from Workplix — please don't reply.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
   </body>
 </html>
       `;
