@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Poppins } from "next/font/google";
 import { Toaster } from "sonner";
+import { Analytics } from "@vercel/analytics/next";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import "./globals.css";
@@ -42,6 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Toaster richColors position="top-right" />
         <ServiceWorkerRegistrar />
         <PWAInstallBanner />
+        <Analytics />
       </body>
     </html>
   );
