@@ -1,7 +1,7 @@
 import { getUser } from "@/lib/auth/getUser";
 import { db } from "@/lib/db";
 import { shiftSwapRequests, employees, shifts, branches, shiftAssignments } from "@scheduler/database/schema";
-import { eq, and, or, inArray, gte } from "drizzle-orm";
+import { eq, and, or, inArray, gte, ne } from "drizzle-orm";
 import { ShiftSwapTable } from "@/components/shift-swaps/ShiftSwapTable";
 import {
   serializeEmployee,
@@ -86,10 +86,17 @@ export default async function ShiftSwapsPage() {
     const empIds = employeeRows.map((e) => e.id);
 
     if (empIds.length > 0) {
+      // Managers only need to weigh in once a cover has accepted — a
+      // still-pending request isn't actionable for them yet.
       swaps = await db
         .select()
         .from(shiftSwapRequests)
-        .where(inArray(shiftSwapRequests.requesterId, empIds));
+        .where(
+          and(
+            inArray(shiftSwapRequests.requesterId, empIds),
+            ne(shiftSwapRequests.status, "pending")
+          )
+        );
 
       const swapShiftIds = [...new Set(swaps.map((s) => s.shiftId))];
       if (swapShiftIds.length > 0) {

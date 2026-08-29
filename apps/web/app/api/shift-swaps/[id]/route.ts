@@ -161,40 +161,46 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
       );
     }
 
-    const updated = await db.transaction(async (tx) => {
-      const [requesterAssignment] = await tx
-        .select()
-        .from(shiftAssignments)
-        .where(
-          and(
-            eq(shiftAssignments.shiftId, swap.shiftId),
-            eq(shiftAssignments.employeeId, swap.requesterId)
+    let updated;
+    try {
+      updated = await db.transaction(async (tx) => {
+        const [requesterAssignment] = await tx
+          .select()
+          .from(shiftAssignments)
+          .where(
+            and(
+              eq(shiftAssignments.shiftId, swap.shiftId),
+              eq(shiftAssignments.employeeId, swap.requesterId)
+            )
           )
-        )
-        .limit(1);
+          .limit(1);
 
-      if (!requesterAssignment) {
-        throw new Error("Requester is no longer assigned to this shift");
-      }
+        if (!requesterAssignment) {
+          throw new Error("Requester is no longer assigned to this shift");
+        }
 
-      await tx
-        .delete(shiftAssignments)
-        .where(eq(shiftAssignments.id, requesterAssignment.id));
+        await tx
+          .delete(shiftAssignments)
+          .where(eq(shiftAssignments.id, requesterAssignment.id));
 
-      await tx.insert(shiftAssignments).values({
-        shiftId: swap.shiftId,
-        employeeId: swap.coverId!,
-        jobRoleId: requesterAssignment.jobRoleId,
+        await tx.insert(shiftAssignments).values({
+          shiftId: swap.shiftId,
+          employeeId: swap.coverId!,
+          jobRoleId: requesterAssignment.jobRoleId,
+        });
+
+        const [row] = await tx
+          .update(shiftSwapRequests)
+          .set({ status: "manager_approved", managerId: managerEmp?.id ?? null })
+          .where(eq(shiftSwapRequests.id, id))
+          .returning();
+
+        return row;
       });
-
-      const [row] = await tx
-        .update(shiftSwapRequests)
-        .set({ status: "manager_approved", managerId: managerEmp?.id ?? null })
-        .where(eq(shiftSwapRequests.id, id))
-        .returning();
-
-      return row;
-    });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to approve swap";
+      return NextResponse.json({ error: message }, { status: 409 });
+    }
 
     await createNotifications([
       {

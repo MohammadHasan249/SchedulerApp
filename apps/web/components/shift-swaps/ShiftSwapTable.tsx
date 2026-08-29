@@ -41,13 +41,21 @@ export function ShiftSwapTable({
 
   async function doAction(id: string, action: string) {
     setLoading(id + action);
-    await fetch(`/api/shift-swaps/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
-    });
-    setLoading(null);
-    router.refresh();
+    try {
+      const res = await fetch(`/api/shift-swaps/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        alert(body?.error ?? "Something went wrong updating this swap request.");
+        return;
+      }
+      router.refresh();
+    } finally {
+      setLoading(null);
+    }
   }
 
   return (
@@ -134,17 +142,6 @@ export function ShiftSwapTable({
                         Deny
                       </Button>
                     </>
-                  )}
-                  {canApprove && swap.status === "pending" && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-destructive hover:text-destructive"
-                      disabled={!!isLoading}
-                      onClick={() => doAction(swap.id, "deny")}
-                    >
-                      Deny
-                    </Button>
                   )}
                 </TableCell>
               </TableRow>
