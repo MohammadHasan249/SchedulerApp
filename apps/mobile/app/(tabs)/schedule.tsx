@@ -4,12 +4,12 @@ import {
   ActivityIndicator, RefreshControl, Modal, FlatList, Pressable, Alert, TextInput,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ChevronLeft, ChevronRight, Bot, X, Plus, UserMinus } from "lucide-react-native";
+import { ChevronLeft, ChevronRight, Bot, X, Plus, UserMinus, Trash2, Send } from "lucide-react-native";
 import { format, addDays, startOfWeek, isSameDay, getDay } from "date-fns";
 import { useRouter, useFocusEffect } from "expo-router";
 import {
   getShifts, getEmployees, assignEmployee, unassignEmployee, getJobRoles,
-  createShift, getBranches, type Branch,
+  createShift, getBranches, deleteShift, publishShifts, type Branch,
 } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useAuthStore } from "@/lib/authStore";
@@ -173,6 +173,45 @@ export default function ScheduleScreen() {
     }
   }
 
+  const [publishing, setPublishing] = useState(false);
+
+  function confirmDeleteShift(shift: Shift) {
+    Alert.alert("Delete shift?", "This cannot be undone.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          setModalAssigning(true);
+          try {
+            await deleteShift(shift.id);
+            setSelectedShift(null);
+            const updated = await getShifts(weekStart.toISOString());
+            setShifts(updated);
+          } catch (e) {
+            Alert.alert("Couldn't delete shift", e instanceof Error ? e.message : "Please try again.");
+          } finally {
+            setModalAssigning(false);
+          }
+        },
+      },
+    ]);
+  }
+
+  async function handlePublishWeek() {
+    if (!selectedBranchId) return;
+    setPublishing(true);
+    try {
+      await publishShifts(selectedBranchId, weekStart.toISOString());
+      const updated = await getShifts(weekStart.toISOString());
+      setShifts(updated);
+    } catch (e) {
+      Alert.alert("Couldn't publish shifts", e instanceof Error ? e.message : "Please try again.");
+    } finally {
+      setPublishing(false);
+    }
+  }
+
   const assignedIds = new Set((selectedShift?.assignments ?? []).map((a) => a.employeeId));
   const unassignedEmployees = branchEmployees.filter(
     (e) => e.role === "employee" && !assignedIds.has(e.id)
@@ -307,12 +346,30 @@ export default function ScheduleScreen() {
         >
           <View style={styles.dayHeadingRow}>
             <Text style={styles.dayHeading}>{format(selectedDay, "EEEE, MMMM d")}</Text>
-            {isAdmin && (
-              <TouchableOpacity style={styles.addShiftBtn} onPress={openCreateShift}>
-                <Plus size={14} color={theme.primary} />
-                <Text style={styles.addShiftBtnText}>Add Shift</Text>
-              </TouchableOpacity>
-            )}
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              {isAdmin && dayShifts.some((s) => !s.isPublished) && (
+                <TouchableOpacity
+                  style={styles.addShiftBtn}
+                  onPress={handlePublishWeek}
+                  disabled={publishing}
+                >
+                  {publishing ? (
+                    <ActivityIndicator size="small" color={theme.primary} />
+                  ) : (
+                    <>
+                      <Send size={14} color={theme.primary} />
+                      <Text style={styles.addShiftBtnText}>Publish</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+              {isAdmin && (
+                <TouchableOpacity style={styles.addShiftBtn} onPress={openCreateShift}>
+                  <Plus size={14} color={theme.primary} />
+                  <Text style={styles.addShiftBtnText}>Add Shift</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
           {dayShifts.length === 0 ? (
             <View style={styles.empty}>
@@ -377,9 +434,18 @@ export default function ScheduleScreen() {
                       {format(new Date(selectedShift.startTime), "EEE, MMM d")}
                     </Text>
                   </View>
-                  <TouchableOpacity onPress={() => setSelectedShift(null)}>
-                    <X size={22} color={theme.muted} />
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+                    <TouchableOpacity
+                      onPress={() => confirmDeleteShift(selectedShift)}
+                      disabled={modalAssigning}
+                      accessibilityLabel="Delete shift"
+                    >
+                      <Trash2 size={20} color="#e5484d" />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setSelectedShift(null)}>
+                      <X size={22} color={theme.muted} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
                 {modalAssigning && (

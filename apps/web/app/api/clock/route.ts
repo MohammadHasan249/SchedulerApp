@@ -10,6 +10,7 @@ import { withAuth } from "@/lib/auth/withAuth";
 import { checkRateLimit, getClientIp } from "@/lib/utils/rate-limit";
 import { getZonedDayStart } from "@/lib/utils/timezone";
 import { logger } from "@/lib/logger";
+import { createNotifications } from "@/lib/notifications";
 
 const CLOCK_RATE_LIMIT = { maxAttempts: 10, windowMs: 5 * 60 * 1000 };
 
@@ -205,6 +206,34 @@ export const POST = withAuth(async function POST(request: Request) {
       type: clockType,
     })
     .returning();
+
+  // Notify org admins and this branch's manager(s) so they're aware of
+  // attendance in real time. Skip the person who just clocked in/out.
+  const managers = await db
+    .select({ id: employees.id, role: employees.role, branchId: employees.branchId })
+    .from(employees)
+    .where(
+      and(
+        eq(employees.organizationId, branch.organizationId),
+        eq(employees.isActive, true),
+        inArray(employees.role, ["org_admin", "branch_manager"])
+      )
+    );
+
+  const recipients = managers.filter(
+    (m) =>
+      m.id !== matchedEmployee.id &&
+      (m.role === "org_admin" || m.branchId === branch.id)
+  );
+
+  const action = clockType === "clock_in" ? "clocked in" : "clocked out";
+  await createNotifications(
+    recipients.map((m) => ({
+      employeeId: m.id,
+      organizationId: branch.organizationId,
+      message: `${matchedEmployee.name} ${action} at ${branch.name}.`,
+    }))
+  );
 
   return NextResponse.json({
     employeeName: matchedEmployee.name,

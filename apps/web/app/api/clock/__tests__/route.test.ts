@@ -4,14 +4,19 @@ import { db } from "@/lib/db";
 import { getApiUser } from "@/lib/auth/getUser";
 import { checkRateLimit } from "@/lib/utils/rate-limit";
 import { chain } from "@/test/db-mock";
+import { createNotifications } from "@/lib/notifications";
 import bcrypt from "bcryptjs";
 
 vi.mock("@/lib/db", () => ({ db: { select: vi.fn(), insert: vi.fn() } }));
-vi.mock("@/lib/auth/getUser", () => ({ getApiUser: vi.fn() }));
+vi.mock("@/lib/auth/getUser", () => ({
+  getApiUser: vi.fn(),
+  ApiAuthError: class ApiAuthError extends Error {},
+}));
 vi.mock("@/lib/utils/rate-limit", () => ({
   checkRateLimit: vi.fn(),
   getClientIp: vi.fn(() => "127.0.0.1"),
 }));
+vi.mock("@/lib/notifications", () => ({ createNotifications: vi.fn() }));
 
 const orgAdmin = { id: "u1", role: "org_admin" as const, organizationId: "org-1", branchId: null };
 const employeeUser = { id: "u2", role: "employee" as const, organizationId: "org-1", branchId: null };
@@ -58,7 +63,10 @@ describe("GET /api/clock", () => {
 });
 
 describe("POST /api/clock (kiosk clock-in)", () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    (getApiUser as any).mockResolvedValue(orgAdmin);
+  });
 
   it("rate limits repeated attempts per IP+branch", async () => {
     (checkRateLimit as any).mockResolvedValue({ allowed: false, resetAt: Date.now() + 60_000 });
@@ -101,28 +109,56 @@ describe("POST /api/clock (kiosk clock-in)", () => {
     (checkRateLimit as any).mockResolvedValue({ allowed: true });
     const hash = await bcrypt.hash("1234", 10);
     (db.select as any)
-      .mockReturnValueOnce(chain([{ id: "b1", organizationId: "org-1", slug: "main", timezone: "UTC" }]))
+      .mockReturnValueOnce(
+        chain([{ id: "b1", organizationId: "org-1", slug: "main", name: "Main St", timezone: "UTC" }])
+      )
       .mockReturnValueOnce(chain([{ id: "e1", name: "Alice", branchId: "b1", role: "employee", pinHash: hash }]))
-      .mockReturnValueOnce(chain([])); // no lastEvent today
+      .mockReturnValueOnce(chain([])) // no lastEvent today
+      .mockReturnValueOnce(chain([{ id: "m1", role: "org_admin", branchId: null }])); // managers to notify
     (db.insert as any).mockReturnValue(chain([{ timestamp: new Date("2024-01-01T09:00:00Z") }]));
 
     const res = await POST(postReq({ pin: "1234", branchSlug: "main" }));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toMatchObject({ employeeName: "Alice", clockType: "clock_in" });
+    expect(createNotifications).toHaveBeenCalledWith([
+      expect.objectContaining({ employeeId: "m1", message: expect.stringContaining("Alice clocked in") }),
+    ]);
   }, 10000);
 
   it("toggles to clock_out when the employee's last event today was a clock_in", async () => {
     (checkRateLimit as any).mockResolvedValue({ allowed: true });
     const hash = await bcrypt.hash("1234", 10);
     (db.select as any)
-      .mockReturnValueOnce(chain([{ id: "b1", organizationId: "org-1", slug: "main", timezone: "UTC" }]))
+      .mockReturnValueOnce(
+        chain([{ id: "b1", organizationId: "org-1", slug: "main", name: "Main St", timezone: "UTC" }])
+      )
       .mockReturnValueOnce(chain([{ id: "e1", name: "Alice", branchId: "b1", role: "employee", pinHash: hash }]))
-      .mockReturnValueOnce(chain([{ type: "clock_in" }]));
+      .mockReturnValueOnce(chain([{ type: "clock_in" }]))
+      .mockReturnValueOnce(chain([])); // no managers to notify
     (db.insert as any).mockReturnValue(chain([{ timestamp: new Date("2024-01-01T17:00:00Z") }]));
 
     const res = await POST(postReq({ pin: "1234", branchSlug: "main" }));
     const body = await res.json();
     expect(body.clockType).toBe("clock_out");
+  }, 10000);
+
+  it("does not notify the clocked-in employee about their own clock-in even if they're a manager", async () => {
+    (checkRateLimit as any).mockResolvedValue({ allowed: true });
+    const hash = await bcrypt.hash("1234", 10);
+    (db.select as any)
+      .mockReturnValueOnce(
+        chain([{ id: "b1", organizationId: "org-1", slug: "main", name: "Main St", timezone: "UTC" }])
+      )
+      .mockReturnValueOnce(
+        chain([{ id: "m1", name: "Manager Mo", branchId: "b1", role: "branch_manager", pinHash: hash }])
+      )
+      .mockReturnValueOnce(chain([]))
+      .mockReturnValueOnce(chain([{ id: "m1", role: "branch_manager", branchId: "b1" }]));
+    (db.insert as any).mockReturnValue(chain([{ timestamp: new Date("2024-01-01T09:00:00Z") }]));
+
+    const res = await POST(postReq({ pin: "1234", branchSlug: "main" }));
+    expect(res.status).toBe(200);
+    expect(createNotifications).toHaveBeenCalledWith([]);
   }, 10000);
 });
