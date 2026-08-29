@@ -1,5 +1,4 @@
 import type { NextConfig } from "next";
-import { withBotId } from "botid/next/config";
 
 const SECURITY_HEADERS = [
   // Force HTTPS for two years and pre-load. Safe to commit because Vercel
@@ -36,4 +35,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withBotId(nextConfig);
+export default nextConfig;

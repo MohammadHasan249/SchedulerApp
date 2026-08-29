@@ -8,7 +8,6 @@ import { eq } from "drizzle-orm";
 import { sendConfirmationEmail } from "@/lib/email/send-confirmation-email";
 import { logger } from "@/lib/logger";
 import { checkRateLimit, getClientIp } from "@/lib/utils/rate-limit";
-import { checkBotId } from "botid/server";
 
 const schema = z.object({
   email: z.string().email(),
@@ -18,11 +17,6 @@ const schema = z.object({
 const SIGNUP_RATE_LIMIT = { maxAttempts: 5, windowMs: 15 * 60 * 1000 };
 
 export async function POST(request: Request) {
-  const verification = await checkBotId();
-  if (verification.isBot) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
   const rl = await checkRateLimit(`signup:${getClientIp(request)}`, SIGNUP_RATE_LIMIT);
   if (!rl.allowed) {
     const retryAfterSec = Math.max(1, Math.ceil((rl.resetAt - Date.now()) / 1000));
