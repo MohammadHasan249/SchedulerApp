@@ -8,6 +8,14 @@ updates:
       npm-dependencies:
         patterns:
           - "*"
+    ignore:
+      # Framework majors need manual migration (proxy.ts rename, API
+      # signature changes, etc.) — let patches/minors through automatically,
+      # review majors by hand.
+      - dependency-name: "next"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "expo"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "npm"
     directory: "/apps/web"
@@ -17,6 +25,9 @@ updates:
       npm-dependencies:
         patterns:
           - "*"
+    ignore:
+      - dependency-name: "next"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "npm"
     directory: "/apps/mobile"
@@ -26,6 +37,13 @@ updates:
       npm-dependencies:
         patterns:
           - "*"
+    ignore:
+      - dependency-name: "expo"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "expo-*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-native"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"

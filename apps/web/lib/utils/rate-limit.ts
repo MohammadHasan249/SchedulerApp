@@ -1,8 +1,9 @@
 /**
  * Rate limiter with Upstash Redis in production and an in-memory sliding-window
- * fallback for local dev. Set UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN
- * to enable the distributed backend; without them the in-memory store is used
- * (safe for single-instance / local; not safe for multi-instance prod).
+ * fallback for local dev. Set KV_REST_API_URL + KV_REST_API_TOKEN (as provisioned
+ * by the Vercel Marketplace Upstash integration) to enable the distributed
+ * backend; without them the in-memory store is used (safe for single-instance /
+ * local; not safe for multi-instance prod).
  */
 
 // ── In-memory fallback ────────────────────────────────────────────────────────
@@ -44,8 +45,8 @@ function inMemoryCheck(
 // ── Upstash Redis backend ─────────────────────────────────────────────────────
 
 const hasUpstash =
-  !!process.env.UPSTASH_REDIS_REST_URL &&
-  !!process.env.UPSTASH_REDIS_REST_TOKEN;
+  !!process.env.KV_REST_API_URL &&
+  !!process.env.KV_REST_API_TOKEN;
 
 // Cache one Ratelimit instance per (maxAttempts, windowMs) pair to avoid
 // constructing a new object on every request.
@@ -62,7 +63,10 @@ async function upstashCheck(
     limiterCache.set(
       cacheKey,
       new Ratelimit({
-        redis: Redis.fromEnv(),
+        redis: new Redis({
+          url: process.env.KV_REST_API_URL!,
+          token: process.env.KV_REST_API_TOKEN!,
+        }),
         limiter: Ratelimit.slidingWindow(options.maxAttempts, `${options.windowMs}ms`),
         ephemeralCache: new Map(),
       })
