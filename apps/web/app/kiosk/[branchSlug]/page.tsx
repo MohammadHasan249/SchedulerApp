@@ -2,7 +2,7 @@ import { format } from "date-fns";
 import { redirect } from "next/navigation";
 import { getUser } from "@/lib/auth/getUser";
 import { db } from "@/lib/db";
-import { employees, organizations } from "@scheduler/database/schema";
+import { employees } from "@scheduler/database/schema";
 import { eq, and } from "drizzle-orm";
 import { KioskContent } from "@/components/kiosk/KioskContent";
 
@@ -11,16 +11,6 @@ export default async function KioskPage({ params }: { params: Promise<{ branchSl
 
   // Only org_admin and branch_manager can access the kiosk
   if (user.role !== "org_admin" && user.role !== "branch_manager") {
-    redirect("/dashboard");
-  }
-
-  const [org] = await db
-    .select({ webKioskEnabled: organizations.webKioskEnabled })
-    .from(organizations)
-    .where(eq(organizations.id, user.organizationId))
-    .limit(1);
-
-  if (!org?.webKioskEnabled) {
     redirect("/dashboard");
   }
 

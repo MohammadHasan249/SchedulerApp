@@ -20,7 +20,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
         name: organizations.name,
         theme: organizations.theme,
         logoUrl: organizations.logoUrl,
-        webKioskEnabled: organizations.webKioskEnabled,
       })
       .from(organizations)
       .where(eq(organizations.id, user.organizationId))
@@ -43,7 +42,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
         employeeId={emp?.id}
         employeeName={emp?.name}
         orgName={org?.name}
-        webKioskEnabled={org?.webKioskEnabled ?? false}
       >
         {children}
       </DashboardShell>

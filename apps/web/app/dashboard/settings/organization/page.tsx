@@ -5,7 +5,6 @@ import { eq } from "drizzle-orm";
 import { OrganizationThemeClient } from "@/components/settings/OrganizationThemeClient";
 import { OrgHoursClient } from "@/components/settings/OrgHoursClient";
 import { KioskExitPinClient } from "@/components/settings/KioskExitPinClient";
-import { WebKioskToggleClient } from "@/components/settings/WebKioskToggleClient";
 
 export default async function OrganizationSettingsPage() {
   const user = await getUser();
@@ -26,7 +25,6 @@ export default async function OrganizationSettingsPage() {
       theme: organizations.theme,
       hoursSchedule: organizations.hoursSchedule,
       exitPinHash: organizations.exitPinHash,
-      webKioskEnabled: organizations.webKioskEnabled,
     })
     .from(organizations)
     .where(eq(organizations.id, user.organizationId))
@@ -63,11 +61,6 @@ export default async function OrganizationSettingsPage() {
         <div>
           <h2 className="text-lg font-semibold mb-4">Kiosk Exit PIN</h2>
           <KioskExitPinClient initialIsSet={!!org?.exitPinHash} />
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold mb-4">Web Clock In/Out</h2>
-          <WebKioskToggleClient initialEnabled={org?.webKioskEnabled ?? false} />
         </div>
       </div>
     </div>

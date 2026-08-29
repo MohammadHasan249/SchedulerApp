@@ -59,14 +59,11 @@ type Props = {
   orgName?: string;
   isOpen?: boolean;
   onClose?: () => void;
-  webKioskEnabled?: boolean;
 };
 
-export function Sidebar({ role, orgName, isOpen = false, onClose, webKioskEnabled = false }: Props) {
+export function Sidebar({ role, orgName, isOpen = false, onClose }: Props) {
   const pathname = usePathname();
-  const visible = NAV.filter(
-    (item) => item.roles.includes(role) && (item.href !== "/dashboard/kiosk" || webKioskEnabled)
-  );
+  const visible = NAV.filter((item) => item.roles.includes(role));
   const groups = ["main", "manage", "settings"] as const;
 
   return (

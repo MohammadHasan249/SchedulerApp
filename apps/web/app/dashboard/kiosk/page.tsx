@@ -2,23 +2,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getUser } from "@/lib/auth/getUser";
 import { db } from "@/lib/db";
-import { branches, organizations } from "@scheduler/database/schema";
+import { branches } from "@scheduler/database/schema";
 import { eq } from "drizzle-orm";
 
 export default async function KioskEntryPage() {
   const user = await getUser();
 
   if (user.role !== "org_admin" && user.role !== "branch_manager") {
-    redirect("/dashboard");
-  }
-
-  const [org] = await db
-    .select({ webKioskEnabled: organizations.webKioskEnabled })
-    .from(organizations)
-    .where(eq(organizations.id, user.organizationId))
-    .limit(1);
-
-  if (!org?.webKioskEnabled) {
     redirect("/dashboard");
   }
 
