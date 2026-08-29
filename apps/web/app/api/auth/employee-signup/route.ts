@@ -34,7 +34,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { email, password } = parsed.data;
+  const { password } = parsed.data;
+  const email = parsed.data.email.trim().toLowerCase();
 
   const supabase = createAdminClient();
 

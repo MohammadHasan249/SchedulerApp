@@ -147,7 +147,7 @@ export const POST = withAuth(async function POST(request: Request) {
       branchId: targetBranchId,
       authUserId: null,
       name,
-      email,
+      email: email.trim().toLowerCase(),
       role,
       jobRoleId: jobRoleId ?? null,
       maxHoursPerWeek,
