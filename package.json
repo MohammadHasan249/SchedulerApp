@@ -15,7 +15,7 @@
     "type-check": "turbo run type-check"
   },
   "devDependencies": {
-    "turbo": "^2.9.9"
+    "turbo": "^2.10.12"
   },
   "overrides": {
     "react": "19.1.0",
