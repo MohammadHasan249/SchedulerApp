@@ -40,7 +40,8 @@ export function TimeOffRequestTable({ requests, canApprove, employees = [] }: Pr
     router.refresh();
   }
 
-  async function deleteRequest(id: string) {
+  async function deleteRequest(id: string, status: string) {
+    if (status !== "pending" && !window.confirm("Cancel this time-off request?")) return;
     await fetch(`/api/time-off/${id}`, { method: "DELETE" });
     router.refresh();
   }
@@ -104,12 +105,12 @@ export function TimeOffRequestTable({ requests, canApprove, employees = [] }: Pr
                       </Button>
                     </>
                   )}
-                  {!canApprove && req.status === "pending" && (
+                  {!canApprove && (
                     <Button
                       size="sm"
                       variant="ghost"
                       className="text-destructive hover:text-destructive"
-                      onClick={() => deleteRequest(req.id)}
+                      onClick={() => deleteRequest(req.id, req.status)}
                     >
                       Cancel
                     </Button>

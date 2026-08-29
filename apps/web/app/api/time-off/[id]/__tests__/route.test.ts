@@ -79,13 +79,14 @@ describe("DELETE /api/time-off/[id]", () => {
     expect(res.status).toBe(404);
   });
 
-  it("rejects cancelling a non-pending request", async () => {
+  it("cancels a non-pending (already approved) request", async () => {
     (getApiUser as any).mockResolvedValue(employeeUser);
     (db.select as any)
       .mockReturnValueOnce(chain([{ id: "emp-1" }]))
       .mockReturnValueOnce(chain([{ id: "req-1", status: "approved" }]));
+    (db.delete as any).mockReturnValue(chain([]));
     const res = await DELETE(req("DELETE"), params("req-1"));
-    expect(res.status).toBe(409);
+    expect(res.status).toBe(204);
   });
 
   it("cancels a pending request", async () => {

@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { format, startOfWeek, addDays } from "date-fns";
 import {
-  getTimeOffRequests, createTimeOffRequest, updateTimeOffRequest,
+  getTimeOffRequests, createTimeOffRequest, updateTimeOffRequest, cancelTimeOffRequest,
   getShiftSwaps, createShiftSwap, updateShiftSwap,
   getShifts, getShiftAssignments, getEmployees, getBranches,
 } from "@/lib/api";
@@ -140,6 +140,28 @@ function TimeOffSection() {
     }
   }
 
+  async function handleCancel(id: string, status: string) {
+    const doCancel = async () => {
+      setActioning(id);
+      try {
+        await cancelTimeOffRequest(id);
+        await load();
+      } catch (e) {
+        Alert.alert("Error", e instanceof Error ? e.message : "Failed to cancel request");
+      } finally {
+        setActioning(null);
+      }
+    };
+    if (status !== "pending") {
+      Alert.alert("Cancel time off?", "This will cancel this time-off request.", [
+        { text: "Keep it", style: "cancel" },
+        { text: "Cancel request", style: "destructive", onPress: doCancel },
+      ]);
+    } else {
+      await doCancel();
+    }
+  }
+
   const pendingRequests = requests.filter((r) => r.status === "pending");
   const decidedRequests = requests.filter((r) => r.status !== "pending");
 
@@ -232,6 +254,7 @@ function TimeOffSection() {
                   actioning={actioning === req.id}
                   onApprove={isAdmin ? () => handleDecision(req.id, "approved") : undefined}
                   onDeny={isAdmin ? () => handleDecision(req.id, "denied") : undefined}
+                  onCancel={!isAdmin ? () => handleCancel(req.id, req.status) : undefined}
                 />
               ))}
 
@@ -259,12 +282,14 @@ function TimeOffCard({
   actioning,
   onApprove,
   onDeny,
+  onCancel,
 }: {
   req: TimeOffRequest;
   employeeName?: string;
   actioning?: boolean;
   onApprove?: () => void;
   onDeny?: () => void;
+  onCancel?: () => void;
 }) {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
@@ -300,6 +325,20 @@ function TimeOffCard({
             {actioning
               ? <ActivityIndicator color="#fff" size="small" />
               : <Text style={styles.approveBtnText}>Approve</Text>}
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {onCancel && (
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.denyBtn, actioning && styles.btnDisabled]}
+            onPress={onCancel}
+            disabled={actioning}
+          >
+            {actioning
+              ? <ActivityIndicator color={theme.muted} size="small" />
+              : <Text style={styles.denyBtnText}>Cancel</Text>}
           </TouchableOpacity>
         </View>
       )}

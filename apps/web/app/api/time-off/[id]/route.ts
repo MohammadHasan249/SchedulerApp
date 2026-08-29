@@ -109,7 +109,7 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
 export const DELETE = withAuth(async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
 
-  // Only employees can cancel their own pending requests; managers use PATCH to approve/deny
+  // Only employees can cancel their own requests; managers use PATCH to approve/deny
   if (user.role !== "employee") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -131,7 +131,6 @@ export const DELETE = withAuth(async function DELETE(request: Request, { params 
     .limit(1);
 
   if (!req) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (req.status !== "pending") return NextResponse.json({ error: "Cannot cancel a non-pending request" }, { status: 409 });
 
   await db.delete(timeOffRequests).where(eq(timeOffRequests.id, id));
   return new NextResponse(null, { status: 204 });
