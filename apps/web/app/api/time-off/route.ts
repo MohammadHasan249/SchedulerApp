@@ -6,6 +6,7 @@ import { timeOffRequests, employees } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { sendTimeOffNotification } from "@/lib/email/send-time-off-notification";
+import { createNotifications } from "@/lib/notifications";
 import { eq, and, inArray, gte, lte, ne } from "drizzle-orm";
 
 const MAX_TIME_OFF_DAYS = 90;
@@ -63,7 +64,7 @@ export const POST = withAuth(async function POST(request: Request) {
   const user = await getUser();
 
   const [emp] = await db
-    .select({ id: employees.id })
+    .select({ id: employees.id, name: employees.name, branchId: employees.branchId })
     .from(employees)
     .where(and(eq(employees.authUserId, user.id), eq(employees.organizationId, user.organizationId)))
     .limit(1);
@@ -126,6 +127,31 @@ export const POST = withAuth(async function POST(request: Request) {
   // Send notification email. sendTimeOffNotification swallows its own errors,
   // so awaiting only adds latency — no new failure modes.
   await sendTimeOffNotification(emp.id, user.organizationId, startDate, endDate, reason);
+
+  // Notify org admins and this employee's branch manager(s) so they can act on
+  // the request without having to poll the dashboard.
+  const managers = await db
+    .select({ id: employees.id, role: employees.role, branchId: employees.branchId })
+    .from(employees)
+    .where(
+      and(
+        eq(employees.organizationId, user.organizationId),
+        eq(employees.isActive, true),
+        inArray(employees.role, ["org_admin", "branch_manager"])
+      )
+    );
+
+  const recipients = managers.filter(
+    (m) => m.id !== emp.id && (m.role === "org_admin" || m.branchId === emp.branchId)
+  );
+
+  await createNotifications(
+    recipients.map((m) => ({
+      employeeId: m.id,
+      organizationId: user.organizationId,
+      message: `${emp.name} requested time off from ${startDate} to ${endDate}.`,
+    }))
+  );
 
   return NextResponse.json(req, { status: 201 });
 });

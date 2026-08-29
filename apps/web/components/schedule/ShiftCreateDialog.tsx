@@ -50,23 +50,32 @@ export function ShiftCreateDialog({
   const [overrideAvailability, setOverrideAvailability] = useState(false);
 
   useEffect(() => {
+    if (!open) return;
+    if (shift) {
+      setDate(format(new Date(shift.startTime), "yyyy-MM-dd"));
+      setStartTime(format(new Date(shift.startTime), "HH:mm"));
+      setEndTime(format(new Date(shift.endTime), "HH:mm"));
+      setAssignedIds(assignments.map((a) => a.employeeId));
+    } else {
+      setDate(dateStr);
+      setStartTime("09:00");
+      setEndTime("17:00");
+      setAssignedIds([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Reset transient UI state only when the dialog transitions from closed to open,
+  // so an in-progress error (e.g. from a failed assignment) isn't wiped out by
+  // re-renders triggered by onSaved() refetching `assignments` while still open.
+  useEffect(() => {
     if (open) {
-      if (shift) {
-        setDate(format(new Date(shift.startTime), "yyyy-MM-dd"));
-        setStartTime(format(new Date(shift.startTime), "HH:mm"));
-        setEndTime(format(new Date(shift.endTime), "HH:mm"));
-        setAssignedIds(assignments.map((a) => a.employeeId));
-      } else {
-        setDate(dateStr);
-        setStartTime("09:00");
-        setEndTime("17:00");
-        setAssignedIds([]);
-      }
       setError("");
       setAvailabilityWarning([]);
       setOverrideAvailability(false);
     }
-  }, [open, shift, assignments, dateStr]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   function toggleEmployee(id: string) {
     setAssignedIds((prev) =>
