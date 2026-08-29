@@ -19,6 +19,11 @@ export default async function ShiftSwapsPage() {
   let mySwappableShiftRows: typeof shifts.$inferSelect[] = [];
   let currentEmployeeId: string | undefined;
 
+  const branchRows = await db
+    .select({ id: branches.id, timezone: branches.timezone })
+    .from(branches)
+    .where(eq(branches.organizationId, user.organizationId));
+
   if (user.role === "employee") {
     const [emp] = await db
       .select()
@@ -120,6 +125,7 @@ export default async function ShiftSwapsPage() {
         mySwappableShifts={mySwappableShiftRows.map((s) => serializeShift(s))}
         currentEmployeeId={currentEmployeeId}
         canApprove={canApprove}
+        branchTimezones={Object.fromEntries(branchRows.map((b) => [b.id, b.timezone]))}
       />
     </div>
   );

@@ -8,13 +8,16 @@ import { format, startOfWeek, addDays } from "date-fns";
 import {
   getTimeOffRequests, createTimeOffRequest, updateTimeOffRequest,
   getShiftSwaps, createShiftSwap, updateShiftSwap,
-  getShifts, getShiftAssignments, getEmployees,
+  getShifts, getShiftAssignments, getEmployees, getBranches,
 } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useAuthStore } from "@/lib/authStore";
 import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
 import { useIsAdmin } from "@/lib/useRole";
+import { formatZonedTime } from "@/lib/utils/timezone";
 import type { TimeOffRequest, ShiftSwapRequest, Shift, Employee } from "@scheduler/types";
+
+const DEFAULT_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 // Time-off dates are date-only strings ("2026-06-10"). `new Date()` would
 // parse them as UTC midnight and render the previous day in negative-offset
@@ -319,6 +322,7 @@ function SwapSection() {
   const [employeeMap, setEmployeeMap] = useState<Record<string, Employee>>({});
   const [upcomingShifts, setUpcomingShifts] = useState<Shift[]>([]);
   const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
+  const [branchTimezones, setBranchTimezones] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
@@ -368,6 +372,9 @@ function SwapSection() {
       const emps = await getEmployees();
       setEmployeeMap(Object.fromEntries(emps.map((e) => [e.id, e])));
       setAllEmployees(emps);
+
+      const brs = await getBranches();
+      setBranchTimezones(Object.fromEntries(brs.map((b) => [b.id, b.timezone])));
     } catch (e) {
       Alert.alert("Couldn't load swap requests", e instanceof Error ? e.message : "Please try again.");
     } finally {
@@ -416,6 +423,10 @@ function SwapSection() {
     }
   }
 
+  function tzForBranch(branchId: string | undefined | null) {
+    return (branchId && branchTimezones[branchId]) ?? DEFAULT_TZ;
+  }
+
   // For admins, sort swaps so cover_accepted (awaiting manager) bubble to top.
   const sortedSwaps = isAdmin
     ? [...swaps].sort((a, b) => {
@@ -452,7 +463,7 @@ function SwapSection() {
             >
               <Text style={styles.shiftPickerDay}>{format(new Date(shift.startTime), "EEE, MMM d")}</Text>
               <Text style={styles.shiftPickerTime}>
-                {format(new Date(shift.startTime), "h:mm a")} – {format(new Date(shift.endTime), "h:mm a")}
+                {formatZonedTime(shift.startTime, tzForBranch(shift.branchId))} – {formatZonedTime(shift.endTime, tzForBranch(shift.branchId))}
               </Text>
             </TouchableOpacity>
           ))}
@@ -466,7 +477,7 @@ function SwapSection() {
         return (
           <View style={styles.form}>
             <Text style={styles.label}>
-              Who should cover {format(new Date(swapShift.startTime), "EEE MMM d, h:mm a")}?
+              Who should cover {format(new Date(swapShift.startTime), "EEE MMM d,")} {formatZonedTime(swapShift.startTime, tzForBranch(swapShift.branchId))}?
             </Text>
             {eligibleCovers.length === 0 ? (
               <Text style={styles.emptyText}>No eligible employees at this branch to cover the shift</Text>
@@ -528,7 +539,7 @@ function SwapSection() {
                 <View style={styles.cardHeader}>
                   <Text style={styles.cardTitle} numberOfLines={1}>
                     {shift
-                      ? `${format(new Date(shift.startTime), "EEE MMM d")} · ${format(new Date(shift.startTime), "h:mm a")}–${format(new Date(shift.endTime), "h:mm a")}`
+                      ? `${format(new Date(shift.startTime), "EEE MMM d")} · ${formatZonedTime(shift.startTime, tzForBranch(shift.branchId))}–${formatZonedTime(shift.endTime, tzForBranch(shift.branchId))}`
                       : "Shift unavailable"}
                   </Text>
                   <View style={[styles.badge, { backgroundColor: (SWAP_COLORS[swap.status] ?? theme.muted) + "33" }]}>

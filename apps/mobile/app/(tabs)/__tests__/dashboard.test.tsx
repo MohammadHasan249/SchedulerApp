@@ -48,7 +48,7 @@ describe("DashboardScreen", () => {
     (getDashboardStats as jest.Mock).mockResolvedValue(
       makeStats({
         todayShifts: [
-          { id: "s1", startTime: "2026-01-01T09:00:00.000Z", endTime: "2026-01-01T17:00:00.000Z", employeeName: "Jane Doe" },
+          { id: "s1", startTime: "2026-01-01T09:00:00.000Z", endTime: "2026-01-01T17:00:00.000Z", employeeName: "Jane Doe", timezone: "America/New_York" },
         ],
       })
     );
@@ -62,7 +62,7 @@ describe("DashboardScreen", () => {
     (getDashboardStats as jest.Mock).mockResolvedValue(
       makeStats({
         todayShifts: [
-          { id: "s1", startTime: "2026-01-01T09:00:00.000Z", endTime: "2026-01-01T17:00:00.000Z", employeeName: null },
+          { id: "s1", startTime: "2026-01-01T09:00:00.000Z", endTime: "2026-01-01T17:00:00.000Z", employeeName: null, timezone: "America/New_York" },
         ],
       })
     );

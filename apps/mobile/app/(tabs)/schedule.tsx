@@ -16,7 +16,10 @@ import { useAuthStore } from "@/lib/authStore";
 import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
 import { useIsAdmin, useBranchId } from "@/lib/useRole";
 import { BranchSelector } from "@/components/BranchSelector";
+import { formatZonedTime } from "@/lib/utils/timezone";
 import type { Shift, Employee, ShiftAssignmentDetail } from "@scheduler/types";
+
+const DEFAULT_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -120,6 +123,12 @@ export default function ScheduleScreen() {
       loadEmployees();
     }
   }, [view]);
+
+  // Employees (non-admins) never fetch the branch list, so fall back to the
+  // device timezone when we don't have branch-local timezone info on hand.
+  function tzForBranch(branchId: string | undefined | null) {
+    return branches.find((b) => b.id === branchId)?.timezone ?? DEFAULT_TZ;
+  }
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const branchEmployees = selectedBranchId
@@ -388,6 +397,7 @@ export default function ScheduleScreen() {
                 shift={shift}
                 isAdmin={isAdmin}
                 myEmployeeId={myEmployeeId}
+                timezone={tzForBranch(shift.branchId)}
                 onPress={() => { setSelectedShift(shift); }}
               />
             ))
@@ -429,8 +439,8 @@ export default function ScheduleScreen() {
                   <View>
                     <Text style={styles.modalTitle}>Shift Assignments</Text>
                     <Text style={styles.modalSub}>
-                      {format(new Date(selectedShift.startTime), "h:mm a")} –{" "}
-                      {format(new Date(selectedShift.endTime), "h:mm a")} ·{" "}
+                      {formatZonedTime(selectedShift.startTime, tzForBranch(selectedShift.branchId))} –{" "}
+                      {formatZonedTime(selectedShift.endTime, tzForBranch(selectedShift.branchId))} ·{" "}
                       {format(new Date(selectedShift.startTime), "EEE, MMM d")}
                     </Text>
                   </View>
@@ -607,11 +617,13 @@ function ShiftCard({
   shift,
   isAdmin,
   myEmployeeId,
+  timezone,
   onPress,
 }: {
   shift: Shift;
   isAdmin: boolean;
   myEmployeeId?: string | null;
+  timezone: string;
   onPress?: () => void;
 }) {
   const theme = useAppTheme();
@@ -625,9 +637,9 @@ function ShiftCard({
   const card = (
     <View style={[styles.card, !shift.isPublished && styles.cardUnpublished]}>
       <View style={styles.cardTime}>
-        <Text style={styles.cardTimeText}>{format(start, "h:mm a")}</Text>
+        <Text style={styles.cardTimeText}>{formatZonedTime(shift.startTime, timezone)}</Text>
         <Text style={styles.cardTimeSep}>–</Text>
-        <Text style={styles.cardTimeText}>{format(end, "h:mm a")}</Text>
+        <Text style={styles.cardTimeText}>{formatZonedTime(shift.endTime, timezone)}</Text>
       </View>
       <View style={styles.cardBody}>
         <View style={{ flex: 1, gap: 4 }}>

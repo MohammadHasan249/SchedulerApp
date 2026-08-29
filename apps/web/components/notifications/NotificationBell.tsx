@@ -8,8 +8,14 @@ import { Badge } from "@/components/ui/badge";
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
-import { format } from "date-fns";
+import { formatZonedDateTime } from "@/lib/utils/timezone";
 import type { Notification } from "@scheduler/types";
+
+// Notifications don't carry a branch id, so there's no reliable branch
+// timezone to convert into here — fall back to the viewer's own device/browser
+// timezone. If a branch-scoped timezone becomes available on Notification in
+// the future, prefer that instead.
+const LOCAL_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 type Props = {
   employeeId: string;
@@ -96,7 +102,7 @@ export function NotificationBell({ employeeId, organizationId }: Props) {
             >
               <p>{n.message}</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {format(new Date(n.createdAt), "MMM d, HH:mm")}
+                {formatZonedDateTime(n.createdAt, LOCAL_TZ)}
               </p>
             </div>
           ))}

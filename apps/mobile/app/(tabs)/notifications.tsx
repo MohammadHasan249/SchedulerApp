@@ -4,13 +4,16 @@ import {
   ActivityIndicator, Alert, RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { format } from "date-fns";
 import { getNotifications, markNotificationRead } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useNotificationsStore } from "@/lib/notificationsStore";
+import { formatZonedDateTime } from "@/lib/utils/timezone";
 import type { Notification } from "@scheduler/types";
 
 const PAGE_SIZE = 5;
+// Notifications don't carry a branch id, so there's no reliable branch
+// timezone to convert into — fall back to the device's own timezone.
+const DEVICE_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 export default function NotificationsScreen() {
   const theme = useAppTheme();
@@ -94,7 +97,7 @@ export default function NotificationsScreen() {
                   activeOpacity={n.isRead ? 1 : 0.7}
                 >
                   <Text style={styles.message}>{n.message}</Text>
-                  <Text style={styles.timestamp}>{format(new Date(n.createdAt), "MMM d, h:mm a")}</Text>
+                  <Text style={styles.timestamp}>{formatZonedDateTime(n.createdAt, DEVICE_TZ)}</Text>
                 </TouchableOpacity>
               ))}
               {hasMore && (

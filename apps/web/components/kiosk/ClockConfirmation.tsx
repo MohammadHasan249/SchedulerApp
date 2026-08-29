@@ -37,7 +37,7 @@ export function ClockConfirmation({ result, error, onReset, timezone }: Props) {
           {result.clockType === "clock_in" ? "Clocked In" : "Clocked Out"}
         </p>
         <p className="text-sm text-muted-foreground mt-1">
-          {formatInTimeZone(new Date(result.timestamp), timezone, "HH:mm:ss")}
+          {formatInTimeZone(new Date(result.timestamp), timezone, "h:mm:ss a")}
         </p>
       </div>
       <Button onClick={onReset} size="lg" variant="outline">

@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatZonedTime } from "@/lib/utils/timezone";
+import { formatInTimeZone } from "date-fns-tz";
 import type { Shift, Employee } from "@scheduler/types";
 
 type Props = {
@@ -15,9 +16,18 @@ type Props = {
   shifts: Shift[];
   employees: Employee[];
   currentEmployeeId?: string;
+  /** branchId -> IANA timezone, used to render shift times in branch-local time. */
+  branchTimezones: Record<string, string>;
 };
 
-export function ShiftSwapForm({ open, onOpenChange, shifts, employees, currentEmployeeId }: Props) {
+const DEFAULT_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+function formatShiftRange(s: Shift, branchTimezones: Record<string, string>): string {
+  const tz = branchTimezones[s.branchId] ?? DEFAULT_TZ;
+  return `${formatInTimeZone(new Date(s.startTime), tz, "EEE MMM d,")} ${formatZonedTime(s.startTime, tz)} – ${formatZonedTime(s.endTime, tz)}`;
+}
+
+export function ShiftSwapForm({ open, onOpenChange, shifts, employees, currentEmployeeId, branchTimezones }: Props) {
   const router = useRouter();
   const [shiftId, setShiftId] = useState<string | undefined>(undefined);
   const [coverId, setCoverId] = useState<string | undefined>(undefined);
@@ -92,16 +102,14 @@ export function ShiftSwapForm({ open, onOpenChange, shifts, employees, currentEm
                   <SelectValue placeholder="Select a shift">
                     {(() => {
                       const s = shifts.find((s) => s.id === shiftId);
-                      return s
-                        ? `${format(new Date(s.startTime), "EEE MMM d, h:mm a")} – ${format(new Date(s.endTime), "h:mm a")}`
-                        : "Select a shift";
+                      return s ? formatShiftRange(s, branchTimezones) : "Select a shift";
                     })()}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {shifts.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
-                      {format(new Date(s.startTime), "EEE MMM d, h:mm a")} – {format(new Date(s.endTime), "h:mm a")}
+                      {formatShiftRange(s, branchTimezones)}
                     </SelectItem>
                   ))}
                 </SelectContent>

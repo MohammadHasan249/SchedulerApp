@@ -7,6 +7,7 @@ import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { validateAssignment } from "@/lib/scheduling/assignment-validator";
 import { createNotification } from "@/lib/notifications";
+import { formatZonedDateTime } from "@/lib/utils/timezone";
 import { eq, and } from "drizzle-orm";
 
 const assignSchema = z.object({
@@ -121,7 +122,7 @@ export const POST = withAuth(async function POST(request: Request, { params }: {
   await createNotification({
     employeeId: employee.id,
     organizationId: user.organizationId,
-    message: `You've been assigned to a shift starting ${new Date(row.shift.startTime).toLocaleString()}.`,
+    message: `You've been assigned to a shift starting ${formatZonedDateTime(row.shift.startTime, row.branch.timezone)}.`,
   });
 
   return NextResponse.json(assignment, { status: 201 });

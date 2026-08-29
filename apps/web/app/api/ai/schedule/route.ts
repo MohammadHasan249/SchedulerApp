@@ -14,6 +14,7 @@ import { getApiUser as getUser } from "@/lib/auth/getUser";
 import { withAuth } from "@/lib/auth/withAuth";
 import { validateAssignment } from "@/lib/scheduling/assignment-validator";
 import { createNotification } from "@/lib/notifications";
+import { formatZonedDateTime } from "@/lib/utils/timezone";
 import { checkRateLimit, getClientIp } from "@/lib/utils/rate-limit";
 import { eq, and, gte, lte, inArray } from "drizzle-orm";
 
@@ -472,7 +473,7 @@ export const POST = withAuth(async function POST(request: Request) {
     await createNotification({
       employeeId: emp.id,
       organizationId: user.organizationId,
-      message: `You've been assigned to a shift starting ${new Date(shiftRow.startTime).toLocaleString()}.`,
+      message: `You've been assigned to a shift starting ${formatZonedDateTime(shiftRow.startTime, branchRow?.timezone ?? "UTC")}.`,
     });
 
     return { success: true, assignmentId: toHandle("assignment", assignment.id), shiftId: toHandle("shift", shiftId), employeeId: toHandle("employee", employeeId) };

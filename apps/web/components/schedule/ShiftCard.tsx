@@ -1,9 +1,9 @@
 "use client";
 
-import { format } from "date-fns";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import type { Shift, ShiftAssignment, Employee } from "@scheduler/types";
+import { formatZonedTime } from "@/lib/utils/timezone";
 
 type Props = {
   shift: Shift;
@@ -13,9 +13,10 @@ type Props = {
   canEdit: boolean;
   onEdit: (shift: Shift) => void;
   onDelete: (shiftId: string) => void;
+  timezone: string;
 };
 
-export function ShiftCard({ shift, assignments, employees, isPast, canEdit, onEdit, onDelete }: Props) {
+export function ShiftCard({ shift, assignments, employees, isPast, canEdit, onEdit, onDelete, timezone }: Props) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: shift.id,
     disabled: isPast || !canEdit,
@@ -40,7 +41,7 @@ export function ShiftCard({ shift, assignments, employees, isPast, canEdit, onEd
       } ${isDragging ? "ring-2 ring-primary" : ""}`}
     >
       <div className="font-semibold text-primary">
-        {format(new Date(shift.startTime), "HH:mm")}–{format(new Date(shift.endTime), "HH:mm")}
+        {formatZonedTime(shift.startTime, timezone)}–{formatZonedTime(shift.endTime, timezone)}
       </div>
       {assignedNames.length > 0 && (
         <div className="text-muted-foreground truncate">{assignedNames.join(", ")}</div>

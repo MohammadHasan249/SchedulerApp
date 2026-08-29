@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -59,6 +60,8 @@ export function AttendanceLog({ initialRows, branches }: Props) {
   }
 
   const branchMap = Object.fromEntries(branches.map((b) => [b.id, b.name]));
+  const branchTimezones = Object.fromEntries(branches.map((b) => [b.id, b.timezone]));
+  const defaultTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   return (
     <div className="space-y-4">
@@ -124,7 +127,13 @@ export function AttendanceLog({ initialRows, branches }: Props) {
                     {row.event.type === "clock_in" ? "Clock In" : "Clock Out"}
                   </Badge>
                 </TableCell>
-                <TableCell>{format(new Date(row.event.timestamp), "MMM d, HH:mm:ss")}</TableCell>
+                <TableCell>
+                  {formatInTimeZone(
+                    new Date(row.event.timestamp),
+                    branchTimezones[row.event.branchId] ?? defaultTz,
+                    "MMM d, h:mm:ss a"
+                  )}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

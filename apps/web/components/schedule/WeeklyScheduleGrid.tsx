@@ -37,7 +37,7 @@ type ScheduleData = {
 };
 
 function DayCell({
-  date, shifts, assignments, employees, canEdit, isPast, onEdit, onDelete, onAddShift,
+  date, shifts, assignments, employees, canEdit, isPast, onEdit, onDelete, onAddShift, timezone,
 }: {
   date: Date;
   shifts: Shift[];
@@ -48,6 +48,7 @@ function DayCell({
   onEdit: (shift: Shift) => void;
   onDelete: (id: string) => void;
   onAddShift: (date: Date) => void;
+  timezone: string;
 }) {
   const dateKey = format(date, "yyyy-MM-dd");
   const { setNodeRef, isOver } = useDroppable({ id: dateKey, data: { date } });
@@ -67,6 +68,7 @@ function DayCell({
           canEdit={canEdit}
           onEdit={onEdit}
           onDelete={onDelete}
+          timezone={timezone}
         />
       ))}
       {canEdit && !isPast && (
@@ -82,7 +84,7 @@ function DayCell({
 }
 
 function MobileDayView({
-  day, shifts, assignments, employees, canEdit, onEdit, onDelete, onAddShift, onPrev, onNext,
+  day, shifts, assignments, employees, canEdit, onEdit, onDelete, onAddShift, onPrev, onNext, timezone,
 }: {
   day: Date;
   shifts: Shift[];
@@ -94,6 +96,7 @@ function MobileDayView({
   onAddShift: (date: Date) => void;
   onPrev: () => void;
   onNext: () => void;
+  timezone: string;
 }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -144,6 +147,7 @@ function MobileDayView({
               canEdit={canEdit}
               onEdit={onEdit}
               onDelete={onDelete}
+              timezone={timezone}
             />
           ))
         )}
@@ -365,6 +369,9 @@ export function WeeklyScheduleGrid({
   today.setHours(0, 0, 0, 0);
 
   const canShowAdminControls = canEdit && (userRole === "org_admin" || userRole === "branch_manager");
+  const selectedTimezone =
+    branches.find((b) => b.id === selectedBranchId)?.timezone ??
+    Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   return (
     <div className="space-y-4">
@@ -565,6 +572,7 @@ export function WeeklyScheduleGrid({
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                     onAddShift={handleAddShift}
+                    timezone={selectedTimezone}
                   />
                 );
               })}
@@ -616,6 +624,7 @@ export function WeeklyScheduleGrid({
           onAddShift={handleAddShift}
           onPrev={() => setMobileDay((d) => addDays(d, -1))}
           onNext={() => setMobileDay((d) => addDays(d, 1))}
+          timezone={selectedTimezone}
         />
       </div>
 

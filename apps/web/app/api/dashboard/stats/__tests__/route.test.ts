@@ -37,7 +37,8 @@ describe("GET /api/dashboard/stats", () => {
     (db.select as any)
       .mockReturnValueOnce(chain([{ id: "branch-1" }])) // branches for org
       .mockReturnValueOnce(chain([{ id: "emp-1" }, { id: "emp-2" }])) // active org employees
-      .mockReturnValueOnce(chain([{ id: "shift-1", startTime: start, endTime: end, employeeName: "Alice" }])) // shifts
+      .mockReturnValueOnce(chain([{ id: "branch-1", timezone: "America/New_York" }])) // branch timezones
+      .mockReturnValueOnce(chain([{ id: "shift-1", startTime: start, endTime: end, branchId: "branch-1", employeeName: "Alice" }])) // shifts
       .mockReturnValueOnce(chain([{ employeeId: "emp-1", type: "clock_in" }])) // clock events
       .mockReturnValueOnce(chain([{ id: "req-1" }])); // pending time-off
 
@@ -47,7 +48,13 @@ describe("GET /api/dashboard/stats", () => {
       clockedInCount: 1,
       totalShiftsToday: 1,
       pendingTimeOffCount: 1,
-      todayShifts: [{ id: "shift-1", startTime: start.toISOString(), endTime: end.toISOString(), employeeName: "Alice" }],
+      todayShifts: [{
+        id: "shift-1",
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+        employeeName: "Alice",
+        timezone: "America/New_York",
+      }],
     });
   });
 });

@@ -9,6 +9,8 @@ export type DashboardStats = {
     startTime: string;
     endTime: string;
     employeeName: string | null;
+    /** IANA timezone of the shift's branch. */
+    timezone: string;
   }>;
 };
 

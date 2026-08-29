@@ -19,6 +19,9 @@ import {
   type Branch,
 } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
+import { formatZonedTime } from "@/lib/utils/timezone";
+
+const DEFAULT_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 export default function ReportsScreen() {
   const theme = useAppTheme();
@@ -60,6 +63,8 @@ export default function ReportsScreen() {
   function shiftDay(delta: number) {
     setDay((d) => addDays(d, delta));
   }
+
+  const branchTimezones = Object.fromEntries(branches.map((b) => [b.id, b.timezone]));
 
   return (
     <>
@@ -155,7 +160,7 @@ export default function ReportsScreen() {
                       </Text>
                     </View>
                     <Text style={styles.time}>
-                      {format(new Date(row.event.timestamp), "h:mm a")}
+                      {formatZonedTime(row.event.timestamp, branchTimezones[row.event.branchId] ?? DEFAULT_TZ)}
                     </Text>
                   </View>
                 );

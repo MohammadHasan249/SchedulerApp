@@ -56,12 +56,19 @@ export const GET = withAuth(async function GET() {
       )
   ).map((e) => e.id);
 
+  const branchTimezoneRows = await db
+    .select({ id: branches.id, timezone: branches.timezone })
+    .from(branches)
+    .where(inArray(branches.id, branchIds));
+  const branchTimezones = Object.fromEntries(branchTimezoneRows.map((b) => [b.id, b.timezone]));
+
   const [todayShiftRows, todayClockEvents, pendingTimeOff] = await Promise.all([
     db
       .select({
         id: shifts.id,
         startTime: shifts.startTime,
         endTime: shifts.endTime,
+        branchId: shifts.branchId,
         employeeName: employees.name,
       })
       .from(shifts)
@@ -117,6 +124,7 @@ export const GET = withAuth(async function GET() {
       startTime: r.startTime.toISOString(),
       endTime: r.endTime.toISOString(),
       employeeName: r.employeeName ?? null,
+      timezone: branchTimezones[r.branchId] ?? "UTC",
     })),
   });
 });

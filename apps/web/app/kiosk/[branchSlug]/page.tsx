@@ -43,7 +43,7 @@ export default async function KioskPage({ params }: { params: Promise<{ branchSl
       <div className="text-center">
         <h1 className="text-3xl font-bold">Clock In / Out</h1>
         <p className="text-muted-foreground mt-1">
-          {formatInTimeZone(new Date(), branch.timezone, "EEEE, MMMM d · HH:mm")}
+          {formatInTimeZone(new Date(), branch.timezone, "EEEE, MMMM d · h:mm a")}
         </p>
       </div>
 

@@ -12,12 +12,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "expo-router";
 import { Users, CalendarCheck, Clock, Timer, ChevronRight } from "lucide-react-native";
-import { format } from "date-fns";
 import { getDashboardStats, type DashboardStats } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
+import { formatZonedTime } from "@/lib/utils/timezone";
 
-function formatTime(iso: string) {
-  return format(new Date(iso), "h:mm a");
+function formatTime(iso: string, timezone: string) {
+  return formatZonedTime(iso, timezone);
 }
 
 function StatCard({
@@ -166,7 +166,7 @@ export default function DashboardScreen() {
                       {shift.employeeName ?? "Unassigned"}
                     </Text>
                     <Text style={styles.shiftTime}>
-                      {formatTime(shift.startTime)} – {formatTime(shift.endTime)}
+                      {formatTime(shift.startTime, shift.timezone)} – {formatTime(shift.endTime, shift.timezone)}
                     </Text>
                   </View>
                 ))

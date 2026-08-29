@@ -9,6 +9,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ShiftSwapForm } from "./ShiftSwapForm";
+import { formatZonedDateTime, formatZonedTime } from "@/lib/utils/timezone";
 import type { ShiftSwapRequest, Shift, Employee } from "@scheduler/types";
 
 type SwapWithDetails = ShiftSwapRequest & { shift?: Shift };
@@ -20,7 +21,11 @@ type Props = {
   mySwappableShifts?: Shift[];
   currentEmployeeId?: string;
   canApprove: boolean;
+  /** branchId -> IANA timezone, used to render shift times in branch-local time. */
+  branchTimezones: Record<string, string>;
 };
+
+const DEFAULT_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 const statusVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   pending: "secondary",
@@ -30,7 +35,7 @@ const statusVariant: Record<string, "default" | "secondary" | "destructive" | "o
 };
 
 export function ShiftSwapTable({
-  swaps, shifts, employees, mySwappableShifts = [], currentEmployeeId, canApprove,
+  swaps, shifts, employees, mySwappableShifts = [], currentEmployeeId, canApprove, branchTimezones,
 }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
@@ -95,7 +100,10 @@ export function ShiftSwapTable({
               <TableRow key={swap.id}>
                 <TableCell>
                   {shift
-                    ? `${format(new Date(shift.startTime), "MMM d, HH:mm")}–${format(new Date(shift.endTime), "HH:mm")}`
+                    ? (() => {
+                        const tz = branchTimezones[shift.branchId] ?? DEFAULT_TZ;
+                        return `${formatZonedDateTime(shift.startTime, tz)}–${formatZonedTime(shift.endTime, tz)}`;
+                      })()
                     : "—"}
                 </TableCell>
                 <TableCell>{empMap[swap.requesterId] ?? "—"}</TableCell>
@@ -158,6 +166,7 @@ export function ShiftSwapTable({
           shifts={mySwappableShifts}
           employees={employees}
           currentEmployeeId={currentEmployeeId}
+          branchTimezones={branchTimezones}
         />
       )}
     </div>
