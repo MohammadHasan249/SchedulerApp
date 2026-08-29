@@ -74,8 +74,10 @@ export default async function DashboardPage() {
     .where(and(eq(employees.authUserId, user.id), eq(employees.organizationId, user.organizationId)))
     .limit(1);
 
-  let kioskHref = null;
-  if (emp?.branchId) {
+  let kioskHref: string | null = null;
+  if (user.role === "org_admin" || user.role === "branch_manager") {
+    kioskHref = "/dashboard/kiosk";
+  } else if (emp?.branchId) {
     const [branch] = await db
       .select({ slug: branches.slug })
       .from(branches)

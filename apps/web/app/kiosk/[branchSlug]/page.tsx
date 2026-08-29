@@ -1,8 +1,8 @@
-import { format } from "date-fns";
-import { redirect } from "next/navigation";
+import { formatInTimeZone } from "date-fns-tz";
+import { redirect, notFound } from "next/navigation";
 import { getUser } from "@/lib/auth/getUser";
 import { db } from "@/lib/db";
-import { employees } from "@scheduler/database/schema";
+import { employees, branches } from "@scheduler/database/schema";
 import { eq, and } from "drizzle-orm";
 import { KioskContent } from "@/components/kiosk/KioskContent";
 
@@ -15,6 +15,14 @@ export default async function KioskPage({ params }: { params: Promise<{ branchSl
   }
 
   const { branchSlug } = await params;
+
+  const [branch] = await db
+    .select({ timezone: branches.timezone })
+    .from(branches)
+    .where(and(eq(branches.slug, branchSlug), eq(branches.organizationId, user.organizationId)))
+    .limit(1);
+
+  if (!branch) notFound();
 
   // Get admin's employee record to check if they have a PIN
   const [adminEmployee] = await db
@@ -34,13 +42,16 @@ export default async function KioskPage({ params }: { params: Promise<{ branchSl
     <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-8 p-8">
       <div className="text-center">
         <h1 className="text-3xl font-bold">Clock In / Out</h1>
-        <p className="text-muted-foreground mt-1">{format(new Date(), "EEEE, MMMM d · HH:mm")}</p>
+        <p className="text-muted-foreground mt-1">
+          {formatInTimeZone(new Date(), branch.timezone, "EEEE, MMMM d · HH:mm")}
+        </p>
       </div>
 
       <KioskContent
         branchSlug={branchSlug}
         adminEmployeeId={adminEmployee?.id}
         needsPinSetup={needsPinSetup ?? false}
+        timezone={branch.timezone}
       />
     </div>
   );

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Employee, Branch, JobRole } from "@scheduler/types";
 import { extractErrorMessage } from "@/lib/utils/extract-error";
+import { toast } from "sonner";
 
 const roleLabel: Record<string, string> = {
   org_admin: "Org Admin",
@@ -118,6 +119,11 @@ export function EmployeeForm({ open, onOpenChange, employee, branches, jobRoles,
       setError(extractErrorMessage(data.error));
       setLoading(false);
       return;
+    }
+
+    const data = await res.json();
+    if (!isEdit && data.emailSent === false) {
+      toast.warning(`${name} was added, but the invitation email couldn't be sent. Share their PIN with them directly.`);
     }
 
     setLoading(false);

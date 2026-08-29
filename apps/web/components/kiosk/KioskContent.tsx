@@ -20,9 +20,10 @@ type Props = {
   branchSlug: string;
   adminEmployeeId?: string;
   needsPinSetup?: boolean;
+  timezone: string;
 };
 
-export function KioskContent({ branchSlug, adminEmployeeId, needsPinSetup = false }: Props) {
+export function KioskContent({ branchSlug, adminEmployeeId, needsPinSetup = false, timezone }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ClockResult | null>(null);
@@ -85,7 +86,7 @@ export function KioskContent({ branchSlug, adminEmployeeId, needsPinSetup = fals
 
       <div className="flex flex-col items-center gap-6">
         {result || error ? (
-          <ClockConfirmation result={result} error={error} onReset={handleReset} />
+          <ClockConfirmation result={result} error={error} onReset={handleReset} timezone={timezone} />
         ) : (
           <PinPad onSubmit={handlePin} loading={loading} />
         )}

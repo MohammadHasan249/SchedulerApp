@@ -1,6 +1,6 @@
 "use client";
 
-import { format } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { CheckCircle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -12,9 +12,10 @@ type Props = {
   } | null;
   error: string;
   onReset: () => void;
+  timezone: string;
 };
 
-export function ClockConfirmation({ result, error, onReset }: Props) {
+export function ClockConfirmation({ result, error, onReset, timezone }: Props) {
   if (error) {
     return (
       <div className="flex flex-col items-center gap-4 text-center">
@@ -36,7 +37,7 @@ export function ClockConfirmation({ result, error, onReset }: Props) {
           {result.clockType === "clock_in" ? "Clocked In" : "Clocked Out"}
         </p>
         <p className="text-sm text-muted-foreground mt-1">
-          {format(new Date(result.timestamp), "HH:mm:ss")}
+          {formatInTimeZone(new Date(result.timestamp), timezone, "HH:mm:ss")}
         </p>
       </div>
       <Button onClick={onReset} size="lg" variant="outline">
