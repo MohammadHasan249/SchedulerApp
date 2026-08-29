@@ -468,11 +468,17 @@ export function WeeklyScheduleGrid({
                   </div>
                   {(() => {
                     const assignCount = msg.actions?.filter((a) => a.type === "assign_employee").length ?? 0;
-                    return assignCount > 0 ? (
+                    const createCount = msg.actions?.filter((a) => a.type === "create_shift").length ?? 0;
+                    if (assignCount === 0 && createCount === 0) return null;
+                    const parts = [
+                      createCount > 0 ? (createCount === 1 ? "1 shift created" : `${createCount} shifts created`) : null,
+                      assignCount > 0 ? (assignCount === 1 ? "1 assignment made" : `${assignCount} assignments made`) : null,
+                    ].filter(Boolean);
+                    return (
                       <span className="self-start rounded-full bg-green-500/15 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
-                        ✓ {assignCount === 1 ? "1 assignment made" : `${assignCount} assignments made`}
+                        ✓ {parts.join(" · ")}
                       </span>
-                    ) : null;
+                    );
                   })()}
                 </div>
               </div>

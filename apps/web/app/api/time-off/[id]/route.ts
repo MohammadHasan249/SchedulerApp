@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 import { z } from "zod";
 import { safeJson } from "@/lib/utils/safe-json";
 import { db } from "@/lib/db";
@@ -6,6 +7,7 @@ import { timeOffRequests, employees, shifts, shiftAssignments } from "@scheduler
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { createNotification } from "@/lib/notifications";
+import { sendTimeOffDecisionEmail } from "@/lib/email/send-time-off-decision-email";
 import { eq, and, gte, lte } from "drizzle-orm";
 
 const patchSchema = z.object({
@@ -87,6 +89,19 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
         ? `Your time-off request for ${updated.startDate} – ${updated.endDate} was approved.`
         : `Your time-off request for ${updated.startDate} – ${updated.endDate} was denied.`,
   });
+
+  // Best-effort email — failures here shouldn't fail the approval/denial itself.
+  try {
+    await sendTimeOffDecisionEmail(
+      row.emp.email,
+      row.emp.name,
+      parsed.data.status,
+      updated.startDate,
+      updated.endDate
+    );
+  } catch (error) {
+    logger.error("Failed to send time-off decision email:", error);
+  }
 
   return NextResponse.json(updated);
 });

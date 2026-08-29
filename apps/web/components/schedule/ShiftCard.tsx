@@ -45,7 +45,7 @@ export function ShiftCard({ shift, assignments, employees, isPast, canEdit, onEd
       {assignedNames.length > 0 && (
         <div className="text-muted-foreground truncate">{assignedNames.join(", ")}</div>
       )}
-      {!isPast && canEdit && (
+      {canEdit && (
         <div className="flex gap-1 mt-1">
           <button
             className="text-muted-foreground hover:text-foreground"

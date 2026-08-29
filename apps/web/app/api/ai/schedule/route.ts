@@ -46,6 +46,14 @@ const TOOLS = [
   {
     type: "function",
     function: {
+      name: "list_branches",
+      description: "List branches in scope. Only needed when creating a shift and more than one branch exists.",
+      parameters: { type: "object", properties: {}, required: [] },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "list_shifts",
       description:
         "List upcoming shifts (next 2 weeks) for this branch, including duration, who is already assigned, and whether they are within the 10-hour maximum.",
@@ -64,15 +72,37 @@ const TOOLS = [
   {
     type: "function",
     function: {
+      name: "create_shift",
+      description:
+        "Create a new shift. Returns an error if the shift would exceed 10 hours or the branch is out of scope.",
+      parameters: {
+        type: "object",
+        properties: {
+          branchId: {
+            type: "string",
+            description:
+              "The branch reference (from list_branches) to create the shift in. Optional if there is only one branch in scope.",
+          },
+          startTime: { type: "string", description: "ISO 8601 start time." },
+          endTime: { type: "string", description: "ISO 8601 end time." },
+          isPublished: { type: "boolean", description: "Whether the shift should be published immediately. Defaults to false." },
+        },
+        required: ["startTime", "endTime"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "assign_employee",
       description:
         "Assign an employee to a shift. Returns an error if the shift exceeds 10 hours, the employee is unavailable, has approved time off, or would exceed their weekly hour cap.",
       parameters: {
         type: "object",
         properties: {
-          shiftId: { type: "string", description: "The shift ID to assign to." },
-          employeeId: { type: "string", description: "The employee ID to assign." },
-          jobRoleId: { type: "string", description: "Optional job role ID for this assignment." },
+          shiftId: { type: "string", description: "The shift reference (from list_shifts or create_shift) to assign to." },
+          employeeId: { type: "string", description: "The employee reference (from list_employees) to assign." },
+          jobRoleId: { type: "string", description: "Optional job role reference (from list_job_roles) for this assignment." },
         },
         required: ["shiftId", "employeeId"],
       },
@@ -86,7 +116,7 @@ const TOOLS = [
       parameters: {
         type: "object",
         properties: {
-          assignmentId: { type: "string", description: "The assignment ID to remove." },
+          assignmentId: { type: "string", description: "The assignment reference (from list_shifts) to remove." },
         },
         required: ["assignmentId"],
       },
@@ -126,6 +156,31 @@ export const POST = withAuth(async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
+  // ── handle registry ──────────────────────────────────────────────────────
+  // Real database IDs (UUIDs) must never reach the model or the chat transcript.
+  // Every real ID handed to the model is replaced with a short opaque handle
+  // (e.g. "shift_1"); handles are resolved back to real IDs when the model
+  // calls a tool. Handles are only valid within this single request.
+  const handleToId = new Map<string, string>();
+  const idToHandle = new Map<string, string>();
+  const handleCounters: Record<string, number> = {};
+
+  function toHandle(prefix: string, id: string): string {
+    const existing = idToHandle.get(id);
+    if (existing) return existing;
+    const n = (handleCounters[prefix] ?? 0) + 1;
+    handleCounters[prefix] = n;
+    const handle = `${prefix}_${n}`;
+    handleToId.set(handle, id);
+    idToHandle.set(id, handle);
+    return handle;
+  }
+
+  function fromHandle(handle: string | null | undefined): string | undefined {
+    if (!handle) return undefined;
+    return handleToId.get(handle);
+  }
+
   // ── helpers ────────────────────────────────────────────────────────────────
 
   async function getScopedBranchIds(): Promise<string[]> {
@@ -150,10 +205,21 @@ export const POST = withAuth(async function POST(request: Request) {
   // ── tool implementations ───────────────────────────────────────────────────
 
   async function toolListJobRoles() {
-    return db
+    const rows = await db
       .select({ id: jobRoles.id, name: jobRoles.name })
       .from(jobRoles)
       .where(eq(jobRoles.organizationId, user.organizationId));
+    return rows.map((r) => ({ id: toHandle("role", r.id), name: r.name }));
+  }
+
+  async function toolListBranches() {
+    const branchIds = await getScopedBranchIds();
+    if (branchIds.length === 0) return [];
+    const rows = await db
+      .select({ id: branches.id, name: branches.name })
+      .from(branches)
+      .where(inArray(branches.id, branchIds));
+    return rows.map((b) => ({ id: toHandle("branch", b.id), name: b.name }));
   }
 
   async function toolListShifts() {
@@ -197,14 +263,19 @@ export const POST = withAuth(async function POST(request: Request) {
     return shiftRows.map((s) => {
       const hours = shiftHours(new Date(s.startTime), new Date(s.endTime));
       return {
-        id: s.id,
-        branchId: s.branchId,
+        id: toHandle("shift", s.id),
+        branchId: toHandle("branch", s.branchId),
         startTime: s.startTime,
         endTime: s.endTime,
         durationHours: Math.round(hours * 10) / 10,
         exceedsMaxHours: hours > MAX_SHIFT_HOURS,
         isPublished: s.isPublished,
-        assignments: byShift.get(s.id) ?? [],
+        assignments: (byShift.get(s.id) ?? []).map((a) => ({
+          id: toHandle("assignment", a.id),
+          employeeId: toHandle("employee", a.employeeId),
+          employeeName: a.employeeName,
+          jobRoleId: a.jobRoleId ? toHandle("role", a.jobRoleId) : null,
+        })),
       };
     });
   }
@@ -275,14 +346,62 @@ export const POST = withAuth(async function POST(request: Request) {
     }
 
     return rows.map((e) => ({
-      id: e.id,
+      id: toHandle("employee", e.id),
       name: e.name,
-      jobRoleId: e.jobRoleId,
+      jobRoleId: e.jobRoleId ? toHandle("role", e.jobRoleId) : null,
       jobRoleName: e.jobRoleId ? (roleMap.get(e.jobRoleId) ?? null) : null,
       maxHoursPerWeek: e.maxHoursPerWeek ?? 40,
       currentWeekHours: Math.round((hoursMap.get(e.id) ?? 0) * 10) / 10,
       availability: e.availabilitySchedule,
     }));
+  }
+
+  async function toolCreateShift(input: {
+    branchId?: string;
+    startTime: string;
+    endTime: string;
+    isPublished?: boolean;
+  }) {
+    const branchIds = await getScopedBranchIds();
+    if (branchIds.length === 0) return { error: "No branch in scope" };
+
+    let branchId: string;
+    if (input.branchId) {
+      const resolved = fromHandle(input.branchId);
+      if (!resolved || !branchIds.includes(resolved)) {
+        return { error: "Branch not found or out of scope. Call list_branches to get a valid reference." };
+      }
+      branchId = resolved;
+    } else if (branchIds.length === 1) {
+      branchId = branchIds[0];
+    } else {
+      return { error: "Multiple branches in scope — call list_branches and specify branchId." };
+    }
+
+    const startTime = new Date(input.startTime);
+    const endTime = new Date(input.endTime);
+    if (Number.isNaN(startTime.getTime()) || Number.isNaN(endTime.getTime()) || endTime <= startTime) {
+      return { error: "Invalid startTime/endTime" };
+    }
+
+    const hours = shiftHours(startTime, endTime);
+    if (hours > MAX_SHIFT_HOURS) {
+      return {
+        error: `Shift would be ${Math.round(hours * 10) / 10}h, which exceeds the ${MAX_SHIFT_HOURS}-hour maximum. Cannot create.`,
+      };
+    }
+
+    const [shift] = await db
+      .insert(shifts)
+      .values({
+        branchId,
+        startTime,
+        endTime,
+        isPublished: input.isPublished ?? false,
+      })
+      .returning();
+
+    return { success: true, shiftId: toHandle("shift", shift.id) };
   }
 
   async function toolAssignEmployee(input: {
@@ -292,10 +411,19 @@ export const POST = withAuth(async function POST(request: Request) {
   }) {
     const branchIds = await getScopedBranchIds();
 
+    const shiftId = fromHandle(input.shiftId);
+    if (!shiftId) return { error: "Shift not found. Call list_shifts to get a valid reference." };
+    const employeeId = fromHandle(input.employeeId);
+    if (!employeeId) return { error: "Employee not found. Call list_employees to get a valid reference." };
+    const jobRoleId = input.jobRoleId ? fromHandle(input.jobRoleId) : null;
+    if (input.jobRoleId && !jobRoleId) {
+      return { error: "Job role not found. Call list_job_roles to get a valid reference." };
+    }
+
     const [shiftRow] = await db
       .select()
       .from(shifts)
-      .where(and(eq(shifts.id, input.shiftId), inArray(shifts.branchId, branchIds)))
+      .where(and(eq(shifts.id, shiftId), inArray(shifts.branchId, branchIds)))
       .limit(1);
     if (!shiftRow) return { error: "Shift not found or out of scope" };
 
@@ -307,7 +435,7 @@ export const POST = withAuth(async function POST(request: Request) {
     }
 
     const empConditions = [
-      eq(employees.id, input.employeeId),
+      eq(employees.id, employeeId),
       eq(employees.organizationId, user.organizationId),
     ];
     if (user.role === "branch_manager") {
@@ -335,9 +463,9 @@ export const POST = withAuth(async function POST(request: Request) {
     const [assignment] = await db
       .insert(shiftAssignments)
       .values({
-        shiftId: input.shiftId,
-        employeeId: input.employeeId,
-        jobRoleId: input.jobRoleId ?? null,
+        shiftId,
+        employeeId,
+        jobRoleId: jobRoleId ?? null,
       })
       .returning();
 
@@ -347,14 +475,17 @@ export const POST = withAuth(async function POST(request: Request) {
       message: `You've been assigned to a shift starting ${new Date(shiftRow.startTime).toLocaleString()}.`,
     });
 
-    return { success: true, assignmentId: assignment.id };
+    return { success: true, assignmentId: toHandle("assignment", assignment.id), shiftId: toHandle("shift", shiftId), employeeId: toHandle("employee", employeeId) };
   }
 
   async function toolUnassignEmployee(input: { assignmentId: string }) {
+    const assignmentId = fromHandle(input.assignmentId);
+    if (!assignmentId) return { error: "Assignment not found. Call list_shifts to get a valid reference." };
+
     const [row] = await db
       .select({ shiftId: shiftAssignments.shiftId })
       .from(shiftAssignments)
-      .where(eq(shiftAssignments.id, input.assignmentId))
+      .where(eq(shiftAssignments.id, assignmentId))
       .limit(1);
     if (!row) return { error: "Assignment not found" };
 
@@ -366,15 +497,17 @@ export const POST = withAuth(async function POST(request: Request) {
       .limit(1);
     if (!shift) return { error: "Assignment out of scope" };
 
-    await db.delete(shiftAssignments).where(eq(shiftAssignments.id, input.assignmentId));
+    await db.delete(shiftAssignments).where(eq(shiftAssignments.id, assignmentId));
     return { success: true };
   }
 
   async function executeTool(name: string, args: Record<string, unknown>) {
     switch (name) {
       case "list_job_roles":    return toolListJobRoles();
+      case "list_branches":     return toolListBranches();
       case "list_shifts":       return toolListShifts();
       case "list_employees":    return toolListEmployees();
+      case "create_shift":      return toolCreateShift(args as { branchId?: string; startTime: string; endTime: string; isPublished?: boolean });
       case "assign_employee":   return toolAssignEmployee(args as { shiftId: string; employeeId: string; jobRoleId?: string });
       case "unassign_employee": return toolUnassignEmployee(args as { assignmentId: string });
       default: return { error: `Unknown tool: ${name}` };
@@ -392,12 +525,13 @@ Hard constraints enforced by the system (the assign_employee tool will reject vi
 4. Employees cannot exceed their maximum hours per week.
 
 Your job:
-- If the user refers to a shift or employee by day/name rather than by ID, you MUST call list_shifts and/or list_employees first to resolve that reference to a concrete ID before doing anything else — never guess an ID.
+- If the user refers to a shift, employee, branch, or job role by day/name rather than by reference, you MUST call the matching list_* tool first to resolve it to a reference before doing anything else — never guess a reference.
+- To create a new shift, call create_shift with the start/end time (and branchId if there is more than one branch — call list_branches to get it).
 - Prefer employees whose job role matches what the shift needs.
 - Once you have resolved the shift and employee, you MUST actually call assign_employee — do not just describe the assignment in words. Never tell the user an employee has been assigned unless you called assign_employee and it returned success.
 - If a reference is genuinely ambiguous (e.g. multiple shifts match "Monday"), ask a clarifying question instead of guessing, and do not claim an assignment was made.
-- When a constraint blocks an assignment, explain why and suggest alternatives if possible.
-- After completing assignments, summarize what was done (names, times, roles).
+- When a constraint blocks an assignment or shift creation, explain why and suggest alternatives if possible.
+- After completing actions, summarize what was done in plain terms (names, dates, times, roles) — never mention IDs, references, or handles like "shift_1" in your reply to the user, those are internal only.
 - Today is ${new Date().toDateString()}.`;
 
   type DeepSeekMessage =
@@ -415,7 +549,9 @@ Your job:
     ...parsed.data.messages.map((m) => ({ role: m.role, content: m.content } as DeepSeekMessage)),
   ];
 
-  type ScheduleAction = { type: "assign_employee"; assignmentId: string; shiftId: string; employeeId: string };
+  type ScheduleAction =
+    | { type: "assign_employee"; assignmentId: string; shiftId: string; employeeId: string }
+    | { type: "create_shift"; shiftId: string };
   const actions: ScheduleAction[] = [];
 
   for (let i = 0; i < 10; i++) {
@@ -482,13 +618,20 @@ Your job:
         let result: unknown;
         try {
           result = await executeTool(tc.function.name, args);
-          const assignResult = result as { success?: boolean; assignmentId?: string } | undefined;
-          if (tc.function.name === "assign_employee" && assignResult?.success && assignResult.assignmentId) {
+          const toolResult = result as
+            | { success?: boolean; assignmentId?: string; shiftId?: string }
+            | undefined;
+          if (tc.function.name === "assign_employee" && toolResult?.success && toolResult.assignmentId) {
             actions.push({
               type: "assign_employee",
-              assignmentId: assignResult.assignmentId,
-              shiftId: args.shiftId as string,
-              employeeId: args.employeeId as string,
+              assignmentId: fromHandle(toolResult.assignmentId) ?? toolResult.assignmentId,
+              shiftId: fromHandle(toolResult.shiftId) ?? (args.shiftId as string),
+              employeeId: fromHandle((toolResult as { employeeId?: string }).employeeId) ?? (args.employeeId as string),
+            });
+          } else if (tc.function.name === "create_shift" && toolResult?.success && toolResult.shiftId) {
+            actions.push({
+              type: "create_shift",
+              shiftId: fromHandle(toolResult.shiftId) ?? toolResult.shiftId,
             });
           }
         } catch (e) {

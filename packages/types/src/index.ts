@@ -82,12 +82,9 @@ export interface ScheduleChatMessage {
   content: string;
 }
 
-export interface ScheduleChatAction {
-  type: "assign_employee";
-  assignmentId: string;
-  shiftId: string;
-  employeeId: string;
-}
+export type ScheduleChatAction =
+  | { type: "assign_employee"; assignmentId: string; shiftId: string; employeeId: string }
+  | { type: "create_shift"; shiftId: string };
 
 export interface ShiftAssignment {
   id: string;

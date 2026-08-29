@@ -98,13 +98,51 @@ describe("POST /api/ai/schedule", () => {
     expect(await res.json()).toEqual({ reply: "Here is the schedule summary.", actions: [] });
   });
 
-  it("runs assign_employee via the tool loop and returns the follow-up reply", async () => {
-    (getApiUser as any).mockResolvedValue(orgAdmin);
+  // assign_employee only accepts opaque handles (e.g. "shift_1"), never real
+  // DB IDs — the model must call list_shifts/list_employees first to obtain
+  // them. These mocks stand in for that resolution sequence.
+  function mockListAndAssignDbCalls() {
     (db.select as any)
+      // list_shifts
       .mockReturnValueOnce(chain([{ id: "b1" }])) // getScopedBranchIds
-      .mockReturnValueOnce(chain([{ id: "shift-1", branchId: "b1", startTime: new Date("2024-01-01T09:00:00Z"), endTime: new Date("2024-01-01T13:00:00Z") }])) // shift lookup
+      .mockReturnValueOnce(
+        chain([
+          {
+            id: "shift-1",
+            branchId: "b1",
+            startTime: new Date("2024-01-01T09:00:00Z"),
+            endTime: new Date("2024-01-01T13:00:00Z"),
+            isPublished: false,
+          },
+        ])
+      ) // shiftRows
+      .mockReturnValueOnce(chain([])) // assignmentRows
+      // list_employees
+      .mockReturnValueOnce(
+        chain([{ id: "emp-1", name: "Emp One", jobRoleId: null, maxHoursPerWeek: 40, availabilitySchedule: null }])
+      ) // employee rows
+      .mockReturnValueOnce(chain([])) // jobRoles rows
+      .mockReturnValueOnce(chain([{ id: "b1" }])) // getScopedBranchIds (for week hours)
+      .mockReturnValueOnce(chain([])) // weekAssignments
+      // assign_employee
+      .mockReturnValueOnce(chain([{ id: "b1" }])) // getScopedBranchIds
+      .mockReturnValueOnce(
+        chain([
+          {
+            id: "shift-1",
+            branchId: "b1",
+            startTime: new Date("2024-01-01T09:00:00Z"),
+            endTime: new Date("2024-01-01T13:00:00Z"),
+          },
+        ])
+      ) // shift lookup
       .mockReturnValueOnce(chain([{ id: "emp-1" }])) // employee lookup
       .mockReturnValueOnce(chain([{ timezone: "UTC" }])); // branch timezone
+  }
+
+  it("runs assign_employee via the tool loop and returns the follow-up reply", async () => {
+    (getApiUser as any).mockResolvedValue(orgAdmin);
+    mockListAndAssignDbCalls();
     (validateAssignment as any).mockResolvedValue({ ok: true });
     const valuesSpy = vi.fn().mockReturnValue(chain([{ id: "assignment-1" }]));
     (db.insert as any).mockReturnValue({ values: valuesSpy });
@@ -112,6 +150,85 @@ describe("POST /api/ai/schedule", () => {
 
     let call = 0;
     global.fetch = vi.fn().mockImplementation(async () => {
+      call += 1;
+      if (call === 1) {
+        return {
+          ok: true,
+          json: async () => ({
+            choices: [
+              {
+                finish_reason: "tool_calls",
+                message: { role: "assistant", content: null, tool_calls: [{ id: "c1", type: "function", function: { name: "list_shifts", arguments: "{}" } }] },
+              },
+            ],
+          }),
+        };
+      }
+      if (call === 2) {
+        return {
+          ok: true,
+          json: async () => ({
+            choices: [
+              {
+                finish_reason: "tool_calls",
+                message: { role: "assistant", content: null, tool_calls: [{ id: "c2", type: "function", function: { name: "list_employees", arguments: "{}" } }] },
+              },
+            ],
+          }),
+        };
+      }
+      if (call === 3) {
+        return {
+          ok: true,
+          json: async () => ({
+            choices: [
+              {
+                finish_reason: "tool_calls",
+                message: {
+                  role: "assistant",
+                  content: null,
+                  tool_calls: [
+                    {
+                      id: "call-1",
+                      type: "function",
+                      function: { name: "assign_employee", arguments: JSON.stringify({ shiftId: "shift_1", employeeId: "employee_1" }) },
+                    },
+                  ],
+                },
+              },
+            ],
+          }),
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({ choices: [{ finish_reason: "stop", message: { role: "assistant", content: "Assigned Emp One to the shift." } }] }),
+      };
+    }) as any;
+
+    const res = await POST(req(validBody));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      reply: "Assigned Emp One to the shift.",
+      actions: [
+        { type: "assign_employee", assignmentId: "assignment-1", shiftId: "shift-1", employeeId: "emp-1" },
+      ],
+    });
+    expect(createNotification).toHaveBeenCalled();
+    expect(valuesSpy).toHaveBeenCalledWith({
+      shiftId: "shift-1",
+      employeeId: "emp-1",
+      jobRoleId: null,
+    });
+  });
+
+  it("rejects an assign_employee call that uses a raw DB ID instead of a resolved handle", async () => {
+    (getApiUser as any).mockResolvedValue(orgAdmin);
+    (db.select as any).mockReturnValue(chain([{ id: "b1" }]));
+
+    let call = 0;
+    let secondCallMessages: unknown[] = [];
+    global.fetch = vi.fn().mockImplementation(async (_url: string, init: any) => {
       call += 1;
       if (call === 1) {
         return {
@@ -136,41 +253,55 @@ describe("POST /api/ai/schedule", () => {
           }),
         };
       }
+      secondCallMessages = JSON.parse(init.body).messages;
       return {
         ok: true,
-        json: async () => ({ choices: [{ finish_reason: "stop", message: { role: "assistant", content: "Assigned emp-1 to the shift." } }] }),
+        json: async () => ({ choices: [{ finish_reason: "stop", message: { role: "assistant", content: "ok" } }] }),
       };
     }) as any;
 
     const res = await POST(req(validBody));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({
-      reply: "Assigned emp-1 to the shift.",
-      actions: [
-        { type: "assign_employee", assignmentId: "assignment-1", shiftId: "shift-1", employeeId: "emp-1" },
-      ],
-    });
-    expect(createNotification).toHaveBeenCalled();
-    expect(valuesSpy).toHaveBeenCalledWith({
-      shiftId: "shift-1",
-      employeeId: "emp-1",
-      jobRoleId: null,
-    });
+    expect(db.insert).not.toHaveBeenCalled();
+    const toolMsg = secondCallMessages.find((m: any) => m.role === "tool");
+    expect(JSON.parse((toolMsg as any).content).error).toMatch(/not found/i);
   });
 
   it("does not report an action when assign_employee is rejected by validation", async () => {
     (getApiUser as any).mockResolvedValue(orgAdmin);
-    (db.select as any)
-      .mockReturnValueOnce(chain([{ id: "b1" }]))
-      .mockReturnValueOnce(chain([{ id: "shift-1", branchId: "b1", startTime: new Date("2024-01-01T09:00:00Z"), endTime: new Date("2024-01-01T13:00:00Z") }]))
-      .mockReturnValueOnce(chain([{ id: "emp-1" }]))
-      .mockReturnValueOnce(chain([{ timezone: "UTC" }]));
+    mockListAndAssignDbCalls();
     (validateAssignment as any).mockResolvedValue({ ok: false, message: "Employee is unavailable that day." });
 
     let call = 0;
     global.fetch = vi.fn().mockImplementation(async () => {
       call += 1;
       if (call === 1) {
+        return {
+          ok: true,
+          json: async () => ({
+            choices: [
+              {
+                finish_reason: "tool_calls",
+                message: { role: "assistant", content: null, tool_calls: [{ id: "c1", type: "function", function: { name: "list_shifts", arguments: "{}" } }] },
+              },
+            ],
+          }),
+        };
+      }
+      if (call === 2) {
+        return {
+          ok: true,
+          json: async () => ({
+            choices: [
+              {
+                finish_reason: "tool_calls",
+                message: { role: "assistant", content: null, tool_calls: [{ id: "c2", type: "function", function: { name: "list_employees", arguments: "{}" } }] },
+              },
+            ],
+          }),
+        };
+      }
+      if (call === 3) {
         return {
           ok: true,
           json: async () => ({
@@ -184,7 +315,7 @@ describe("POST /api/ai/schedule", () => {
                     {
                       id: "call-1",
                       type: "function",
-                      function: { name: "assign_employee", arguments: JSON.stringify({ shiftId: "shift-1", employeeId: "emp-1" }) },
+                      function: { name: "assign_employee", arguments: JSON.stringify({ shiftId: "shift_1", employeeId: "employee_1" }) },
                     },
                   ],
                 },
@@ -203,6 +334,68 @@ describe("POST /api/ai/schedule", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ reply: "Can't assign — unavailable.", actions: [] });
     expect(db.insert).not.toHaveBeenCalled();
+  });
+
+  it("creates a shift via create_shift without exposing the raw ID to the model", async () => {
+    (getApiUser as any).mockResolvedValue(orgAdmin);
+    (db.select as any).mockReturnValue(chain([{ id: "b1" }])); // single branch in scope, resolved each call
+    const valuesSpy = vi.fn().mockReturnValue(chain([{ id: "new-shift-1" }]));
+    (db.insert as any).mockReturnValue({ values: valuesSpy });
+
+    let call = 0;
+    let toolResultContent = "";
+    global.fetch = vi.fn().mockImplementation(async (_url: string, init: any) => {
+      call += 1;
+      if (call === 1) {
+        return {
+          ok: true,
+          json: async () => ({
+            choices: [
+              {
+                finish_reason: "tool_calls",
+                message: {
+                  role: "assistant",
+                  content: null,
+                  tool_calls: [
+                    {
+                      id: "call-1",
+                      type: "function",
+                      function: {
+                        name: "create_shift",
+                        arguments: JSON.stringify({ startTime: "2024-01-01T09:00:00Z", endTime: "2024-01-01T13:00:00Z" }),
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          }),
+        };
+      }
+      const messages = JSON.parse(init.body).messages;
+      const toolMsg = messages.find((m: any) => m.role === "tool");
+      toolResultContent = toolMsg.content;
+      return {
+        ok: true,
+        json: async () => ({ choices: [{ finish_reason: "stop", message: { role: "assistant", content: "Created the shift." } }] }),
+      };
+    }) as any;
+
+    const res = await POST(req(validBody));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      reply: "Created the shift.",
+      actions: [{ type: "create_shift", shiftId: "new-shift-1" }],
+    });
+    expect(valuesSpy).toHaveBeenCalledWith({
+      branchId: "b1",
+      startTime: new Date("2024-01-01T09:00:00Z"),
+      endTime: new Date("2024-01-01T13:00:00Z"),
+      isPublished: false,
+    });
+    // The tool result handed back to the model must not contain the raw DB ID.
+    expect(toolResultContent).not.toContain("new-shift-1");
+    expect(JSON.parse(toolResultContent).shiftId).toBe("shift_1");
   });
 
   it("feeds a tool error back to the model instead of crashing on malformed tool arguments", async () => {
