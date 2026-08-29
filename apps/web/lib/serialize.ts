@@ -136,6 +136,5 @@ export function serializeOrganization(row: DbOrganization): Organization {
     name: row.name,
     slug: row.slug,
     logoUrl: row.logoUrl,
-    primaryColor: row.primaryColor,
   };
 }

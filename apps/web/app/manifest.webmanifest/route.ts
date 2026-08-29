@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { organizations } from "@scheduler/database/schema";
+import type { OrganizationTheme } from "@scheduler/database/schema";
 import { eq } from "drizzle-orm";
 
 function slugFromHost(host: string): string | null {
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
       const [org] = await db
         .select({
           name: organizations.name,
-          primaryColor: organizations.primaryColor,
+          theme: organizations.theme,
           logoUrl: organizations.logoUrl,
         })
         .from(organizations)
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
       if (org) {
         name = org.name;
         shortName = org.name.split(" ").slice(0, 2).join(" ");
-        primaryColor = org.primaryColor ?? "#3b82f6";
+        primaryColor = (org.theme as OrganizationTheme | null)?.primary ?? "#3b82f6";
         logoUrl = org.logoUrl ?? null;
       }
     } catch {

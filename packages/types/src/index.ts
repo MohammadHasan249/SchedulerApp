@@ -154,7 +154,6 @@ export interface Organization {
   name: string;
   slug: string;
   logoUrl: string | null;
-  primaryColor: string | null;
 }
 
 export type OrganizationTheme = {
