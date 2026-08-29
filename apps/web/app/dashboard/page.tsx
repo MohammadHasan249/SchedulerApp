@@ -2,9 +2,6 @@ import { getUser } from "@/lib/auth/getUser";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CalendarDays, Users, Clock, ArrowLeftRight, CalendarCheck2, BarChart2, Watch } from "lucide-react";
 import Link from "next/link";
-import { db } from "@/lib/db";
-import { employees, branches } from "@scheduler/database/schema";
-import { eq, and } from "drizzle-orm";
 
 const ALL_CARDS = [
   {
@@ -61,32 +58,15 @@ const ALL_CARDS = [
     icon: Watch,
     href: null,
     color: "bg-green-500/10 text-green-600",
-    roles: ["org_admin", "branch_manager", "employee"],
+    roles: ["org_admin", "branch_manager"],
   },
 ] as const;
 
 export default async function DashboardPage() {
   const user = await getUser();
 
-  const [emp] = await db
-    .select({ branchId: employees.branchId })
-    .from(employees)
-    .where(and(eq(employees.authUserId, user.id), eq(employees.organizationId, user.organizationId)))
-    .limit(1);
-
-  let kioskHref: string | null = null;
-  if (user.role === "org_admin" || user.role === "branch_manager") {
-    kioskHref = "/dashboard/kiosk";
-  } else if (emp?.branchId) {
-    const [branch] = await db
-      .select({ slug: branches.slug })
-      .from(branches)
-      .where(eq(branches.id, emp.branchId))
-      .limit(1);
-    if (branch) {
-      kioskHref = `/kiosk/${branch.slug}`;
-    }
-  }
+  const kioskHref =
+    user.role === "org_admin" || user.role === "branch_manager" ? "/dashboard/kiosk" : null;
 
   const cards = ALL_CARDS.filter((c) => c.roles.includes(user.role as never)).map((card) =>
     card.title === "Clock In/Out" && kioskHref ? { ...card, href: kioskHref } : card
