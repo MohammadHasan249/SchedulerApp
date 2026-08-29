@@ -58,3 +58,6 @@ next-env.d.ts
 Thumbs.db
 .expo
 /.claude
+
+# local MCP config (may contain secrets)
+.mcp.json
