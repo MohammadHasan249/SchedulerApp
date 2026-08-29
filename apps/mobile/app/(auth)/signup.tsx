@@ -2,11 +2,13 @@ import { View, Text, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platfor
 import { useRouter, Link } from "expo-router";
 import { Building2, User } from "lucide-react-native";
 import { useAppTheme } from "@/lib/useAppTheme";
+import { BRAND } from "@/lib/brand";
 
 export default function SignupChoiceScreen() {
   const router = useRouter();
   const theme = useAppTheme();
   const styles = makeStyles(theme);
+  const canCreateOrg = BRAND.lockedOrgSlug === null;
 
   return (
     <KeyboardAvoidingView
@@ -15,23 +17,29 @@ export default function SignupChoiceScreen() {
     >
       <View style={styles.inner}>
         <View style={styles.header}>
-          <Text style={styles.title}>Join Scheduler</Text>
-          <Text style={styles.subtitle}>Choose how you'd like to get started</Text>
+          <Text style={styles.title}>Join {BRAND.displayName}</Text>
+          <Text style={styles.subtitle}>
+            {canCreateOrg
+              ? "Choose how you'd like to get started"
+              : "Enter the invite you received to join your team"}
+          </Text>
         </View>
 
-        <TouchableOpacity
-          style={styles.card}
-          activeOpacity={0.7}
-          onPress={() => router.push("/(auth)/signup-org")}
-        >
-          <View style={[styles.iconBubble, { backgroundColor: theme.primary + "22" }]}>
-            <Building2 size={20} color={theme.primary} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.cardTitle}>Create Organization</Text>
-            <Text style={styles.cardSub}>Set up your company and become an admin</Text>
-          </View>
-        </TouchableOpacity>
+        {canCreateOrg && (
+          <TouchableOpacity
+            style={styles.card}
+            activeOpacity={0.7}
+            onPress={() => router.push("/(auth)/signup-org")}
+          >
+            <View style={[styles.iconBubble, { backgroundColor: theme.primary + "22" }]}>
+              <Building2 size={20} color={theme.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardTitle}>Create Organization</Text>
+              <Text style={styles.cardSub}>Set up your company and become an admin</Text>
+            </View>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           style={styles.card}

@@ -31,6 +31,7 @@ import { useAppTheme } from "@/lib/useAppTheme";
 import * as Notifications from "expo-notifications";
 import { useIsAdmin, useRole } from "@/lib/useRole";
 import { useEffect, useState } from "react";
+import { BRAND } from "@/lib/brand";
 
 const DAYS = [
   "Sunday",
@@ -219,14 +220,16 @@ export default function ProfileScreen() {
                 <ChevronRight size={16} color={theme.muted} />
               </TouchableOpacity>
             )}
-            <TouchableOpacity
-              style={styles.settingsRow}
-              onPress={() => router.push("/(admin)/settings-theme")}
-            >
-              <Palette size={18} color={theme.secondary} />
-              <Text style={styles.settingsRowText}>Theme Colors</Text>
-              <ChevronRight size={16} color={theme.muted} />
-            </TouchableOpacity>
+            {!BRAND.lockedThemeKey && (
+              <TouchableOpacity
+                style={styles.settingsRow}
+                onPress={() => router.push("/(admin)/settings-theme")}
+              >
+                <Palette size={18} color={theme.secondary} />
+                <Text style={styles.settingsRowText}>Theme Colors</Text>
+                <ChevronRight size={16} color={theme.muted} />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={[styles.settingsRow, styles.rowLast]}
               onPress={() => router.push("/(admin)/settings-exit-pin")}

@@ -5,6 +5,7 @@ import {
 } from "react-native";
 import { Link } from "expo-router";
 import { supabase } from "@/lib/supabase";
+import { BRAND } from "@/lib/brand";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -29,7 +30,7 @@ export default function LoginScreen() {
     >
       <View style={styles.inner}>
         <View style={styles.header}>
-          <Text style={styles.title}>Scheduler</Text>
+          <Text style={styles.title}>{BRAND.displayName}</Text>
           <Text style={styles.subtitle}>Sign in to your account</Text>
         </View>
 

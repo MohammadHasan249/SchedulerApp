@@ -14,6 +14,7 @@ import { getOrganizationTheme, updateOrganizationTheme } from "@/lib/api";
 import { useThemeStore } from "@/lib/themeStore";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { THEME_PRESETS } from "@scheduler/types";
+import { BRAND } from "@/lib/brand";
 
 const FIXED_THEME = {
   secondary: "#64748b",
@@ -62,6 +63,19 @@ export default function SettingsThemeScreen() {
       <View style={[styles.container, { justifyContent: "center" }]}>
         <ActivityIndicator color={theme.primary} />
       </View>
+    );
+  }
+
+  if (BRAND.lockedThemeKey) {
+    return (
+      <>
+        <Stack.Screen options={{ title: "Theme Colors" }} />
+        <View style={[styles.container, { justifyContent: "center", padding: 24 }]}>
+          <Text style={{ color: theme.muted, fontSize: 14, textAlign: "center" }}>
+            The {BRAND.displayName} theme is fixed and can't be changed here.
+          </Text>
+        </View>
+      </>
     );
   }
 
