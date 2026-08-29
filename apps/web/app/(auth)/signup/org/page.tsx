@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { BotIdClient } from "botid/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "motion/react";
@@ -93,6 +94,8 @@ export default function OrgSignupPage() {
   }
 
   return (
+    <>
+    <BotIdClient protect={[{ path: "/api/org", method: "POST" }]} />
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
@@ -194,5 +197,6 @@ export default function OrgSignupPage() {
       </CardContent>
     </Card>
     </motion.div>
+    </>
   );
 }
