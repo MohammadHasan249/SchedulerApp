@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Props = {
   initialIsSet: boolean;
 };
 
 export function KioskExitPinClient({ initialIsSet }: Props) {
+  const router = useRouter();
   const [isSet, setIsSet] = useState(initialIsSet);
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
@@ -42,6 +44,7 @@ export function KioskExitPinClient({ initialIsSet }: Props) {
       setPin("");
       setConfirmPin("");
       setSuccess(true);
+      router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save PIN");
     } finally {

@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Props = {
   initialEnabled: boolean;
 };
 
 export function WebKioskToggleClient({ initialEnabled }: Props) {
+  const router = useRouter();
   const [enabled, setEnabled] = useState(initialEnabled);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +28,7 @@ export function WebKioskToggleClient({ initialEnabled }: Props) {
         throw new Error(data.error ?? "Failed to update setting");
       }
       setEnabled(next);
+      router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to update setting");
     } finally {

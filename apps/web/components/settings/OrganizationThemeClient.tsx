@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { ThemeEditor } from "./ThemeEditor";
 import type { OrganizationTheme } from "@scheduler/types";
 
@@ -8,6 +9,8 @@ type Props = {
 };
 
 export function OrganizationThemeClient({ initialTheme }: Props) {
+  const router = useRouter();
+
   async function handleSave(theme: OrganizationTheme) {
     const res = await fetch("/api/org/theme", {
       method: "PATCH",
@@ -19,6 +22,8 @@ export function OrganizationThemeClient({ initialTheme }: Props) {
       const data = await res.json();
       throw new Error(data.error ?? "Failed to save theme");
     }
+
+    router.refresh();
   }
 
   return <ThemeEditor initialTheme={initialTheme} onSave={handleSave} />;
