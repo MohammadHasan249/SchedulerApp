@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { BotIdClient } from "botid/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "motion/react";
@@ -58,6 +59,7 @@ export default function EmployeeSignupPage() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
     >
+    <BotIdClient protect={[{ path: "/api/auth/employee-signup", method: "POST" }]} />
     <Card className="shadow-lg shadow-primary/5">
       <CardHeader>
         <CardTitle>Join as Employee</CardTitle>

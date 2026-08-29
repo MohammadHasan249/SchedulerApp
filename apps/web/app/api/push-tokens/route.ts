@@ -35,13 +35,24 @@ export const POST = withAuth(async function POST(request: Request) {
 });
 
 export const DELETE = withAuth(async function DELETE(request: Request) {
+  const user = await getUser();
   const { token } = await request.json();
 
   if (!token || typeof token !== "string") {
     return NextResponse.json({ error: "token is required" }, { status: 400 });
   }
 
-  await db.delete(pushTokens).where(eq(pushTokens.token, token));
+  const [emp] = await db
+    .select({ id: employees.id })
+    .from(employees)
+    .where(and(eq(employees.authUserId, user.id), eq(employees.organizationId, user.organizationId)))
+    .limit(1);
+
+  if (!emp) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  await db
+    .delete(pushTokens)
+    .where(and(eq(pushTokens.token, token), eq(pushTokens.employeeId, emp.id)));
 
   return NextResponse.json({ ok: true });
 });

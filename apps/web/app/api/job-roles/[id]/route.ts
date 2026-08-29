@@ -43,7 +43,7 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
   const [updated] = await db
     .update(jobRoles)
     .set(parsed.data)
-    .where(eq(jobRoles.id, id))
+    .where(and(eq(jobRoles.id, id), eq(jobRoles.organizationId, user.organizationId)))
     .returning();
 
   return NextResponse.json(updated);
@@ -59,6 +59,6 @@ export const DELETE = withAuth(async function DELETE(request: Request, { params 
   const role = await getRole(id, user.organizationId);
   if (!role) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  await db.delete(jobRoles).where(eq(jobRoles.id, id));
+  await db.delete(jobRoles).where(and(eq(jobRoles.id, id), eq(jobRoles.organizationId, user.organizationId)));
   return new NextResponse(null, { status: 204 });
 });

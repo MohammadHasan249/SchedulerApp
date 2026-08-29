@@ -50,7 +50,11 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
   if (parsed.data.endTime) updates.endTime = new Date(parsed.data.endTime);
   if (parsed.data.isPublished !== undefined) updates.isPublished = parsed.data.isPublished;
 
-  const [updated] = await db.update(shifts).set(updates).where(eq(shifts.id, id)).returning();
+  const [updated] = await db
+    .update(shifts)
+    .set(updates)
+    .where(and(eq(shifts.id, id), eq(shifts.branchId, row.branch.id)))
+    .returning();
   return NextResponse.json(updated);
 });
 
@@ -70,6 +74,6 @@ export const DELETE = withAuth(async function DELETE(request: Request, { params 
     return NextResponse.json({ error: "Past shifts are locked" }, { status: 409 });
   }
 
-  await db.delete(shifts).where(eq(shifts.id, id));
+  await db.delete(shifts).where(and(eq(shifts.id, id), eq(shifts.branchId, row.branch.id)));
   return new NextResponse(null, { status: 204 });
 });

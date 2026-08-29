@@ -54,7 +54,7 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
   const [updated] = await db
     .update(branches)
     .set(parsed.data)
-    .where(eq(branches.id, id))
+    .where(and(eq(branches.id, id), eq(branches.organizationId, user.organizationId)))
     .returning();
 
   return NextResponse.json(updated);

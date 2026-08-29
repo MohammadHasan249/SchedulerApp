@@ -8,6 +8,8 @@ import { organizations, employees, branches, jobRoles } from "@scheduler/databas
 import { slugify } from "@/lib/utils/slugify";
 import { eq } from "drizzle-orm";
 import { sendConfirmationEmail } from "@/lib/email/send-confirmation-email";
+import { checkRateLimit, getClientIp } from "@/lib/utils/rate-limit";
+import { checkBotId } from "botid/server";
 
 const INDUSTRY_STARTER_JOB_ROLES: Record<"restaurant" | "retail" | "other", string[]> = {
   restaurant: ["Server", "Cook", "Cashier", "Shift Manager"],
@@ -24,7 +26,23 @@ const schema = z.object({
   password: z.string().min(8),
 });
 
+const SIGNUP_RATE_LIMIT = { maxAttempts: 5, windowMs: 15 * 60 * 1000 };
+
 export async function POST(request: Request) {
+  const verification = await checkBotId();
+  if (verification.isBot) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const rl = await checkRateLimit(`org-signup:${getClientIp(request)}`, SIGNUP_RATE_LIMIT);
+  if (!rl.allowed) {
+    const retryAfterSec = Math.max(1, Math.ceil((rl.resetAt - Date.now()) / 1000));
+    return NextResponse.json(
+      { error: "Too many attempts. Try again later." },
+      { status: 429, headers: { "Retry-After": String(retryAfterSec) } }
+    );
+  }
+
   const [body, jsonErr] = await safeJson(request);
   if (jsonErr) return jsonErr;
   const parsed = schema.safeParse(body);

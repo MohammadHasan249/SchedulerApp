@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withBotId } from "botid/next/config";
 
 const SECURITY_HEADERS = [
   // Force HTTPS for two years and pre-load. Safe to commit because Vercel
@@ -13,6 +14,20 @@ const SECURITY_HEADERS = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   // Drop powerful features the app doesn't use; cookies are not deprecated.
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), interest-cohort=()" },
+  // Defense-in-depth against XSS: restrict script/style/connect origins.
+  {
+    key: "Content-Security-Policy",
+    value: [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: https:",
+      "connect-src 'self' https://*.supabase.co",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join("; "),
+  },
 ];
 
 const nextConfig: NextConfig = {
@@ -21,4 +36,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withBotId(nextConfig);

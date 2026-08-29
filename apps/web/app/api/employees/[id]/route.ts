@@ -22,9 +22,26 @@ const patchSchema = z.object({
   pin: z.string().regex(/^\d{4}$/).optional(),
 });
 
+// Excludes pinHash — a leaked bcrypt hash of a 4-digit PIN is crackable
+// offline almost instantly, so it must never reach the client.
+const EMPLOYEE_COLUMNS = {
+  id: employees.id,
+  organizationId: employees.organizationId,
+  branchId: employees.branchId,
+  authUserId: employees.authUserId,
+  name: employees.name,
+  email: employees.email,
+  role: employees.role,
+  jobRoleId: employees.jobRoleId,
+  maxHoursPerWeek: employees.maxHoursPerWeek,
+  isActive: employees.isActive,
+  availabilitySchedule: employees.availabilitySchedule,
+  permissionProfileId: employees.permissionProfileId,
+} as const;
+
 async function getEmployee(id: string, organizationId: string) {
   const [row] = await db
-    .select()
+    .select(EMPLOYEE_COLUMNS)
     .from(employees)
     .where(and(eq(employees.id, id), eq(employees.organizationId, organizationId)))
     .limit(1);
@@ -190,8 +207,8 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
       const [row] = await tx
         .update(employees)
         .set(updates)
-        .where(eq(employees.id, id))
-        .returning();
+        .where(and(eq(employees.id, id), eq(employees.organizationId, user.organizationId)))
+        .returning(EMPLOYEE_COLUMNS);
 
       if ((rest.role || rest.branchId !== undefined) && employee.authUserId) {
         const supabase = createAdminClient();
@@ -257,8 +274,8 @@ export const DELETE = withAuth(async function DELETE(request: Request, { params 
     const [row] = await tx
       .update(employees)
       .set({ isActive: false })
-      .where(eq(employees.id, id))
-      .returning();
+      .where(and(eq(employees.id, id), eq(employees.organizationId, user.organizationId)))
+      .returning(EMPLOYEE_COLUMNS);
 
     const futureShiftIds = (
       await tx

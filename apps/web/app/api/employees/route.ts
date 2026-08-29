@@ -154,7 +154,20 @@ export const POST = withAuth(async function POST(request: Request) {
       pinHash,
       availabilitySchedule: defaultSchedule,
     })
-    .returning();
+    .returning({
+      id: employees.id,
+      organizationId: employees.organizationId,
+      branchId: employees.branchId,
+      authUserId: employees.authUserId,
+      name: employees.name,
+      email: employees.email,
+      role: employees.role,
+      jobRoleId: employees.jobRoleId,
+      maxHoursPerWeek: employees.maxHoursPerWeek,
+      isActive: employees.isActive,
+      availabilitySchedule: employees.availabilitySchedule,
+      permissionProfileId: employees.permissionProfileId,
+    });
 
   let emailSent = false;
   try {

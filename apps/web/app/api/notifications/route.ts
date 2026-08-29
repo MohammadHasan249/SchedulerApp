@@ -32,8 +32,8 @@ export const GET = withAuth(async function GET(request: Request) {
     return NextResponse.json({ count: rows.length });
   }
 
-  const limit = Number(url.searchParams.get("limit")) || 50;
-  const offset = Number(url.searchParams.get("offset")) || 0;
+  const limit = Math.min(Math.max(Number(url.searchParams.get("limit")) || 5, 1), 5);
+  const offset = Math.max(Number(url.searchParams.get("offset")) || 0, 0);
 
   // Find the employee row for this auth user
   const [emp] = await db
