@@ -136,7 +136,7 @@ export async function sendTimeOffNotification(
       .header { background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
       .content { line-height: 1.6; }
       .details { background-color: #f9f9f9; padding: 15px; border-left: 4px solid #3b82f6; margin: 20px 0; }
-      .button { display: inline-block; margin-top: 20px; padding: 12px 24px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 6px; }
+      .button { display: inline-block; margin-top: 20px; padding: 12px 24px; background-color: #3b82f6; color: #ffffff !important; text-decoration: none; border-radius: 6px; }
       .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e5e5; font-size: 12px; color: #666; }
     </style>
   </head>
@@ -161,7 +161,7 @@ export async function sendTimeOffNotification(
 
         <p>Please log in to your dashboard to review and approve or deny this request.</p>
 
-        <a href="${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/dashboard/time-off" class="button">View Request</a>
+        <a href="${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/dashboard/time-off" class="button" style="display: inline-block; margin-top: 20px; padding: 12px 24px; background-color: #3b82f6; color: #ffffff; text-decoration: none; border-radius: 6px;">View Request</a>
       </div>
 
       <div class="footer">
