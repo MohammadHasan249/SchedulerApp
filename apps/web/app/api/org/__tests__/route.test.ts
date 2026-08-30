@@ -3,6 +3,7 @@ import { POST } from "../route";
 import { db } from "@/lib/db";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendConfirmationEmail } from "@/lib/email/send-confirmation-email";
+import { BRANDS } from "@/lib/brand";
 import { chain } from "@/test/db-mock";
 
 vi.mock("@/lib/db", () => ({ db: { select: vi.fn(), transaction: vi.fn() } }));
@@ -82,7 +83,12 @@ describe("POST /api/org (create organization)", () => {
       "auth-1",
       expect.objectContaining({ app_metadata: expect.objectContaining({ organization_id: "org-123" }) })
     );
-    expect(sendConfirmationEmail).toHaveBeenCalledWith("jane@acme.com", "http://test/confirm", "Jane Admin");
+    expect(sendConfirmationEmail).toHaveBeenCalledWith(
+      "jane@acme.com",
+      "http://test/confirm",
+      "Jane Admin",
+      BRANDS.workplix
+    );
   });
 
   it("returns 500 with the auth error when Supabase user creation fails", async () => {

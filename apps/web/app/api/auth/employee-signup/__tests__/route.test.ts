@@ -3,6 +3,7 @@ import { POST } from "../route";
 import { db } from "@/lib/db";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendConfirmationEmail } from "@/lib/email/send-confirmation-email";
+import { BRANDS } from "@/lib/brand";
 import { chain } from "@/test/db-mock";
 
 vi.mock("@/lib/db", () => ({ db: { select: vi.fn(), update: vi.fn() } }));
@@ -62,7 +63,12 @@ describe("POST /api/auth/employee-signup", () => {
     const res = await POST(req({ email: "jane@x.com", password: "password123" }));
     expect(res.status).toBe(201);
     expect(db.update).toHaveBeenCalled();
-    expect(sendConfirmationEmail).toHaveBeenCalledWith("jane@x.com", "http://test/confirm", "Jane");
+    expect(sendConfirmationEmail).toHaveBeenCalledWith(
+      "jane@x.com",
+      "http://test/confirm",
+      "Jane",
+      BRANDS.workplix
+    );
   });
 
   it("does not enumerate existing auth users on createUser failure", async () => {

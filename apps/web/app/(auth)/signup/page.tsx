@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, User } from "lucide-react";
+import { useBrand } from "@/lib/brand-context";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -16,35 +17,39 @@ const container = {
 };
 
 export default function SignupChoicePage() {
+  const brand = useBrand();
+
   return (
     <motion.div initial="hidden" animate="show" variants={container} className="space-y-6">
       <motion.div variants={fadeUp} className="text-center">
-        <h1 className="text-2xl font-bold text-foreground">Join Workplix</h1>
+        <h1 className="text-2xl font-bold text-foreground">Join {brand.displayName}</h1>
         <p className="text-muted-foreground text-sm mt-1">
           Choose how you&apos;d like to get started
         </p>
       </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Organization signup */}
-        <motion.div variants={fadeUp} whileHover={{ y: -4 }}>
-          <Link href="/signup/org">
-            <Card className="group h-full cursor-pointer transition-shadow hover:shadow-lg hover:shadow-primary/10">
-              <CardHeader>
-                <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-2 group-hover:bg-primary/20 transition-colors">
-                  <Building2 className="h-5 w-5" />
-                </div>
-                <CardTitle>Create Organization</CardTitle>
-                <CardDescription>Set up your company and start scheduling</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs text-muted-foreground">
-                  You&apos;ll create an organization account and become an admin
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-        </motion.div>
+      <div className={`grid grid-cols-1 gap-4 ${brand.lockedOrgSlug ? "" : "md:grid-cols-2"}`}>
+        {/* Organization signup — disabled on locked-org brand variants */}
+        {!brand.lockedOrgSlug && (
+          <motion.div variants={fadeUp} whileHover={{ y: -4 }}>
+            <Link href="/signup/org">
+              <Card className="group h-full cursor-pointer transition-shadow hover:shadow-lg hover:shadow-primary/10">
+                <CardHeader>
+                  <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-2 group-hover:bg-primary/20 transition-colors">
+                    <Building2 className="h-5 w-5" />
+                  </div>
+                  <CardTitle>Create Organization</CardTitle>
+                  <CardDescription>Set up your company and start scheduling</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-xs text-muted-foreground">
+                    You&apos;ll create an organization account and become an admin
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+          </motion.div>
+        )}
 
         {/* Employee signup */}
         <motion.div variants={fadeUp} whileHover={{ y: -4 }}>

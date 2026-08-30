@@ -1,7 +1,7 @@
 import { apiFetch } from "./client";
 import type { OrganizationTheme } from "@scheduler/types";
 
-export function getOrganizationInfo(): Promise<{ name: string | null }> {
+export function getOrganizationInfo(): Promise<{ name: string | null; slug: string | null }> {
   return apiFetch("/api/org/info");
 }
 

@@ -3,11 +3,12 @@ import { z } from "zod";
 import { safeJson } from "@/lib/utils/safe-json";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { db } from "@/lib/db";
-import { employees } from "@scheduler/database/schema";
-import { eq } from "drizzle-orm";
+import { employees, organizations } from "@scheduler/database/schema";
+import { and, eq } from "drizzle-orm";
 import { sendConfirmationEmail } from "@/lib/email/send-confirmation-email";
 import { logger } from "@/lib/logger";
 import { checkRateLimit, getClientIp } from "@/lib/utils/rate-limit";
+import { getBrandForHost, getBrandForOrgSlug } from "@/lib/brand";
 
 const schema = z.object({
   email: z.string().email(),
@@ -39,18 +40,33 @@ export async function POST(request: Request) {
 
   const supabase = createAdminClient();
 
-  // Check if employee was invited (exists in employees table)
+  // Web-only gate: which brand this specific request came in on (e.g.
+  // seaudecrabe.workplix.app). Mobile always calls the same shared API host
+  // regardless of variant, so this only restricts the web signup page.
+  const hostBrand = getBrandForHost(request.headers.get("host"));
+
+  // Check if employee was invited (exists in employees table). Email is only
+  // unique per-org (UNIQUE(organization_id, email)), so on locked-org brand
+  // domains filter to that org directly in the query rather than fetching an
+  // arbitrary org's row for this email and checking after the fact.
+  const emailCondition = eq(employees.email, email);
   const [employee] = await db
     .select({
       id: employees.id,
       organizationId: employees.organizationId,
+      organizationSlug: organizations.slug,
       name: employees.name,
       role: employees.role,
       branchId: employees.branchId,
       authUserId: employees.authUserId,
     })
     .from(employees)
-    .where(eq(employees.email, email))
+    .innerJoin(organizations, eq(organizations.id, employees.organizationId))
+    .where(
+      hostBrand.lockedOrgSlug
+        ? and(emailCondition, eq(organizations.slug, hostBrand.lockedOrgSlug))
+        : emailCondition
+    )
     .limit(1);
 
   if (!employee) {
@@ -59,6 +75,12 @@ export async function POST(request: Request) {
       { status: 403 }
     );
   }
+
+  // Email/link branding is based on the employee's own org, not the request
+  // host — a Seau de Crabe employee signing up via the mobile app still hits
+  // the shared www.workplix.app API host, but should get a Seau de Crabe
+  // branded email regardless.
+  const emailBrand = getBrandForOrgSlug(employee.organizationSlug);
 
   // If employee already has auth user linked, they should just log in
   if (employee.authUserId) {
@@ -107,12 +129,12 @@ export async function POST(request: Request) {
     type: "signup",
     email,
     password,
-    options: { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/confirmed` },
+    options: { redirectTo: `${emailBrand.appUrl}/confirmed` },
   });
   if (linkError || !linkData?.properties?.action_link) {
     logger.error("Failed to generate signup confirmation link:", linkError);
   } else {
-    await sendConfirmationEmail(email, linkData.properties.action_link, employee.name);
+    await sendConfirmationEmail(email, linkData.properties.action_link, employee.name, emailBrand);
   }
 
   return NextResponse.json({ success: true }, { status: 201 });

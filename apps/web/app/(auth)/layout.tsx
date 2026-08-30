@@ -1,8 +1,15 @@
 import Link from "next/link";
+import { headers } from "next/headers";
+import { getBrandForHost } from "@/lib/brand";
+import { BrandProvider } from "@/lib/brand-context";
 
-export default function AuthLayout({ children }: { children: React.ReactNode }) {
+export default async function AuthLayout({ children }: { children: React.ReactNode }) {
+  const headerStore = await headers();
+  const brand = getBrandForHost(headerStore.get("host"));
+
   return (
-    <div className="min-h-screen flex bg-background">
+    <BrandProvider brand={brand}>
+    <div className={`min-h-screen flex bg-background ${brand.key === "seaudecrabe" ? "brand-crab" : ""}`}>
       {/* Left brand panel */}
       <div className="relative hidden lg:flex lg:w-[420px] shrink-0 flex-col items-center justify-center overflow-hidden bg-sidebar px-12 gap-8">
         <div className="pointer-events-none absolute inset-0 -z-10">
@@ -11,7 +18,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
         <div className="flex flex-col items-center text-center gap-4">
           <Link href="/" className="text-2xl font-bold tracking-tight text-sidebar-foreground">
-            Workplix
+            {brand.displayName}
           </Link>
           <p className="text-sm text-sidebar-foreground/50 max-w-xs">
             Workforce scheduling made simple. Manage shifts, time-off, and your whole team in one place.
@@ -32,5 +39,6 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="w-full max-w-md">{children}</div>
       </div>
     </div>
+    </BrandProvider>
   );
 }

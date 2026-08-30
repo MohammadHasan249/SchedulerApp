@@ -13,6 +13,18 @@ const pinSchema = z.object({ pin: z.string().regex(/^\d{4,6}$/) });
 
 const EXIT_PIN_RATE_LIMIT = { maxAttempts: 10, windowMs: 5 * 60 * 1000 };
 
+export const GET = withAuth(async function GET() {
+  const user = await getUser();
+
+  const [org] = await db
+    .select({ exitPinHash: organizations.exitPinHash })
+    .from(organizations)
+    .where(eq(organizations.id, user.organizationId))
+    .limit(1);
+
+  return NextResponse.json({ configured: Boolean(org?.exitPinHash) });
+});
+
 export const PUT = withAuth(async function PUT(request: Request) {
   const user = await getUser();
   if (user.role !== "org_admin") {

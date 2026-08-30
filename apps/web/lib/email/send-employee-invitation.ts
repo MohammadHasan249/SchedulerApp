@@ -3,6 +3,7 @@ import { Resend } from "resend";
 import { db } from "@/lib/db";
 import { organizations } from "@scheduler/database/schema";
 import { eq } from "drizzle-orm";
+import { getBrandForOrgSlug } from "@/lib/brand";
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, "&amp;")
@@ -49,14 +50,22 @@ export async function sendEmployeeInvitationEmail(
       return { sent: false };
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const brand = getBrandForOrgSlug(org.slug);
+    const appUrl = brand.appUrl;
     const safeOrgName = escapeHtml(org.name);
     const safeEmployeeName = escapeHtml(employeeName);
+
+    // A locked-org brand (e.g. Seau de Crabe) is a white-label deployment for
+    // that one specific business — its displayName is the org's own name, not
+    // a separate scheduling product. "Join Seau de Crabe on Seau de Crabe, a
+    // modern workforce scheduling platform" would be redundant and misleading
+    // (it isn't a platform the org built), so drop the second mention.
+    const isWhiteLabel = brand.lockedOrgSlug !== null;
 
     // Every invite creates a fresh employee row with authUserId: null, so the
     // invitee always needs to create an account — there's no "already has an
     // account, just log in" case for a brand-new invite.
-    const subject = `Join ${org.name} on Workplix`;
+    const subject = isWhiteLabel ? `Join ${org.name}` : `Join ${org.name} on ${brand.displayName}`;
     const emailHtml = `
 <!DOCTYPE html>
 <html>
@@ -77,11 +86,19 @@ export async function sendEmployeeInvitationEmail(
     <div class="container">
       <div class="header">
         <h2>Join ${safeOrgName}!</h2>
-        <p style="margin: 0; color: #666;">You've been invited to use Workplix</p>
+        <p style="margin: 0; color: #666;">${
+          isWhiteLabel
+            ? "You've been invited to join the team"
+            : `You've been invited to use ${brand.displayName}`
+        }</p>
       </div>
       <div class="content">
         <p>Hi ${safeEmployeeName},</p>
-        <p>You've been invited to join <strong>${safeOrgName}</strong> on Workplix, a modern workforce scheduling platform.</p>
+        <p>${
+          isWhiteLabel
+            ? `You've been invited to join <strong>${safeOrgName}</strong>.`
+            : `You've been invited to join <strong>${safeOrgName}</strong> on ${brand.displayName}, a modern workforce scheduling platform.`
+        }</p>
         <div class="details">
           <p><strong>Organization:</strong> ${safeOrgName}</p>
           <p><strong>Your kiosk PIN:</strong></p>
@@ -92,7 +109,7 @@ export async function sendEmployeeInvitationEmail(
         <a href="${appUrl}/signup/employee" class="button" style="display: inline-block; margin-top: 20px; padding: 12px 24px; background-color: #3b82f6; color: #ffffff; text-decoration: none; border-radius: 6px;">Create Account</a>
       </div>
       <div class="footer">
-        <p>This is an automated message from Workplix. Please do not reply to this email.</p>
+        <p>This is an automated message from ${isWhiteLabel ? safeOrgName : brand.displayName}. Please do not reply to this email.</p>
       </div>
     </div>
   </body>

@@ -24,7 +24,7 @@ const BRANDS: Record<BrandConfig["key"], BrandConfig> = {
     displayName: "Seau de Crabe",
     lockedOrgSlug: "seau-de-crabe",
     lockedThemeKey: "crimson",
-    authBackground: "#450a0a",
+    authBackground: "#d8191f",
   },
 };
 

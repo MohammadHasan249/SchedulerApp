@@ -65,7 +65,11 @@ export default function SignupEmployeeScreen() {
         style={[styles.container, { backgroundColor: BRAND.authBackground }]}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={styles.inner}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <Text style={styles.title}>Join as Employee</Text>
           <Text style={styles.subtitle}>
             Use the email your manager invited. You'll be linked to your organization automatically.
@@ -118,9 +122,9 @@ export default function SignupEmployeeScreen() {
 function makeStyles(theme: ReturnType<typeof useAppTheme>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.bg },
-    inner: { padding: 20, gap: 14 },
-    title: { fontSize: 22, fontWeight: "700", color: theme.text },
-    subtitle: { fontSize: 13, color: theme.muted, marginBottom: 8 },
+    inner: { flexGrow: 1, justifyContent: "center", padding: 24, gap: 14 },
+    title: { fontSize: 22, fontWeight: "700", color: theme.text, textAlign: "center" },
+    subtitle: { fontSize: 13, color: theme.muted, marginBottom: 8, textAlign: "center" },
     field: { gap: 6 },
     label: { fontSize: 13, fontWeight: "600", color: theme.muted },
     input: {

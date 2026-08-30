@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import { Resend } from "resend";
+import { BRANDS, type BrandConfig } from "@/lib/brand";
 
 function escapeHtml(str: string): string {
   return str
@@ -26,7 +27,8 @@ function getResend(): Resend | null {
 export async function sendConfirmationEmail(
   email: string,
   confirmUrl: string,
-  fullName?: string
+  fullName?: string,
+  brand: BrandConfig = BRANDS.workplix
 ): Promise<{ sent: boolean }> {
   const resendClient = getResend();
   if (!resendClient) {
@@ -35,7 +37,7 @@ export async function sendConfirmationEmail(
   }
 
   const safeName = fullName ? escapeHtml(fullName) : null;
-  const subject = "Confirm your email for Workplix";
+  const subject = `Confirm your email for ${brand.displayName}`;
   const emailHtml = `
 <!DOCTYPE html>
 <html lang="en">
@@ -51,7 +53,7 @@ export async function sendConfirmationEmail(
           <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px; width:100%; background-color:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(16,24,40,0.08);">
             <tr>
               <td style="padding:32px 40px 0 40px;">
-                <div style="font-size:20px; font-weight:700; color:#4f46e5; letter-spacing:-0.01em;">Workplix</div>
+                <div style="font-size:20px; font-weight:700; color:#4f46e5; letter-spacing:-0.01em;">${brand.displayName}</div>
               </td>
             </tr>
             <tr>
@@ -62,7 +64,7 @@ export async function sendConfirmationEmail(
             <tr>
               <td style="padding:0 40px; color:#475467; font-size:15px; line-height:1.6;">
                 <p style="margin:12px 0;">${safeName ? `Hi ${safeName},` : "Hi,"}</p>
-                <p style="margin:12px 0;">Thanks for signing up for Workplix. Please confirm your email address to finish setting up your account.</p>
+                <p style="margin:12px 0;">Thanks for signing up for ${brand.displayName}. Please confirm your email address to finish setting up your account.</p>
               </td>
             </tr>
             <tr>
@@ -78,7 +80,7 @@ export async function sendConfirmationEmail(
             </tr>
             <tr>
               <td style="padding:20px 40px; background-color:#f9fafb; border-top:1px solid #eaecf0;">
-                <p style="margin:0; font-size:12px; color:#98a2b3; line-height:1.5;">If you didn't request this email, you can safely ignore it. This is an automated message from Workplix — please don't reply.</p>
+                <p style="margin:0; font-size:12px; color:#98a2b3; line-height:1.5;">If you didn't request this email, you can safely ignore it. This is an automated message from ${brand.displayName} — please don't reply.</p>
               </td>
             </tr>
           </table>

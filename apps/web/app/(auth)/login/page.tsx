@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { useForm } from "react-hook-form";
@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useBrand } from "@/lib/brand-context";
+import { WRONG_BRAND_REASON } from "@/lib/brand";
 
 const schema = z.object({
   email: z.string().email("Invalid email address"),
@@ -22,7 +24,17 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const brand = useBrand();
   const [loading, setLoading] = useState(false);
 
   const {
@@ -30,6 +42,16 @@ export default function LoginPage() {
     handleSubmit,
     formState: { errors },
   } = useForm<FormData>({ resolver: zodResolver(schema) });
+
+  useEffect(() => {
+    if (searchParams.get("reason") === WRONG_BRAND_REASON) {
+      // The dashboard layout redirected here because the session's org
+      // doesn't match this brand — actually clear the stale session
+      // client-side (the layout itself can only redirect, not sign out).
+      createClient().auth.signOut();
+      toast.error(`That account isn't associated with ${brand.displayName}.`);
+    }
+  }, [searchParams, brand.displayName]);
 
   async function onSubmit(data: FormData) {
     setLoading(true);
@@ -45,6 +67,10 @@ export default function LoginPage() {
       return;
     }
 
+    // On locked-org brand variants (e.g. Seau de Crabe), a mismatched org is
+    // caught by the dashboard layout's server-side gate, which redirects back
+    // here with ?reason=wrong-brand (handled above) — no need to duplicate
+    // that check client-side before navigating.
     router.push("/dashboard");
     router.refresh();
   }

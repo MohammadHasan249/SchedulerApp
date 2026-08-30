@@ -9,6 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { slugify } from "@/lib/utils/slugify";
+import { useBrand } from "@/lib/brand-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,6 +44,7 @@ type FormData = z.infer<typeof schema>;
 
 export default function OrgSignupPage() {
   const router = useRouter();
+  const brand = useBrand();
   const [loading, setLoading] = useState(false);
 
   const {
@@ -61,10 +63,24 @@ export default function OrgSignupPage() {
   const orgName = watch("orgName");
 
   useEffect(() => {
+    if (brand.lockedOrgSlug) {
+      router.replace("/signup");
+    }
+  }, [router, brand.lockedOrgSlug]);
+
+  useEffect(() => {
     if (orgName) {
       setValue("orgSlug", slugify(orgName), { shouldValidate: false });
     }
   }, [orgName, setValue]);
+
+  // brand is resolved server-side from the request host, so on locked
+  // variants skip rendering the form entirely instead of flashing it
+  // before the redirect above fires. All hooks are called above this point
+  // regardless, since hooks must run unconditionally on every render.
+  if (brand.lockedOrgSlug) {
+    return null;
+  }
 
   async function onSubmit(data: FormData) {
     setLoading(true);

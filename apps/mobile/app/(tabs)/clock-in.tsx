@@ -14,7 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useEffect, useRef, useState } from "react";
 import { useNavigation, useRouter } from "expo-router";
 import { Lock, Unlock, Delete, ChevronLeft } from "lucide-react-native";
-import { clockPunch, verifyExitPin, getBranches, type Branch } from "@/lib/api";
+import { clockPunch, verifyExitPin, getExitPinStatus, getBranches, type Branch } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useKioskStore } from "@/lib/kioskStore";
 import { useIsAdmin } from "@/lib/useRole";
@@ -167,12 +167,29 @@ export default function ClockInScreen() {
     }
   }
 
-  function handleEnableKiosk() {
+  const [enablingKiosk, setEnablingKiosk] = useState(false);
+
+  async function handleEnableKiosk() {
     if (!branchSlug) {
       setBranchModalVisible(true);
       return;
     }
-    setLocked(true);
+    setEnablingKiosk(true);
+    try {
+      const { configured } = await getExitPinStatus();
+      if (!configured) {
+        Alert.alert(
+          "Exit PIN required",
+          "Set a kiosk exit PIN under Settings > Organization on the web dashboard before enabling kiosk mode, or you won't be able to exit it."
+        );
+        return;
+      }
+      setLocked(true);
+    } catch {
+      Alert.alert("Error", "Unable to verify exit PIN status. Try again.");
+    } finally {
+      setEnablingKiosk(false);
+    }
   }
 
   async function handleExitSubmit() {
@@ -230,10 +247,11 @@ export default function ClockInScreen() {
           <TouchableOpacity
             style={[styles.toolbarBtn, styles.lockBtn]}
             onPress={handleEnableKiosk}
+            disabled={enablingKiosk}
           >
             <Lock size={14} color={theme.primary} />
             <Text style={[styles.toolbarBtnText, { color: theme.primary }]}>
-              Enable Kiosk
+              {enablingKiosk ? "Checking…" : "Enable Kiosk"}
             </Text>
           </TouchableOpacity>
         </View>
