@@ -97,7 +97,8 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
       row.emp.name,
       parsed.data.status,
       updated.startDate,
-      updated.endDate
+      updated.endDate,
+      user.organizationId
     );
   } catch (error) {
     logger.error("Failed to send time-off decision email:", error);

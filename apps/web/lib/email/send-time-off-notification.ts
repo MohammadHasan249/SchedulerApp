@@ -3,6 +3,7 @@ import { Resend } from "resend";
 import { db } from "@/lib/db";
 import { employees, organizations } from "@scheduler/database/schema";
 import { eq, and } from "drizzle-orm";
+import { getBrandForOrgSlug } from "@/lib/brand";
 
 let resend: Resend | null = null;
 
@@ -120,6 +121,7 @@ export async function sendTimeOffNotification(
       year: "numeric",
     });
 
+    const brand = getBrandForOrgSlug(org.slug);
     const safeEmployeeName = escapeHtml(employee.name);
     const safeOrgName = escapeHtml(org.name);
     const safeRecipientName = escapeHtml(recipientName);
@@ -161,11 +163,11 @@ export async function sendTimeOffNotification(
 
         <p>Please log in to your dashboard to review and approve or deny this request.</p>
 
-        <a href="${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/dashboard/time-off" class="button" style="display: inline-block; margin-top: 20px; padding: 12px 24px; background-color: #3b82f6; color: #ffffff; text-decoration: none; border-radius: 6px;">View Request</a>
+        <a href="${brand.appUrl}/dashboard/time-off" class="button" style="display: inline-block; margin-top: 20px; padding: 12px 24px; background-color: #3b82f6; color: #ffffff; text-decoration: none; border-radius: 6px;">View Request</a>
       </div>
 
       <div class="footer">
-        <p>This is an automated message from Workplix. Please do not reply to this email.</p>
+        <p>This is an automated message from ${brand.displayName}. Please do not reply to this email.</p>
       </div>
     </div>
   </body>

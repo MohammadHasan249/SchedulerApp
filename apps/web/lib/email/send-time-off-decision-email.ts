@@ -1,5 +1,9 @@
 import { logger } from "@/lib/logger";
 import { Resend } from "resend";
+import { db } from "@/lib/db";
+import { organizations } from "@scheduler/database/schema";
+import { eq } from "drizzle-orm";
+import { getBrandForOrgSlug } from "@/lib/brand";
 
 function escapeHtml(str: string): string {
   return str
@@ -28,13 +32,21 @@ export async function sendTimeOffDecisionEmail(
   employeeName: string,
   status: "approved" | "denied",
   startDate: string,
-  endDate: string
+  endDate: string,
+  organizationId: string
 ): Promise<{ sent: boolean }> {
   const resendClient = getResend();
   if (!resendClient) {
     console.warn("Skipping time-off decision email - RESEND_API_KEY not configured");
     return { sent: false };
   }
+
+  const [org] = await db
+    .select({ slug: organizations.slug })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  const brand = getBrandForOrgSlug(org?.slug);
 
   const safeName = escapeHtml(employeeName);
   const isApproved = status === "approved";
@@ -55,7 +67,7 @@ export async function sendTimeOffDecisionEmail(
           <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px; width:100%; background-color:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(16,24,40,0.08);">
             <tr>
               <td style="padding:32px 40px 0 40px;">
-                <div style="font-size:20px; font-weight:700; color:#4f46e5; letter-spacing:-0.01em;">Workplix</div>
+                <div style="font-size:20px; font-weight:700; color:#4f46e5; letter-spacing:-0.01em;">${brand.displayName}</div>
               </td>
             </tr>
             <tr>
@@ -82,7 +94,7 @@ export async function sendTimeOffDecisionEmail(
             </tr>
             <tr>
               <td style="padding:20px 40px; background-color:#f9fafb; border-top:1px solid #eaecf0;">
-                <p style="margin:0; font-size:12px; color:#98a2b3; line-height:1.5;">This is an automated message from Workplix — please don't reply. Contact your manager if you have questions.</p>
+                <p style="margin:0; font-size:12px; color:#98a2b3; line-height:1.5;">This is an automated message from ${brand.displayName} — please don't reply. Contact your manager if you have questions.</p>
               </td>
             </tr>
           </table>
