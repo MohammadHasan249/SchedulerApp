@@ -13,6 +13,7 @@ import {
 import { useState, useEffect } from "react";
 import { useRouter, Stack } from "expo-router";
 import { useAppTheme } from "@/lib/useAppTheme";
+import { BRAND } from "@/lib/brand";
 
 function slugify(str: string): string {
   return str
@@ -94,7 +95,7 @@ export default function SignupOrgScreen() {
     <>
       <Stack.Screen options={{ title: "Create Organization" }} />
       <KeyboardAvoidingView
-        style={styles.container}
+        style={[styles.container, { backgroundColor: BRAND.authBackground }]}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">

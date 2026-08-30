@@ -12,7 +12,7 @@ export default function SignupChoiceScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: BRAND.authBackground }]}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <View style={styles.inner}>

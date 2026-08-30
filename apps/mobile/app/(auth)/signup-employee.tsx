@@ -13,6 +13,7 @@ import {
 import { useState } from "react";
 import { useRouter, Stack } from "expo-router";
 import { useAppTheme } from "@/lib/useAppTheme";
+import { BRAND } from "@/lib/brand";
 
 export default function SignupEmployeeScreen() {
   const router = useRouter();
@@ -61,7 +62,7 @@ export default function SignupEmployeeScreen() {
     <>
       <Stack.Screen options={{ title: "Join as Employee" }} />
       <KeyboardAvoidingView
-        style={styles.container}
+        style={[styles.container, { backgroundColor: BRAND.authBackground }]}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
