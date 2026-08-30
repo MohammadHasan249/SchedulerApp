@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { BRAND } from "@/lib/brand";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className={`min-h-screen flex bg-background ${BRAND.key === "seaudecrabe" ? "brand-crab" : ""}`}>
+    <div className="min-h-screen flex bg-background">
       {/* Left brand panel */}
       <div className="relative hidden lg:flex lg:w-[420px] shrink-0 flex-col items-center justify-center overflow-hidden bg-sidebar px-12 gap-8">
         <div className="pointer-events-none absolute inset-0 -z-10">
@@ -12,7 +11,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
         <div className="flex flex-col items-center text-center gap-4">
           <Link href="/" className="text-2xl font-bold tracking-tight text-sidebar-foreground">
-            {BRAND.displayName}
+            Workplix
           </Link>
           <p className="text-sm text-sidebar-foreground/50 max-w-xs">
             Workforce scheduling made simple. Manage shifts, time-off, and your whole team in one place.

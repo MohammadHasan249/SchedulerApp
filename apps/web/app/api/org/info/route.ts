@@ -8,9 +8,9 @@ import { eq } from "drizzle-orm";
 export const GET = withAuth(async function GET() {
   const user = await getUser();
   const [org] = await db
-    .select({ name: organizations.name, slug: organizations.slug })
+    .select({ name: organizations.name })
     .from(organizations)
     .where(eq(organizations.id, user.organizationId))
     .limit(1);
-  return NextResponse.json({ name: org?.name ?? null, slug: org?.slug ?? null });
+  return NextResponse.json({ name: org?.name ?? null });
 });

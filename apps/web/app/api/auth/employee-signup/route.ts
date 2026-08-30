@@ -3,12 +3,11 @@ import { z } from "zod";
 import { safeJson } from "@/lib/utils/safe-json";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { db } from "@/lib/db";
-import { employees, organizations } from "@scheduler/database/schema";
-import { and, eq } from "drizzle-orm";
+import { employees } from "@scheduler/database/schema";
+import { eq } from "drizzle-orm";
 import { sendConfirmationEmail } from "@/lib/email/send-confirmation-email";
 import { logger } from "@/lib/logger";
 import { checkRateLimit, getClientIp } from "@/lib/utils/rate-limit";
-import { BRAND } from "@/lib/brand";
 
 const schema = z.object({
   email: z.string().email(),
@@ -40,13 +39,7 @@ export async function POST(request: Request) {
 
   const supabase = createAdminClient();
 
-  // Check if employee was invited (exists in employees table). Email is only
-  // unique per-org (UNIQUE(organization_id, email)), so on locked-org brand
-  // variants (e.g. Seau de Crabe) filter to that org directly in the query —
-  // the org id/slug acts as the authentication gate even though the backend
-  // and auth system are shared with other brands — rather than fetching an
-  // arbitrary org's row for this email and checking after the fact.
-  const emailCondition = eq(employees.email, email);
+  // Check if employee was invited (exists in employees table)
   const [employee] = await db
     .select({
       id: employees.id,
@@ -57,12 +50,7 @@ export async function POST(request: Request) {
       authUserId: employees.authUserId,
     })
     .from(employees)
-    .innerJoin(organizations, eq(organizations.id, employees.organizationId))
-    .where(
-      BRAND.lockedOrgSlug
-        ? and(emailCondition, eq(organizations.slug, BRAND.lockedOrgSlug))
-        : emailCondition
-    )
+    .where(eq(employees.email, email))
     .limit(1);
 
   if (!employee) {

@@ -9,7 +9,6 @@ import { slugify } from "@/lib/utils/slugify";
 import { eq } from "drizzle-orm";
 import { sendConfirmationEmail } from "@/lib/email/send-confirmation-email";
 import { checkRateLimit, getClientIp } from "@/lib/utils/rate-limit";
-import { BRAND } from "@/lib/brand";
 
 const INDUSTRY_STARTER_JOB_ROLES: Record<"restaurant" | "retail" | "other", string[]> = {
   restaurant: ["Server", "Cook", "Cashier", "Shift Manager"],
@@ -29,13 +28,6 @@ const schema = z.object({
 const SIGNUP_RATE_LIMIT = { maxAttempts: 5, windowMs: 15 * 60 * 1000 };
 
 export async function POST(request: Request) {
-  if (BRAND.lockedOrgSlug) {
-    return NextResponse.json(
-      { error: "Creating a new organization isn't available on this app." },
-      { status: 403 }
-    );
-  }
-
   const rl = await checkRateLimit(`org-signup:${getClientIp(request)}`, SIGNUP_RATE_LIMIT);
   if (!rl.allowed) {
     const retryAfterSec = Math.max(1, Math.ceil((rl.resetAt - Date.now()) / 1000));

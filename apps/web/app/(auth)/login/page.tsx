@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { useForm } from "react-hook-form";
@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BRAND } from "@/lib/brand";
 
 const schema = z.object({
   email: z.string().email("Invalid email address"),
@@ -23,16 +22,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export default function LoginPage() {
-  return (
-    <Suspense>
-      <LoginForm />
-    </Suspense>
-  );
-}
-
-function LoginForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
 
   const {
@@ -40,12 +30,6 @@ function LoginForm() {
     handleSubmit,
     formState: { errors },
   } = useForm<FormData>({ resolver: zodResolver(schema) });
-
-  useEffect(() => {
-    if (searchParams.get("reason") === "wrong-brand") {
-      toast.error(`That account isn't associated with ${BRAND.displayName}.`);
-    }
-  }, [searchParams]);
 
   async function onSubmit(data: FormData) {
     setLoading(true);
@@ -59,25 +43,6 @@ function LoginForm() {
       toast.error(error.message);
       setLoading(false);
       return;
-    }
-
-    // On locked-org brand variants (e.g. Seau de Crabe), confirm the account's
-    // org matches before letting the session through — auth/backend are
-    // shared across brands, so a valid login isn't enough on its own. This is
-    // a UX shortcut only: the dashboard layout re-checks server-side and is
-    // authoritative, so a fetch failure here shouldn't force-sign-out a
-    // legitimate user — just let the authoritative check catch it.
-    if (BRAND.lockedOrgSlug) {
-      const res = await fetch("/api/org/info");
-      if (res.ok) {
-        const info = await res.json();
-        if (info?.slug !== BRAND.lockedOrgSlug) {
-          await supabase.auth.signOut();
-          toast.error(`That account isn't associated with ${BRAND.displayName}.`);
-          setLoading(false);
-          return;
-        }
-      }
     }
 
     router.push("/dashboard");

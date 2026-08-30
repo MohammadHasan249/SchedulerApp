@@ -9,7 +9,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { slugify } from "@/lib/utils/slugify";
-import { BRAND } from "@/lib/brand";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,18 +44,6 @@ type FormData = z.infer<typeof schema>;
 export default function OrgSignupPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (BRAND.lockedOrgSlug) {
-      router.replace("/signup");
-    }
-  }, [router]);
-
-  // BRAND.lockedOrgSlug is a build-time constant, so on locked variants skip
-  // rendering the form entirely instead of flashing it before the redirect above fires.
-  if (BRAND.lockedOrgSlug) {
-    return null;
-  }
 
   const {
     register,
