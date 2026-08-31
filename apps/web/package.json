@@ -14,6 +14,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@ai-sdk/react": "^4.0.89",
     "@anthropic-ai/sdk": "^0.91.1",
     "@base-ui/react": "^1.4.1",
     "@dnd-kit/core": "^6.3.1",
@@ -29,6 +30,7 @@
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
     "@vercel/analytics": "^2.0.1",
+    "ai": "^7.0.86",
     "bcryptjs": "^3.0.3",
     "botid": "^1.5.11",
     "class-variance-authority": "^0.7.1",

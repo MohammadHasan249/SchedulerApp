@@ -36,7 +36,6 @@ import {
   deletePermissionProfile,
   getMyPermissions,
 } from "./permissionProfiles";
-import { chatScheduleAI } from "./scheduleAI";
 import { getShiftSwaps, createShiftSwap, updateShiftSwap } from "./shiftSwaps";
 import {
   getShifts,
@@ -391,17 +390,6 @@ describe("permissionProfiles", () => {
     const result = await getMyPermissions();
 
     expect(result).toEqual([]);
-  });
-});
-
-describe("scheduleAI", () => {
-  it("chatScheduleAI", () => {
-    const messages = [{ role: "user" as const, content: "hi" }];
-    chatScheduleAI(messages);
-    expect(apiFetch).toHaveBeenCalledWith("/api/ai/schedule", {
-      method: "POST",
-      body: JSON.stringify({ messages }),
-    });
   });
 });
 

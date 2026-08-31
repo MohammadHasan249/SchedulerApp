@@ -24,6 +24,32 @@ async function doFetch(path: string, init: RequestInit, token: string | null): P
   });
 }
 
+/** Base URL configured via `configureApiClient`, for callers that need to build a full URL themselves (e.g. a streaming transport that can't go through `apiFetch`). */
+export function getApiBaseUrl(): string {
+  return _baseUrl;
+}
+
+/**
+ * Wraps a fetch implementation to inject the same bearer token `apiFetch` uses,
+ * via the `getToken` callback passed to `configureApiClient`. For callers that
+ * need raw streaming response bodies (e.g. an AI SDK chat transport) and so
+ * can't go through `apiFetch`, which buffers and JSON-parses the response.
+ * Does not attempt the 401-refresh-and-retry `apiFetch` does — a token that
+ * expires mid-stream just fails that request; the next message picks up a
+ * fresh token from `getToken`.
+ */
+export function createAuthenticatedFetch(fetchImpl: typeof fetch = fetch): typeof fetch {
+  return (async (input: RequestInfo | URL, init: RequestInit = {}) => {
+    const token = _getToken ? await _getToken() : null;
+    // `new Headers(init.headers)` normalizes any of the three RequestInit
+    // header shapes (plain object, array of tuples, or a Headers instance) —
+    // spreading `init.headers` directly would silently drop a Headers instance.
+    const headers = new Headers(init.headers);
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    return fetchImpl(input, { ...init, headers });
+  }) as typeof fetch;
+}
+
 export async function apiFetch<T>(
   path: string,
   init: RequestInit = {}

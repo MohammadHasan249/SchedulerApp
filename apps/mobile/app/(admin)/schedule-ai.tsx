@@ -6,17 +6,16 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "expo-router";
 import { Bot, Send } from "lucide-react-native";
-import { chatScheduleAI } from "@/lib/api";
+import { fetch as expoFetch } from "expo/fetch";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport, type UIMessage } from "ai";
+import { getApiBaseUrl, createAuthenticatedFetch } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
-import type { ScheduleChatMessage, ScheduleChatAction } from "@scheduler/types";
-
-type DisplayMessage = ScheduleChatMessage & { actions?: ScheduleChatAction[] };
-
-const GREETING: ScheduleChatMessage = {
-  role: "assistant",
-  content:
-    "Hi! I can help you assign employees to shifts. Tell me what you need — for example:\n\n• \"Assign 2 cooks and 1 waiter to Monday's morning shift\"\n• \"Who's available Friday afternoon?\"\n• \"Schedule the team for next week\"",
-};
+import {
+  SCHEDULE_CHAT_GREETING,
+  getScheduleChatDisplayText,
+  getScheduleChatSuccessfulToolCount,
+} from "@scheduler/types";
 
 export default function ScheduleAIScreen() {
   const theme = useAppTheme();
@@ -24,45 +23,35 @@ export default function ScheduleAIScreen() {
   const navigation = useNavigation();
   const listRef = useRef<FlatList>(null);
 
-  const [messages, setMessages] = useState<DisplayMessage[]>([GREETING]);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+
+  const { messages, sendMessage, status, error } = useChat({
+    transport: new DefaultChatTransport({
+      fetch: createAuthenticatedFetch(expoFetch as unknown as typeof globalThis.fetch),
+      api: `${getApiBaseUrl()}/api/ai/schedule`,
+    }),
+  });
+  const loading = status === "submitted" || status === "streaming";
 
   useEffect(() => {
     navigation.setOptions({ title: "AI Schedule Assistant" });
   }, []);
 
-  async function send() {
+  function send() {
     const text = input.trim();
     if (!text || loading) return;
-
-    const userMsg: ScheduleChatMessage = { role: "user", content: text };
-    const next = [...messages.filter((m) => m !== GREETING || messages.length > 1), userMsg];
-    // Keep GREETING only as display; send only real conversation to API
-    const apiMessages = next.filter((m) => m !== GREETING);
-
-    setMessages([...messages, userMsg]);
+    sendMessage({ text });
     setInput("");
-    setLoading(true);
-
-    try {
-      const { reply, actions } = await chatScheduleAI(apiMessages);
-      setMessages((prev) => [...prev, { role: "assistant", content: reply, actions }]);
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "Sorry, something went wrong. Please try again." },
-      ]);
-    } finally {
-      setLoading(false);
-    }
   }
 
   useEffect(() => {
-    if (messages.length > 1) {
+    if (messages.length > 0) {
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
     }
   }, [messages]);
+
+  const listData: (UIMessage | { id: "greeting"; role: "assistant" })[] =
+    messages.length === 0 ? [{ id: "greeting", role: "assistant" }] : messages;
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
@@ -73,17 +62,29 @@ export default function ScheduleAIScreen() {
       >
         <FlatList
           ref={listRef}
-          data={messages}
-          keyExtractor={(_, i) => String(i)}
+          data={listData}
+          keyExtractor={(item) => item.id}
           contentContainerStyle={styles.messageList}
-          renderItem={({ item }) => <MessageBubble msg={item} />}
+          renderItem={({ item, index }) => (
+            <MessageBubble msg={item} isStreaming={loading && index === listData.length - 1} />
+          )}
           ListFooterComponent={
-            loading ? (
-              <View style={styles.typingRow}>
-                <Bot size={18} color={theme.muted} />
-                <ActivityIndicator size="small" color={theme.muted} style={{ marginLeft: 8 }} />
-              </View>
-            ) : null
+            <>
+              {error && (
+                <View style={styles.typingRow}>
+                  <Bot size={18} color={theme.muted} />
+                  <Text style={{ color: theme.muted, marginLeft: 8 }}>
+                    Sorry, something went wrong. Please try again.
+                  </Text>
+                </View>
+              )}
+              {loading && (
+                <View style={styles.typingRow}>
+                  <Bot size={18} color={theme.muted} />
+                  <ActivityIndicator size="small" color={theme.muted} style={{ marginLeft: 8 }} />
+                </View>
+              )}
+            </>
           }
         />
 
@@ -113,11 +114,19 @@ export default function ScheduleAIScreen() {
   );
 }
 
-function MessageBubble({ msg }: { msg: DisplayMessage }) {
+function MessageBubble({
+  msg,
+  isStreaming,
+}: {
+  msg: UIMessage | { id: "greeting"; role: "assistant" };
+  isStreaming: boolean;
+}) {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
   const isUser = msg.role === "user";
-  const assignCount = msg.actions?.filter((a) => a.type === "assign_employee").length ?? 0;
+  const isGreeting = msg.id === "greeting";
+  const text = isGreeting ? SCHEDULE_CHAT_GREETING : getScheduleChatDisplayText(msg as UIMessage, isStreaming);
+  const assignCount = isGreeting ? 0 : getScheduleChatSuccessfulToolCount(msg as UIMessage, "assign_employee");
 
   return (
     <View style={[styles.bubbleRow, isUser && styles.bubbleRowUser]}>
@@ -128,7 +137,7 @@ function MessageBubble({ msg }: { msg: DisplayMessage }) {
       )}
       <View style={{ flexShrink: 1, gap: 4 }}>
         <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAI]}>
-          <Text style={[styles.bubbleText, isUser && styles.bubbleTextUser]}>{msg.content}</Text>
+          <Text style={[styles.bubbleText, isUser && styles.bubbleTextUser]}>{text}</Text>
         </View>
         {assignCount > 0 && (
           <View style={styles.confirmChip} testID="ai-assign-confirmed">

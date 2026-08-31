@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { configureApiClient, apiFetch } from "./client";
+import { configureApiClient, apiFetch, createAuthenticatedFetch } from "./client";
 
 function mockFetchOnce(response: Partial<Response> & { ok: boolean }) {
   global.fetch = vi.fn().mockResolvedValue(response as Response);
@@ -63,5 +63,33 @@ describe("apiFetch", () => {
     mockFetchOnce({ ok: false, status: 500, statusText: "Internal Server Error", text: async () => "oops" } as Response);
 
     await expect(apiFetch("/thing")).rejects.toThrow("Request failed: 500");
+  });
+});
+
+describe("createAuthenticatedFetch", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("injects the bearer token alongside plain-object headers", async () => {
+    configureApiClient({ baseUrl: "http://api.test", getToken: async () => "tok" });
+    const inner = vi.fn().mockResolvedValue(new Response(null));
+
+    await createAuthenticatedFetch(inner)("http://api.test/x", { headers: { "X-Foo": "bar" } });
+
+    const sentHeaders = inner.mock.calls[0][1].headers as Headers;
+    expect(sentHeaders.get("Authorization")).toBe("Bearer tok");
+    expect(sentHeaders.get("X-Foo")).toBe("bar");
+  });
+
+  it("injects the bearer token without dropping a Headers instance", async () => {
+    configureApiClient({ baseUrl: "http://api.test", getToken: async () => "tok" });
+    const inner = vi.fn().mockResolvedValue(new Response(null));
+
+    await createAuthenticatedFetch(inner)("http://api.test/x", { headers: new Headers({ "X-Foo": "bar" }) });
+
+    const sentHeaders = inner.mock.calls[0][1].headers as Headers;
+    expect(sentHeaders.get("Authorization")).toBe("Bearer tok");
+    expect(sentHeaders.get("X-Foo")).toBe("bar");
   });
 });

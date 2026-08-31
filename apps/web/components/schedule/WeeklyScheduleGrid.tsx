@@ -12,18 +12,18 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BranchSelector } from "@/components/branch/BranchSelector";
 import { toast } from "sonner";
-import type { Shift, ShiftAssignment, Employee, Branch, ScheduleChatAction } from "@scheduler/types";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
+import type { Shift, ShiftAssignment, Employee, Branch } from "@scheduler/types";
+import {
+  SCHEDULE_CHAT_GREETING,
+  getScheduleChatDisplayText,
+  getScheduleChatSuccessfulToolCount,
+} from "@scheduler/types";
+import type { ScheduleAgentUIMessage } from "@/lib/ai/schedule-agent";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DAY_LABELS_FULL = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-
-type ChatMessage = { role: "user" | "assistant"; content: string; actions?: ScheduleChatAction[] };
-
-const GREETING: ChatMessage = {
-  role: "assistant",
-  content:
-    "Hi! I can help you assign employees to shifts. Tell me what you need — for example:\n\n• \"Assign 2 cooks and 1 waiter to Monday's morning shift\"\n• \"Who's available Friday afternoon?\"\n• \"Schedule the team for next week\"",
-};
 
 type ScheduleData = {
   shifts: Shift[];
@@ -184,10 +184,19 @@ export function WeeklyScheduleGrid({
 
   // AI chat state
   const [aiChatOpen, setAiChatOpen] = useState(false);
-  const [aiMessages, setAiMessages] = useState<ChatMessage[]>([GREETING]);
   const [aiInput, setAiInput] = useState("");
-  const [aiLoading, setAiLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const { messages: aiMessages, sendMessage, status: aiStatus } = useChat<ScheduleAgentUIMessage>({
+    transport: new DefaultChatTransport({ api: "/api/ai/schedule" }),
+    onFinish: ({ message }) => {
+      // Refresh the schedule only when this reply actually mutated something.
+      if (getScheduleChatSuccessfulToolCount(message, "assign_employee") > 0 || getScheduleChatSuccessfulToolCount(message, "create_shift") > 0) {
+        refreshWeek();
+      }
+    },
+  });
+  const aiLoading = aiStatus === "submitted" || aiStatus === "streaming";
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -310,42 +319,11 @@ export function WeeklyScheduleGrid({
     }
   }
 
-  async function sendAiMessage() {
+  function sendAiMessage() {
     const text = aiInput.trim();
     if (!text || aiLoading) return;
-
-    const userMsg: ChatMessage = { role: "user", content: text };
-    const history = [...aiMessages.filter((m) => m !== GREETING), userMsg];
-
-    setAiMessages((prev) => [...prev, userMsg]);
+    sendMessage({ text });
     setAiInput("");
-    setAiLoading(true);
-
-    try {
-      const res = await fetch("/api/ai/schedule", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setAiMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: data.error ?? "Something went wrong. Please try again." },
-        ]);
-      } else {
-        setAiMessages((prev) => [...prev, { role: "assistant", content: data.reply, actions: data.actions }]);
-        // Refresh the schedule in case assignments were made
-        refreshWeek();
-      }
-    } catch {
-      setAiMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "Connection error. Please try again." },
-      ]);
-    } finally {
-      setAiLoading(false);
-    }
   }
 
   async function refreshWeek() {
@@ -453,9 +431,19 @@ export function WeeklyScheduleGrid({
 
           {/* Messages */}
           <div className="h-72 overflow-y-auto px-4 py-3 space-y-3">
+            {aiMessages.length === 0 && (
+              <div className="flex gap-2 justify-start">
+                <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <Bot className="h-3.5 w-3.5 text-primary" />
+                </div>
+                <div className="rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm whitespace-pre-wrap bg-muted max-w-[80%]">
+                  {SCHEDULE_CHAT_GREETING}
+                </div>
+              </div>
+            )}
             {aiMessages.map((msg, i) => (
               <div
-                key={i}
+                key={msg.id}
                 className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 {msg.role === "assistant" && (
@@ -471,11 +459,11 @@ export function WeeklyScheduleGrid({
                         : "bg-muted rounded-bl-sm"
                     }`}
                   >
-                    {msg.content}
+                    {getScheduleChatDisplayText(msg, aiLoading && i === aiMessages.length - 1)}
                   </div>
                   {(() => {
-                    const assignCount = msg.actions?.filter((a) => a.type === "assign_employee").length ?? 0;
-                    const createCount = msg.actions?.filter((a) => a.type === "create_shift").length ?? 0;
+                    const assignCount = getScheduleChatSuccessfulToolCount(msg, "assign_employee");
+                    const createCount = getScheduleChatSuccessfulToolCount(msg, "create_shift");
                     if (assignCount === 0 && createCount === 0) return null;
                     const parts = [
                       createCount > 0 ? (createCount === 1 ? "1 shift created" : `${createCount} shifts created`) : null,

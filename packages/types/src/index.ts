@@ -1,6 +1,8 @@
 export type EmployeeRole = "org_admin" | "branch_manager" | "employee";
 export type TimeOffStatus = "pending" | "approved" | "denied";
 
+export * from "./scheduleChat";
+
 export interface Notification {
   id: string;
   employeeId: string | null;
@@ -76,15 +78,6 @@ export interface Shift {
   isPublished: boolean;
   assignments?: ShiftAssignmentDetail[];
 }
-
-export interface ScheduleChatMessage {
-  role: "user" | "assistant";
-  content: string;
-}
-
-export type ScheduleChatAction =
-  | { type: "assign_employee"; assignmentId: string; shiftId: string; employeeId: string }
-  | { type: "create_shift"; shiftId: string };
 
 export interface ShiftAssignment {
   id: string;

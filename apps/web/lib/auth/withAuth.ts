@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { ApiAuthError } from "./getUser";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function withAuth<T extends (...args: any[]) => Promise<NextResponse>>(handler: T): T {
+export function withAuth<T extends (...args: any[]) => Promise<Response>>(handler: T): T {
   return (async (...args: Parameters<T>) => {
     try {
       return await handler(...args);

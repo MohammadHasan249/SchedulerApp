@@ -1,4 +1,4 @@
-import { formatInTimeZone } from "date-fns-tz";
+import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 
 /**
  * Wall-clock parts of a UTC instant as seen in a given IANA timezone, computed
@@ -67,6 +67,16 @@ export function formatZonedTime(at: Date | string, timezone: string): string {
  */
 export function formatZonedDateTime(at: Date | string, timezone: string): string {
   return formatInTimeZone(new Date(at), timezone, "MMM d, h:mm a");
+}
+
+/**
+ * Converts a naive local wall-clock string (e.g. "2026-06-01T09:00:00", no
+ * offset) as read in the given IANA timezone into the UTC instant it
+ * represents. Use when a caller (e.g. an LLM tool argument) supplies a
+ * branch-local time rather than an absolute instant.
+ */
+export function zonedTimeToUtc(localDateTime: string, timezone: string): Date {
+  return fromZonedTime(localDateTime, timezone);
 }
 
 /**

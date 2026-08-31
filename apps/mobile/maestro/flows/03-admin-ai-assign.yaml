@@ -4,7 +4,7 @@ appId: com.workplix.mobile
 # it shows up on an employee's schedule.
 #
 # NOTE: apps/mobile has no manual "create shift" form — schedule-ai.tsx (the
-# DeepSeek-backed chat at app/(admin)/schedule-ai.tsx) is the only mobile-native
+# AI-backed chat at app/(admin)/schedule-ai.tsx) is the only mobile-native
 # way to create/assign shifts, and there's no publish toggle on mobile either
 # (shifts show a "Draft" badge until published elsewhere, e.g. web). This flow
 # therefore drives the whole thing through the chat and checks the shift
@@ -73,6 +73,6 @@ appId: com.workplix.mobile
 # (login, chat, send, navigate), but the AI did NOT actually assign the
 # employee — the shift still showed "Tap to assign employees" after a
 # prompt of "Assign Jane Requester to Wednesday's shift". Worth a manual
-# follow-up on the DeepSeek tool-calling path (apps/web/app/api/ai/schedule)
+# follow-up on the AI SDK tool-calling path (apps/web/app/api/ai/schedule)
 # before trusting this assertion to mean anything either way.
 - assertVisible: "${EMPLOYEE_NAME}"

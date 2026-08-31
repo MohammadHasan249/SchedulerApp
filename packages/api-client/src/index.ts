@@ -10,7 +10,6 @@ export * from "./dashboard";
 export * from "./exitPin";
 export * from "./branches";
 export * from "./jobRoles";
-export * from "./scheduleAI";
 export * from "./notifications";
 export * from "./payRates";
 export * from "./permissionProfiles";

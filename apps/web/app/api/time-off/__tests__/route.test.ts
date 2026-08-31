@@ -6,7 +6,10 @@ import { sendTimeOffNotification } from "@/lib/email/send-time-off-notification"
 import { chain } from "@/test/db-mock";
 
 vi.mock("@/lib/db", () => ({ db: { select: vi.fn(), insert: vi.fn() } }));
-vi.mock("@/lib/auth/getUser", () => ({ getApiUser: vi.fn() }));
+vi.mock("@/lib/auth/getUser", () => ({
+  getApiUser: vi.fn(),
+  ApiAuthError: class ApiAuthError extends Error {},
+}));
 vi.mock("@/lib/email/send-time-off-notification", () => ({ sendTimeOffNotification: vi.fn() }));
 
 const employeeUser = { id: "u1", role: "employee" as const, organizationId: "org-1", branchId: null };
