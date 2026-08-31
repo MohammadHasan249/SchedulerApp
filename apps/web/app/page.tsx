@@ -201,7 +201,8 @@ export default function LandingPage() {
         className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md"
       >
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <span className="text-xl font-bold tracking-tight text-foreground">Workplix</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/workplix-lockup.svg" alt="Workplix" className="h-7 w-auto" />
           <div className="flex items-center gap-3">
             <Link href="/login">
               <MotionButton
@@ -615,7 +616,11 @@ export default function LandingPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
             <div className="lg:col-span-2">
-              <span className="text-lg font-semibold text-foreground">Workplix</span>
+              <div className="flex items-center gap-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/workplix-icon.svg" alt="" className="h-6 w-6" />
+                <span className="text-lg font-semibold text-foreground">Workplix</span>
+              </div>
               <p className="mt-3 max-w-xs text-sm text-muted-foreground">
                 Workforce scheduling made simple. Manage shifts, time-off, and your whole team in
                 one place.

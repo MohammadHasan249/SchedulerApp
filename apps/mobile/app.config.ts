@@ -25,7 +25,7 @@ const BRANDS: Record<
     icon: "./assets/icon.png",
     adaptiveIconForeground: "./assets/adaptive-icon.png",
     splashImage: "./assets/splash-icon.png",
-    backgroundColor: "#0f172a",
+    backgroundColor: "#2563EB",
     easProjectId: "7398c8a3-adf8-4182-871d-a8405d7221a1",
   },
   seaudecrabe: {

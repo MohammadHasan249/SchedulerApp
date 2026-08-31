@@ -39,24 +39,35 @@ export async function GET(request: Request) {
     }
   }
 
-  // Use the org's uploaded logo if available, otherwise fall back to the
-  // generated calendar icon in their brand color.
+  // Use the org's uploaded logo if available. Orgs without one fall back to
+  // the Workplix icon (or a generated one in their brand color if it's not
+  // the default Workplix blue).
   const icons = logoUrl
     ? [{ src: logoUrl, sizes: "any", type: "image/png", purpose: "any maskable" }]
-    : [
-        {
-          src: `/icon/192?color=${encodeURIComponent(primaryColor)}`,
-          sizes: "192x192",
-          type: "image/png",
-          purpose: "any",
-        },
-        {
-          src: `/icon/512?color=${encodeURIComponent(primaryColor)}`,
-          sizes: "512x512",
-          type: "image/png",
-          purpose: "maskable",
-        },
-      ];
+    : primaryColor === "#3b82f6"
+      ? [
+          { src: "/workplix-appicon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+          {
+            src: "/workplix-appicon-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
+          },
+        ]
+      : [
+          {
+            src: `/icon/192?color=${encodeURIComponent(primaryColor)}`,
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: `/icon/512?color=${encodeURIComponent(primaryColor)}`,
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
+          },
+        ];
 
   const manifest = {
     name,
