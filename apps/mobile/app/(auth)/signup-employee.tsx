@@ -83,7 +83,7 @@ export default function SignupEmployeeScreen() {
               value={email}
               onChangeText={setEmail}
               placeholder="you@example.com"
-              placeholderTextColor={theme.inactive}
+              placeholderTextColor={BRAND.authMuted}
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="email-address"
@@ -99,7 +99,7 @@ export default function SignupEmployeeScreen() {
               value={password}
               onChangeText={setPassword}
               placeholder="••••••••"
-              placeholderTextColor={theme.inactive}
+              placeholderTextColor={BRAND.authMuted}
               secureTextEntry
               autoComplete="password-new"
             />
@@ -111,7 +111,7 @@ export default function SignupEmployeeScreen() {
             onPress={handleSubmit}
             disabled={loading}
           >
-            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>Create Account</Text>}
+            {loading ? <ActivityIndicator color={BRAND.authActionText} /> : <Text style={styles.submitText}>Create Account</Text>}
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -124,26 +124,28 @@ function makeStyles(theme: ReturnType<typeof useAppTheme>) {
     container: { flex: 1, backgroundColor: theme.bg },
     inner: { flexGrow: 1, justifyContent: "center", padding: 24, gap: 14 },
     title: { fontSize: 22, fontWeight: "700", color: theme.text, textAlign: "center" },
-    subtitle: { fontSize: 13, color: theme.muted, marginBottom: 8, textAlign: "center" },
+    subtitle: { fontSize: 13, color: BRAND.authMuted, marginBottom: 8, textAlign: "center" },
     field: { gap: 6 },
-    label: { fontSize: 13, fontWeight: "600", color: theme.muted },
+    label: { fontSize: 13, fontWeight: "600", color: BRAND.authMuted },
     input: {
-      backgroundColor: theme.surface,
+      backgroundColor: BRAND.authInputBg,
+      borderWidth: 1,
+      borderColor: BRAND.authInputBorder,
       borderRadius: 10,
       paddingHorizontal: 14,
       paddingVertical: 12,
       fontSize: 15,
       color: theme.text,
     },
-    hint: { fontSize: 11, color: theme.muted },
+    hint: { fontSize: 11, color: BRAND.authMuted },
     submit: {
-      backgroundColor: theme.primary,
+      backgroundColor: BRAND.authAction,
       borderRadius: 12,
       paddingVertical: 14,
       alignItems: "center",
       marginTop: 8,
     },
     submitDisabled: { opacity: 0.6 },
-    submitText: { color: "#fff", fontSize: 15, fontWeight: "600" },
+    submitText: { color: BRAND.authActionText, fontSize: 15, fontWeight: "600" },
   });
 }

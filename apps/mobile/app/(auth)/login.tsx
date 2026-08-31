@@ -43,7 +43,7 @@ export default function LoginScreen() {
               value={email}
               onChangeText={setEmail}
               placeholder="you@example.com"
-              placeholderTextColor="#64748b"
+              placeholderTextColor={BRAND.authMuted}
               keyboardType="email-address"
               autoCapitalize="none"
               autoComplete="email"
@@ -58,7 +58,7 @@ export default function LoginScreen() {
               value={password}
               onChangeText={setPassword}
               placeholder="••••••••"
-              placeholderTextColor="#64748b"
+              placeholderTextColor={BRAND.authMuted}
               secureTextEntry
               autoComplete="password"
             />
@@ -70,7 +70,7 @@ export default function LoginScreen() {
             disabled={loading}
           >
             {loading
-              ? <ActivityIndicator color="#fff" />
+              ? <ActivityIndicator color={BRAND.authActionText} />
               : <Text style={styles.buttonText}>Sign In</Text>
             }
           </TouchableOpacity>
@@ -88,18 +88,18 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0f172a" },
+  container: { flex: 1, backgroundColor: BRAND.authBackground },
   inner: { flex: 1, justifyContent: "center", paddingHorizontal: 24, gap: 32 },
   header: { alignItems: "center", gap: 8 },
   title: { fontSize: 32, fontWeight: "700", color: "#f8fafc" },
-  subtitle: { fontSize: 15, color: "#94a3b8" },
+  subtitle: { fontSize: 15, color: BRAND.authMuted },
   form: { gap: 16 },
   field: { gap: 6 },
-  label: { fontSize: 14, fontWeight: "500", color: "#cbd5e1" },
+  label: { fontSize: 14, fontWeight: "500", color: BRAND.authMuted },
   input: {
-    backgroundColor: "#1e293b",
+    backgroundColor: BRAND.authInputBg,
     borderWidth: 1,
-    borderColor: "#334155",
+    borderColor: BRAND.authInputBorder,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -107,15 +107,15 @@ const styles = StyleSheet.create({
     color: "#f8fafc",
   },
   button: {
-    backgroundColor: "#3b82f6",
+    backgroundColor: BRAND.authAction,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: "center",
     marginTop: 8,
   },
   buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: "#fff", fontSize: 15, fontWeight: "600" },
+  buttonText: { color: BRAND.authActionText, fontSize: 15, fontWeight: "600" },
   footer: { flexDirection: "row", justifyContent: "center", marginTop: 12 },
-  footerText: { color: "#94a3b8", fontSize: 14 },
-  footerLink: { color: "#3b82f6", fontSize: 14, fontWeight: "600" },
+  footerText: { color: BRAND.authMuted, fontSize: 14 },
+  footerLink: { color: BRAND.authAction, fontSize: 14, fontWeight: "600" },
 });
