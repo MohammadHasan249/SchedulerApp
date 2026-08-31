@@ -469,7 +469,6 @@ export default function ClockInScreen() {
               <TouchableOpacity
                 style={[styles.modalBtn, { backgroundColor: theme.bg }]}
                 onPress={() => setBranchModalVisible(false)}
-                disabled={!branchSlug}
               >
                 <Text style={[styles.modalBtnText, { color: theme.muted }]}>
                   Cancel

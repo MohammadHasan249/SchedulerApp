@@ -10,6 +10,10 @@ jest.mock("expo-secure-store", () => ({
   deleteItemAsync: jest.fn(),
 }));
 
+jest.mock("@/lib/clearStaleKeychain", () => ({
+  consumeFreshInstall: jest.fn(),
+}));
+
 const { isAuthTokenKey, ExpoSecureStoreAdapter } = require("../supabase");
 
 describe("isAuthTokenKey", () => {
