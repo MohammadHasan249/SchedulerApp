@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import * as SecureStore from "expo-secure-store";
+import { consumeFreshInstall } from "@/lib/clearStaleKeychain";
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const supabasePublishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
@@ -12,7 +13,19 @@ export function isAuthTokenKey(key: string): boolean {
 }
 
 export const ExpoSecureStoreAdapter = {
-  getItem: (key: string) => SecureStore.getItemAsync(key),
+  getItem: async (key: string) => {
+    // iOS Keychain entries survive an app reinstall, unlike the rest of the
+    // app's storage. On a fresh install, deny the very first read of the
+    // auth token so a reinstall can't silently resume a previous session —
+    // gated here, at the actual read site, rather than a fire-and-forget
+    // cleanup elsewhere, so there's no race with supabase-js's own
+    // (also async) session restoration on client init.
+    if (isAuthTokenKey(key) && (await consumeFreshInstall())) {
+      Promise.resolve(SecureStore.deleteItemAsync(key)).catch(() => {});
+      return null;
+    }
+    return SecureStore.getItemAsync(key);
+  },
   setItem: (key: string, value: string) => {
     if (isAuthTokenKey(key)) {
       try {

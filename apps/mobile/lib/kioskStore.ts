@@ -1,8 +1,10 @@
 import { create } from "zustand";
 import * as SecureStore from "expo-secure-store";
 
-const BRANCH_SLUG_KEY = "kiosk_branch_slug";
-const LOCKED_KEY = "kiosk_locked";
+// Exported so lib/clearStaleKeychain.ts can wipe these on a fresh install —
+// SecureStore (iOS Keychain / Android Keystore) entries survive an uninstall.
+export const BRANCH_SLUG_KEY = "kiosk_branch_slug";
+export const LOCKED_KEY = "kiosk_locked";
 
 interface KioskState {
   isLocked: boolean;

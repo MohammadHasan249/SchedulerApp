@@ -7,6 +7,9 @@ import { useAuthStore } from "@/lib/authStore";
 import { useThemeStore } from "@/lib/themeStore";
 import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
 import { getOrganizationTheme } from "@/lib/api";
+import { consumeFreshInstall } from "@/lib/clearStaleKeychain";
+import { BRANCH_SLUG_KEY, LOCKED_KEY } from "@/lib/kioskStore";
+import * as SecureStore from "expo-secure-store";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -25,6 +28,11 @@ export default function RootLayout() {
   const isMountedRef = useRef(false);
 
   useEffect(() => {
+    consumeFreshInstall().then((isFresh) => {
+      if (!isFresh) return;
+      Promise.resolve(SecureStore.deleteItemAsync(BRANCH_SLUG_KEY)).catch(() => {});
+      Promise.resolve(SecureStore.deleteItemAsync(LOCKED_KEY)).catch(() => {});
+    });
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
     });

@@ -10,6 +10,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "2.2.0",
     "@scheduler/api-client": "*",
     "@scheduler/types": "*",
     "@supabase/supabase-js": "^2.105.1",
@@ -45,7 +46,8 @@
   "jest": {
     "preset": "jest-expo",
     "moduleNameMapper": {
-      "^lucide-react-native$": "<rootDir>/../../node_modules/lucide-react-native/dist/cjs/lucide-react-native.js"
+      "^lucide-react-native$": "<rootDir>/../../node_modules/lucide-react-native/dist/cjs/lucide-react-native.js",
+      "^@react-native-async-storage/async-storage$": "<rootDir>/../../node_modules/@react-native-async-storage/async-storage/jest/async-storage-mock.js"
     },
     "collectCoverageFrom": [
       "lib/**/*.{ts,tsx}",
