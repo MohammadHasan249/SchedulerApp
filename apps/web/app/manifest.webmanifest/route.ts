@@ -2,9 +2,18 @@ import { db } from "@/lib/db";
 import { organizations } from "@scheduler/database/schema";
 import type { OrganizationTheme } from "@scheduler/database/schema";
 import { eq } from "drizzle-orm";
+import { getBrandForHost } from "@/lib/brand";
 
+// Brands locked to a specific org (e.g. seaudecrabe.workplix.app) know their
+// org's real slug directly — the subdomain itself isn't guaranteed to match
+// it (compare "seaudecrabe.workplix.app" vs. org slug "seau-de-crabe").
+// Everything else (plain multi-tenant subdomains like acme.workplix.app)
+// falls back to reading the org slug off the subdomain.
 function slugFromHost(host: string): string | null {
-  const parts = host.split(".");
+  const hostname = host.split(":")[0].toLowerCase();
+  const lockedOrgSlug = getBrandForHost(hostname).lockedOrgSlug;
+  if (lockedOrgSlug) return lockedOrgSlug;
+  const parts = hostname.split(".");
   return parts.length >= 3 && parts[0] !== "www" && parts[0] !== "app" ? parts[0] : null;
 }
 
