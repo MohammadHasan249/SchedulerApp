@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "expo-router";
-import { UserPlus, Pencil, X, Users } from "lucide-react-native";
+import { UserPlus, Pencil, X, Users, Eye, EyeOff } from "lucide-react-native";
 import {
   getEmployees,
   inviteEmployee,
@@ -102,6 +102,7 @@ export default function EmployeesScreen() {
   const [jobRoles, setJobRoles] = useState<JobRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showInactive, setShowInactive] = useState(false);
 
   // Invite modal
   const [inviteVisible, setInviteVisible] = useState(false);
@@ -264,10 +265,21 @@ export default function EmployeesScreen() {
   const branchLabels = Object.fromEntries(branches.map((b) => [b.id, b.name]));
   const jobRoleLabels = Object.fromEntries(jobRoles.map((r) => [r.id, r.name]));
 
+  const visibleEmployees = showInactive ? employees : employees.filter((e) => e.isActive);
+
   // ── Render ────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.container} edges={[]}>
       <View style={styles.toolbar}>
+        <TouchableOpacity
+          style={[styles.filterBtn, { borderColor: theme.muted + "44" }]}
+          onPress={() => setShowInactive((v) => !v)}
+        >
+          {showInactive ? <Eye size={14} color={theme.muted} /> : <EyeOff size={14} color={theme.muted} />}
+          <Text style={[styles.filterBtnText, { color: theme.muted }]}>
+            {showInactive ? "Showing all" : "Active only"}
+          </Text>
+        </TouchableOpacity>
         <TouchableOpacity style={[styles.inviteBtn, { backgroundColor: theme.primary }]} onPress={openInvite}>
           <UserPlus size={16} color="#fff" />
           <Text style={styles.inviteBtnText}>Invite Employee</Text>
@@ -276,10 +288,12 @@ export default function EmployeesScreen() {
 
       {loading ? (
         <ActivityIndicator color={theme.primary} style={{ marginTop: 40 }} />
-      ) : employees.length === 0 ? (
+      ) : visibleEmployees.length === 0 ? (
         <View style={styles.empty}>
           <Users size={40} color={theme.muted} />
-          <Text style={[styles.emptyText, { color: theme.muted }]}>No employees yet.</Text>
+          <Text style={[styles.emptyText, { color: theme.muted }]}>
+            {employees.length === 0 ? "No employees yet." : "No active employees."}
+          </Text>
         </View>
       ) : (
         <ScrollView
@@ -292,7 +306,7 @@ export default function EmployeesScreen() {
             />
           }
         >
-          {employees.map((emp) => (
+          {visibleEmployees.map((emp) => (
             <TouchableOpacity
               key={emp.id}
               style={[styles.card, { backgroundColor: theme.surface, opacity: emp.isActive ? 1 : 0.5 }]}
@@ -499,9 +513,11 @@ export default function EmployeesScreen() {
 function makeStyles(theme: ReturnType<typeof useAppTheme>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.bg },
-    toolbar: { paddingHorizontal: 20, paddingVertical: 12, alignItems: "flex-end" },
+    toolbar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 12 },
     inviteBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
     inviteBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+    filterBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, borderWidth: 1 },
+    filterBtnText: { fontSize: 12, fontWeight: "600" },
     empty: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 80, gap: 12 },
     emptyText: { fontSize: 15 },
     list: { paddingHorizontal: 16, paddingBottom: 24, gap: 10 },
