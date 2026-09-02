@@ -46,7 +46,11 @@ export const BRANDS: Record<BrandConfig["key"], BrandConfig> = {
     authInputBg: "rgba(255,255,255,0.07)",
     authInputBorder: "rgba(255,255,255,0.22)",
     authMuted: "rgba(251,238,234,0.62)",
-    authAction: "#e2b04a",
+    // Antique brass — one notch down from the earlier bright marigold
+    // (#e2b04a). This color doubles as the app's primary AND secondary
+    // accent (buttons, active tab, icons, labels), so it's on screen
+    // constantly; the softer tone keeps the gold identity without the glare.
+    authAction: "#c99a45",
     authActionText: "#3a2200",
   },
 };
