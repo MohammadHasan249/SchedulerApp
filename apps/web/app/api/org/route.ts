@@ -154,16 +154,24 @@ export async function POST(request: Request) {
   // 4. admin.createUser() does not send a confirmation email by itself —
   //    generate the confirmation link and send it ourselves via Resend
   //    (Supabase's built-in email sending is not used).
+  //
+  //    We link to our own /confirmed page with token_hash/type (verified via
+  //    verifyOtp) rather than the raw action_link: action_link's redirect
+  //    uses Supabase's implicit hash-token flow, but our browser client is
+  //    hardcoded to flowType "pkce" (see @supabase/ssr createBrowserClient),
+  //    which rejects those hash tokens — confirmation still succeeds
+  //    server-side but the page always showed "Confirmation failed".
   const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
     type: "signup",
     email,
     password,
     options: { redirectTo: `${brand.appUrl}/confirmed` },
   });
-  if (linkError || !linkData?.properties?.action_link) {
+  if (linkError || !linkData?.properties?.hashed_token) {
     logger.error("Failed to generate signup confirmation link:", linkError);
   } else {
-    await sendConfirmationEmail(email, linkData.properties.action_link, fullName, brand);
+    const confirmUrl = `${brand.appUrl}/confirmed?token_hash=${linkData.properties.hashed_token}&type=signup`;
+    await sendConfirmationEmail(email, confirmUrl, fullName, brand);
   }
 
   return NextResponse.json({ orgId, userId: authUserId }, { status: 201 });

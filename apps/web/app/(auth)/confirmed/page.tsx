@@ -23,6 +23,8 @@ function ConfirmedCard() {
 
   useEffect(() => {
     const code = searchParams.get("code");
+    const tokenHash = searchParams.get("token_hash");
+    const type = searchParams.get("type");
     const supabase = createClient();
 
     if (code) {
@@ -30,6 +32,23 @@ function ConfirmedCard() {
       supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
         setStatus(error ? "error" : "success");
       });
+      return;
+    }
+
+    if (tokenHash && type) {
+      // Our confirmation emails link here with `token_hash`/`type` (see
+      // generateLink's `hashed_token`) rather than the raw Supabase
+      // action_link. The action_link's redirect uses the implicit hash-token
+      // flow, but our browser client (@supabase/ssr) is hardcoded to
+      // flowType: "pkce" — that mismatch makes it reject the hash tokens
+      // outright, so the email still gets confirmed server-side but this
+      // page always reported failure. verifyOtp sidesteps the mismatch by
+      // confirming and establishing the session in one direct call.
+      supabase.auth
+        .verifyOtp({ token_hash: tokenHash, type: type as "signup" | "invite" | "email_change" | "recovery" })
+        .then(({ error }) => {
+          setStatus(error ? "error" : "success");
+        });
       return;
     }
 
