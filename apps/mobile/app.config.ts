@@ -59,10 +59,17 @@ const config: ExpoConfig = {
     backgroundColor: brand.backgroundColor,
   },
   ios: {
-    supportsTablet: false,
+    supportsTablet: true,
     bundleIdentifier: brand.bundleIdentifier,
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
+      UISupportedInterfaceOrientations: ["UIInterfaceOrientationPortrait"],
+      "UISupportedInterfaceOrientations~ipad": [
+        "UIInterfaceOrientationPortrait",
+        "UIInterfaceOrientationPortraitUpsideDown",
+        "UIInterfaceOrientationLandscapeLeft",
+        "UIInterfaceOrientationLandscapeRight",
+      ],
     },
   },
   android: {
