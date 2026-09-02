@@ -21,7 +21,7 @@ export type BrandConfig = {
   authActionText: string;
 };
 
-const BRANDS: Record<BrandConfig["key"], BrandConfig> = {
+export const BRANDS: Record<BrandConfig["key"], BrandConfig> = {
   workplix: {
     key: "workplix",
     displayName: "Workplix",
@@ -54,3 +54,19 @@ const BRANDS: Record<BrandConfig["key"], BrandConfig> = {
 const variant = (Constants.expoConfig?.extra?.appVariant as BrandConfig["key"] | undefined) ?? "workplix";
 
 export const BRAND: BrandConfig = BRANDS[variant] ?? BRANDS.workplix;
+
+/**
+ * True when `orgSlug` belongs to an organization this app build shouldn't
+ * grant access to — auth/backend are shared across brand variants, so a
+ * valid Supabase session for e.g. a Seau de Crabe employee logging into the
+ * plain Workplix app (or vice versa) would otherwise still work. A locked
+ * variant (Seau de Crabe) only ever admits its own org; the unlocked variant
+ * (Workplix) admits anything except orgs locked to a *different* variant.
+ */
+export function isWrongBrandOrg(orgSlug: string | null | undefined): boolean {
+  if (!orgSlug) return false;
+  if (BRAND.lockedOrgSlug) {
+    return orgSlug !== BRAND.lockedOrgSlug;
+  }
+  return Object.values(BRANDS).some((b) => b.key !== BRAND.key && b.lockedOrgSlug === orgSlug);
+}

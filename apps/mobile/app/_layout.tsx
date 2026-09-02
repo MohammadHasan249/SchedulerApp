@@ -1,5 +1,6 @@
 import "@/polyfills";
 import { useEffect, useRef } from "react";
+import { Alert } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as Notifications from "expo-notifications";
@@ -8,9 +9,10 @@ import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/lib/authStore";
 import { useThemeStore } from "@/lib/themeStore";
 import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
-import { getOrganizationTheme } from "@/lib/api";
+import { getOrganizationTheme, getOrganizationInfo } from "@/lib/api";
 import { consumeFreshInstall } from "@/lib/clearStaleKeychain";
 import { BRANCH_SLUG_KEY, LOCKED_KEY } from "@/lib/kioskStore";
+import { BRAND, isWrongBrandOrg } from "@/lib/brand";
 import * as SecureStore from "expo-secure-store";
 
 // Same Sentry project as the web app, tagged by platform below, so every
@@ -67,6 +69,25 @@ function RootLayout() {
   useEffect(() => {
     if (!session) return;
     getOrganizationTheme().then(setTheme).catch(() => {});
+  }, [session]);
+
+  // Auth/backend are shared across brand variants (Workplix, Seau de Crabe),
+  // so a valid session from one brand's org still passes Supabase auth in
+  // the other brand's app build. Reject it here rather than letting an
+  // employee end up signed into the wrong org's app.
+  useEffect(() => {
+    if (!session) return;
+    getOrganizationInfo()
+      .then((info) => {
+        if (isWrongBrandOrg(info.slug)) {
+          Alert.alert(
+            "Wrong app",
+            `This account's organization isn't available in the ${BRAND.displayName} app.`
+          );
+          supabase.auth.signOut();
+        }
+      })
+      .catch(() => {});
   }, [session]);
 
   useEffect(() => {
