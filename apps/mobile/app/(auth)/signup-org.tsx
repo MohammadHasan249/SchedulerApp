@@ -24,6 +24,14 @@ function slugify(str: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+type Industry = "restaurant" | "retail" | "other";
+
+const INDUSTRY_OPTIONS: { value: Industry; label: string }[] = [
+  { value: "restaurant", label: "Restaurant" },
+  { value: "retail", label: "Retail store" },
+  { value: "other", label: "Other" },
+];
+
 export default function SignupOrgScreen() {
   const router = useRouter();
   const theme = useAppTheme();
@@ -31,6 +39,7 @@ export default function SignupOrgScreen() {
 
   const [orgName, setOrgName] = useState("");
   const [orgSlug, setOrgSlug] = useState("");
+  const [industry, setIndustry] = useState<Industry>("restaurant");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -69,7 +78,7 @@ export default function SignupOrgScreen() {
       const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/org`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orgName, orgSlug, fullName, email, password }),
+        body: JSON.stringify({ orgName, orgSlug, industry, fullName, email, password }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -126,6 +135,30 @@ export default function SignupOrgScreen() {
               autoCapitalize="none"
               autoCorrect={false}
             />
+          </Field>
+
+          <Field label="What kind of business is this?" hint="We'll pre-fill some common job roles to get you started.">
+            <View style={styles.industryRow}>
+              {INDUSTRY_OPTIONS.map((opt) => (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={[
+                    styles.industryOption,
+                    industry === opt.value && styles.industryOptionSelected,
+                  ]}
+                  onPress={() => setIndustry(opt.value)}
+                >
+                  <Text
+                    style={[
+                      styles.industryOptionText,
+                      industry === opt.value && styles.industryOptionTextSelected,
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </Field>
 
           <Field label="Your full name">
@@ -215,6 +248,19 @@ function makeStyles(theme: ReturnType<typeof useAppTheme>) {
       color: theme.text,
     },
     hint: { fontSize: 11, color: theme.muted },
+    industryRow: { flexDirection: "row", gap: 8 },
+    industryOption: {
+      flex: 1,
+      backgroundColor: theme.surface,
+      borderRadius: 10,
+      paddingVertical: 10,
+      alignItems: "center",
+    },
+    industryOptionSelected: {
+      backgroundColor: theme.primary,
+    },
+    industryOptionText: { fontSize: 13, fontWeight: "600", color: theme.text },
+    industryOptionTextSelected: { color: "#fff" },
     submit: {
       backgroundColor: theme.primary,
       borderRadius: 12,

@@ -106,6 +106,7 @@ describe("SignupOrgScreen", () => {
     expect(JSON.parse(options.body)).toEqual({
       orgName: "Acme Inc",
       orgSlug: "acme-inc",
+      industry: "restaurant",
       fullName: "Jane Smith",
       email: "jane@example.com",
       password: "password123",
