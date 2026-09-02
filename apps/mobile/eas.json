@@ -39,10 +39,10 @@
       },
       "ios": {
         "ascApiKeyPath": "./asc-api-key.p8",
-        "ascApiKeyId": "REPLACE_WITH_ASC_KEY_ID",
-        "ascApiKeyIssuerId": "REPLACE_WITH_ASC_ISSUER_ID",
-        "appleTeamId": "REPLACE_WITH_APPLE_TEAM_ID",
-        "ascAppId": "REPLACE_WITH_WORKPLIX_ASC_APP_ID"
+        "ascApiKeyId": "G4MK9LWCTZ",
+        "ascApiKeyIssuerId": "38df7c34-a29b-4551-ad50-cc7a4691bc3d",
+        "appleTeamId": "7U9UCS34XM",
+        "ascAppId": "6806672197"
       }
     },
     "seaudecrabe-production": {
@@ -52,10 +52,10 @@
       },
       "ios": {
         "ascApiKeyPath": "./asc-api-key.p8",
-        "ascApiKeyId": "REPLACE_WITH_ASC_KEY_ID",
-        "ascApiKeyIssuerId": "REPLACE_WITH_ASC_ISSUER_ID",
-        "appleTeamId": "REPLACE_WITH_APPLE_TEAM_ID",
-        "ascAppId": "REPLACE_WITH_SEAUDECRABE_ASC_APP_ID"
+        "ascApiKeyId": "G4MK9LWCTZ",
+        "ascApiKeyIssuerId": "38df7c34-a29b-4551-ad50-cc7a4691bc3d",
+        "appleTeamId": "7U9UCS34XM",
+        "ascAppId": "6806707251"
       }
     }
   }
