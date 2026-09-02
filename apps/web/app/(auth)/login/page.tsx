@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,6 +63,12 @@ function LoginForm() {
     });
 
     if (error) {
+      // Wrong password / unconfirmed email etc. are expected user-facing
+      // rejections, not bugs — only report unexpected server-side failures
+      // (5xx, network errors) so Sentry stays signal, not noise.
+      if (!error.status || error.status >= 500) {
+        Sentry.captureException(error);
+      }
       toast.error(error.message);
       setLoading(false);
       return;

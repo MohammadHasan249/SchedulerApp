@@ -1,16 +1,25 @@
 let _baseUrl = "";
 let _getToken: (() => Promise<string | null>) | null = null;
 let _refreshToken: (() => Promise<string | null>) | null = null;
+let _onError: ((error: Error, path: string) => void) | null = null;
 
 export function configureApiClient(opts: {
   baseUrl: string;
   getToken: () => Promise<string | null>;
   /** Called once on a 401 to attempt a token refresh before retrying. */
   refreshToken?: () => Promise<string | null>;
+  /**
+   * Called with every request failure (non-2xx response or thrown network
+   * error) before it's rethrown to the caller — callers typically catch and
+   * show this to the user without rethrowing further, so this is the one
+   * place that sees every failure. Wire it to error reporting (e.g. Sentry).
+   */
+  onError?: (error: Error, path: string) => void;
 }) {
   _baseUrl = opts.baseUrl.replace(/\/$/, "");
   _getToken = opts.getToken;
   _refreshToken = opts.refreshToken ?? null;
+  _onError = opts.onError ?? null;
 }
 
 async function doFetch(path: string, init: RequestInit, token: string | null): Promise<Response> {
@@ -55,7 +64,15 @@ export async function apiFetch<T>(
   init: RequestInit = {}
 ): Promise<T> {
   let token = _getToken ? await _getToken() : null;
-  let res = await doFetch(path, init, token);
+  let res: Response;
+  try {
+    res = await doFetch(path, init, token);
+  } catch (e) {
+    // Network-level failure — fetch itself threw (offline, DNS, timeout).
+    const err = e instanceof Error ? e : new Error(String(e));
+    _onError?.(err, path);
+    throw err;
+  }
 
   // On 401, attempt a single session refresh then retry. This handles the case
   // where the Supabase JWT expires mid-session on mobile without forcing a logout.
@@ -75,6 +92,11 @@ export async function apiFetch<T>(
       // not JSON — fall through to the generic message below
     }
     const message = typeof parsed?.error === "string" ? parsed.error : null;
+    // A 401 that survives the refresh-and-retry above is an expected
+    // "please log in again" state, not a bug — don't report it.
+    if (res.status !== 401) {
+      _onError?.(new Error(`${res.status} ${res.statusText} on ${path}: ${message ?? text}`), path);
+    }
     throw new Error(message ?? `Request failed: ${res.status} ${res.statusText}`);
   }
 

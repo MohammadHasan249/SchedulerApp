@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as Notifications from "expo-notifications";
+import * as Sentry from "@sentry/react-native";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/lib/authStore";
 import { useThemeStore } from "@/lib/themeStore";
@@ -11,6 +12,18 @@ import { getOrganizationTheme } from "@/lib/api";
 import { consumeFreshInstall } from "@/lib/clearStaleKeychain";
 import { BRANCH_SLUG_KEY, LOCKED_KEY } from "@/lib/kioskStore";
 import * as SecureStore from "expo-secure-store";
+
+// Same Sentry project as the web app, tagged by platform below, so every
+// client reports into one place.
+Sentry.init({
+  dsn: "https://f672a1513a6ab7a7536c21ccb7df6eef@o4512012425035776.ingest.us.sentry.io/4512012428378112",
+  tracesSampleRate: 1,
+  enableAutoSessionTracking: true,
+  // Don't spam Sentry with local dev crashes from a machine that isn't
+  // actually a user's device.
+  enabled: !__DEV__,
+});
+Sentry.setTag("platform", "mobile");
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -21,7 +34,9 @@ Notifications.setNotificationHandler({
   }),
 });
 
-export default function RootLayout() {
+export default Sentry.wrap(RootLayout);
+
+function RootLayout() {
   const { session, setSession, setEmployeeName } = useAuthStore();
   const { setTheme } = useThemeStore();
   const router = useRouter();

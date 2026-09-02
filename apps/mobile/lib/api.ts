@@ -1,4 +1,5 @@
 import { configureApiClient } from "@scheduler/api-client";
+import * as Sentry from "@sentry/react-native";
 import { supabase } from "./supabase";
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL!;
@@ -12,6 +13,9 @@ configureApiClient({
   refreshToken: async () => {
     const { data } = await supabase.auth.refreshSession();
     return data.session?.access_token ?? null;
+  },
+  onError: (error, path) => {
+    Sentry.captureException(error, { extra: { path } });
   },
 });
 

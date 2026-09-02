@@ -1,5 +1,4 @@
 import { logger } from "@/lib/logger";
-import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAgentUIStreamResponse } from "ai";
@@ -86,8 +85,13 @@ export const POST = withAuth(async function POST(request: Request) {
     });
   } catch (e) {
     const isTimeout = e instanceof DOMException && e.name === "TimeoutError";
-    logger.error(isTimeout ? "Schedule AI agent timed out:" : "Schedule AI agent failed:", e);
-    if (!isTimeout) Sentry.captureException(e);
+    // Timeouts are an expected, noisy condition — log them without
+    // reporting to Sentry (logger.error reports; logger.warn doesn't).
+    if (isTimeout) {
+      logger.warn("Schedule AI agent timed out:", e);
+    } else {
+      logger.error("Schedule AI agent failed:", e);
+    }
     return NextResponse.json(
       { error: isTimeout ? "AI service timed out" : "AI service error" },
       { status: isTimeout ? 504 : 500 }
