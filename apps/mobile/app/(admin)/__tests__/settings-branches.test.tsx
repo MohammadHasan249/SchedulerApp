@@ -200,6 +200,7 @@ describe("SettingsBranchesScreen", () => {
     await findByText("No branches yet");
 
     await fireEvent.press(getByLabelText("Add branch"));
+    // Opens the timezone picker (swaps the modal's content in place).
     await fireEvent.press(getByText("Eastern Time (ET)"));
     await fireEvent.press(getByText("Pacific Time (PT)"));
 

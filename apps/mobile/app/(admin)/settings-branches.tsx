@@ -66,6 +66,7 @@ export default function SettingsBranchesScreen() {
     setEditing(null);
     setForm(EMPTY_FORM);
     setFormError("");
+    setTzPickerVisible(false);
     setModalVisible(true);
   }
 
@@ -78,6 +79,7 @@ export default function SettingsBranchesScreen() {
       timezone: branch.timezone,
     });
     setFormError("");
+    setTzPickerVisible(false);
     setModalVisible(true);
   }
 
@@ -208,102 +210,107 @@ export default function SettingsBranchesScreen() {
         </ScrollView>
       )}
 
-      <Modal visible={modalVisible} animationType="slide" transparent>
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => (tzPickerVisible ? setTzPickerVisible(false) : setModalVisible(false))}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {editing ? "Edit Branch" : "Add Branch"}
-              </Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <X size={20} color={theme.muted} />
-              </TouchableOpacity>
-            </View>
+            {tzPickerVisible ? (
+              <>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Timezone</Text>
+                  <TouchableOpacity onPress={() => setTzPickerVisible(false)}>
+                    <X size={20} color={theme.muted} />
+                  </TouchableOpacity>
+                </View>
+                {US_TIMEZONES.map((tz) => (
+                  <TouchableOpacity
+                    key={tz.value}
+                    style={styles.tzOption}
+                    onPress={() => {
+                      setForm((f) => ({ ...f, timezone: tz.value }));
+                      setTzPickerVisible(false);
+                    }}
+                  >
+                    <Text style={{ color: theme.text, fontSize: 14 }}>{tz.label}</Text>
+                    {form.timezone === tz.value && <Check size={18} color={theme.primary} />}
+                  </TouchableOpacity>
+                ))}
+              </>
+            ) : (
+              <>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>
+                    {editing ? "Edit Branch" : "Add Branch"}
+                  </Text>
+                  <TouchableOpacity onPress={() => setModalVisible(false)}>
+                    <X size={20} color={theme.muted} />
+                  </TouchableOpacity>
+                </View>
 
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Name</Text>
-              <TextInput
-                style={[styles.input, { color: theme.text, borderColor: theme.surface2, backgroundColor: theme.bg }]}
-                value={form.name}
-                onChangeText={(v) => setForm((f) => ({ ...f, name: v }))}
-                placeholder="e.g. Downtown"
-                placeholderTextColor={theme.muted}
-              />
-            </View>
+                <View style={styles.field}>
+                  <Text style={styles.fieldLabel}>Name</Text>
+                  <TextInput
+                    style={[styles.input, { color: theme.text, borderColor: theme.surface2, backgroundColor: theme.bg }]}
+                    value={form.name}
+                    onChangeText={(v) => setForm((f) => ({ ...f, name: v }))}
+                    placeholder="e.g. Downtown"
+                    placeholderTextColor={theme.muted}
+                  />
+                </View>
 
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Slug</Text>
-              <TextInput
-                style={[styles.input, { color: theme.text, borderColor: theme.surface2, backgroundColor: theme.bg }]}
-                value={form.slug}
-                onChangeText={(v) => setForm((f) => ({ ...f, slug: v.toLowerCase().replace(/\s+/g, "-") }))}
-                placeholder="e.g. downtown"
-                placeholderTextColor={theme.muted}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
+                <View style={styles.field}>
+                  <Text style={styles.fieldLabel}>Slug</Text>
+                  <TextInput
+                    style={[styles.input, { color: theme.text, borderColor: theme.surface2, backgroundColor: theme.bg }]}
+                    value={form.slug}
+                    onChangeText={(v) => setForm((f) => ({ ...f, slug: v.toLowerCase().replace(/\s+/g, "-") }))}
+                    placeholder="e.g. downtown"
+                    placeholderTextColor={theme.muted}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
 
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Address</Text>
-              <TextInput
-                style={[styles.input, { color: theme.text, borderColor: theme.surface2, backgroundColor: theme.bg }]}
-                value={form.address}
-                onChangeText={(v) => setForm((f) => ({ ...f, address: v }))}
-                placeholder="123 Main St"
-                placeholderTextColor={theme.muted}
-              />
-            </View>
+                <View style={styles.field}>
+                  <Text style={styles.fieldLabel}>Address</Text>
+                  <TextInput
+                    style={[styles.input, { color: theme.text, borderColor: theme.surface2, backgroundColor: theme.bg }]}
+                    value={form.address}
+                    onChangeText={(v) => setForm((f) => ({ ...f, address: v }))}
+                    placeholder="123 Main St"
+                    placeholderTextColor={theme.muted}
+                  />
+                </View>
 
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Timezone</Text>
-              <TouchableOpacity
-                style={[styles.input, { borderColor: theme.surface2, backgroundColor: theme.bg, justifyContent: "center" }]}
-                onPress={() => setTzPickerVisible(true)}
-              >
-                <Text style={{ color: theme.text, fontSize: 14 }}>
-                  {US_TIMEZONES.find((tz) => tz.value === form.timezone)?.label ?? form.timezone}
-                </Text>
-              </TouchableOpacity>
-            </View>
+                <View style={styles.field}>
+                  <Text style={styles.fieldLabel}>Timezone</Text>
+                  <TouchableOpacity
+                    style={[styles.input, { borderColor: theme.surface2, backgroundColor: theme.bg, justifyContent: "center" }]}
+                    onPress={() => setTzPickerVisible(true)}
+                  >
+                    <Text style={{ color: theme.text, fontSize: 14 }}>
+                      {US_TIMEZONES.find((tz) => tz.value === form.timezone)?.label ?? form.timezone}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
 
-            {formError ? <Text style={styles.error}>{formError}</Text> : null}
+                {formError ? <Text style={styles.error}>{formError}</Text> : null}
 
-            <TouchableOpacity
-              style={[styles.saveBtn, saving && { opacity: 0.6 }]}
-              onPress={handleSave}
-              disabled={saving}
-            >
-              <Text style={styles.saveBtnText}>
-                {saving ? "Saving…" : editing ? "Save Changes" : "Create Branch"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={tzPickerVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Timezone</Text>
-              <TouchableOpacity onPress={() => setTzPickerVisible(false)}>
-                <X size={20} color={theme.muted} />
-              </TouchableOpacity>
-            </View>
-            {US_TIMEZONES.map((tz) => (
-              <TouchableOpacity
-                key={tz.value}
-                style={styles.tzOption}
-                onPress={() => {
-                  setForm((f) => ({ ...f, timezone: tz.value }));
-                  setTzPickerVisible(false);
-                }}
-              >
-                <Text style={{ color: theme.text, fontSize: 14 }}>{tz.label}</Text>
-                {form.timezone === tz.value && <Check size={18} color={theme.primary} />}
-              </TouchableOpacity>
-            ))}
+                <TouchableOpacity
+                  style={[styles.saveBtn, saving && { opacity: 0.6 }]}
+                  onPress={handleSave}
+                  disabled={saving}
+                >
+                  <Text style={styles.saveBtnText}>
+                    {saving ? "Saving…" : editing ? "Save Changes" : "Create Branch"}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
       </Modal>
