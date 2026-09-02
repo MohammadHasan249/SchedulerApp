@@ -157,11 +157,11 @@ export function EmployeeForm({ open, onOpenChange, employee, branches, jobRoles,
                 <SelectValue placeholder="Select role">{roleLabel[role]}</SelectValue>
               </SelectTrigger>
               <SelectContent>
+                {isEdit && currentUserRole === "org_admin" && (
+                  <SelectItem value="org_admin">Org Admin</SelectItem>
+                )}
                 {currentUserRole === "org_admin" && (
-                  <>
-                    <SelectItem value="org_admin">Org Admin</SelectItem>
-                    <SelectItem value="branch_manager">Branch Manager</SelectItem>
-                  </>
+                  <SelectItem value="branch_manager">Branch Manager</SelectItem>
                 )}
                 <SelectItem value="employee">Employee</SelectItem>
               </SelectContent>

@@ -69,14 +69,22 @@ describe("POST /api/employees (invite)", () => {
     expect(res.status).toBe(403);
   });
 
+  it("forbids inviting an org_admin, even by another org_admin", async () => {
+    (getApiUser as any).mockResolvedValue(orgAdmin);
+    const res = await POST(postReq({ name: "New", email: "new@x.com", role: "org_admin" }));
+    expect(res.status).toBe(403);
+  });
+
   it("creates the employee with an auto-generated PIN and sends the invite email", async () => {
     (getApiUser as any).mockResolvedValue(orgAdmin);
     (generateUniquePin as any).mockResolvedValue("4321");
     const created = { id: "emp-new", name: "New", email: "new@x.com" };
+    const branchId = "11111111-1111-4111-8111-111111111111";
+    (db.select as any).mockReturnValue(chain([{ id: branchId }]));
     (db.insert as any).mockReturnValue(chain([created]));
     (sendEmployeeInvitationEmail as any).mockResolvedValue({ sent: true });
 
-    const res = await POST(postReq({ name: "New", email: "new@x.com", role: "org_admin" }));
+    const res = await POST(postReq({ name: "New", email: "new@x.com", role: "branch_manager", branchId }));
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual({ ...created, emailSent: true });
     expect(sendEmployeeInvitationEmail).toHaveBeenCalledWith("New", "new@x.com", "org-1", "4321");

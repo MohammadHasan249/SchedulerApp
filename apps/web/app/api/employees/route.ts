@@ -93,17 +93,18 @@ export const POST = withAuth(async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // Only org_admin can create another org_admin
-  if (role === "org_admin" && user.role !== "org_admin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  // Invites can only create branch managers or employees — org admins must
+  // be provisioned some other way, not through the employee invite flow.
+  if (role === "org_admin") {
+    return NextResponse.json({ error: "Cannot invite an org admin" }, { status: 403 });
   }
 
   const targetBranchId =
     user.role === "branch_manager" ? user.branchId : (branchId ?? null);
 
   // Branch managers and employees are scoped to one branch throughout the
-  // app — only an org admin can be branch-less (they oversee everything).
-  if (role !== "org_admin" && !targetBranchId) {
+  // app — invites can't create branch-less accounts.
+  if (!targetBranchId) {
     return NextResponse.json({ error: "branchId is required for this role" }, { status: 400 });
   }
 
