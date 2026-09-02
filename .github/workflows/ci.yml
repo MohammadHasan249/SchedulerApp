@@ -69,3 +69,60 @@ jobs:
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+  mobile-changed:
+    name: Check for mobile changes
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    outputs:
+      changed: ${{ steps.filter.outputs.mobile }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          # Anything mobile ships with — the app itself, the shared
+          # packages it depends on, and the lockfile.
+          filters: |
+            mobile:
+              - 'apps/mobile/**'
+              - 'packages/api-client/**'
+              - 'packages/types/**'
+              - 'package-lock.json'
+
+  build-submit-mobile:
+    name: Build & submit mobile (${{ matrix.profile }}) to TestFlight
+    runs-on: ubuntu-latest
+    needs: [lint-typecheck, mobile-changed]
+    # An EAS build burns real build credits/minutes, so only run this
+    # when mobile (or something it depends on) actually changed.
+    if: needs.mobile-changed.outputs.changed == 'true'
+    environment: production
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [production, seaudecrabe-production]
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+        working-directory: .
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Write App Store Connect API key
+        run: echo "${{ secrets.ASC_API_KEY_P8 }}" > asc-api-key.p8
+
+      - name: EAS build (iOS) and auto-submit to TestFlight
+        run: eas build --platform ios --profile ${{ matrix.profile }} --non-interactive --auto-submit
