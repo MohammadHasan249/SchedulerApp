@@ -52,7 +52,17 @@ function RootLayout() {
       Promise.resolve(SecureStore.deleteItemAsync(LOCKED_KEY)).catch(() => {});
     });
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+      if (!session) {
+        setSession(null);
+        return;
+      }
+      // The persisted session on disk has its `user` stripped (Keychain
+      // 2KB limit — see ExpoSecureStoreAdapter in supabase.ts), so refresh
+      // immediately to get a full session with `user` populated, rather
+      // than waiting for the SDK's near-expiry auto-refresh.
+      supabase.auth.refreshSession().then(({ data }) => {
+        setSession(data.session ?? session);
+      });
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
