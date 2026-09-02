@@ -1,7 +1,7 @@
 import React from "react";
 import { render, fireEvent, waitFor } from "@testing-library/react-native";
 import ClockInScreen from "../clock-in";
-import { clockPunch, verifyExitPin, getBranches } from "@/lib/api";
+import { clockPunch, verifyExitPin, getExitPinStatus, getBranches } from "@/lib/api";
 import { useKioskStore } from "@/lib/kioskStore";
 import { useAuthStore } from "@/lib/authStore";
 import type { Branch } from "@/lib/api";
@@ -10,6 +10,7 @@ import type { Session } from "@supabase/supabase-js";
 jest.mock("@/lib/api", () => ({
   clockPunch: jest.fn(),
   verifyExitPin: jest.fn(),
+  getExitPinStatus: jest.fn(),
   getBranches: jest.fn(),
 }));
 
@@ -48,6 +49,7 @@ describe("ClockInScreen", () => {
     useKioskStore.setState({ isLocked: false, branchSlug: null });
     useAuthStore.setState({ session: adminSession(), employeeName: null });
     (getBranches as jest.Mock).mockResolvedValue([makeBranch()]);
+    (getExitPinStatus as jest.Mock).mockResolvedValue({ configured: true });
   });
 
   it("redirects non-admins to the schedule screen", async () => {
@@ -139,7 +141,7 @@ describe("ClockInScreen", () => {
 
     await fireEvent.press(getByText("Enable Kiosk"));
 
-    expect(useKioskStore.getState().isLocked).toBe(true);
+    await waitFor(() => expect(useKioskStore.getState().isLocked).toBe(true));
     await waitFor(() => expect(queryByText("Change")).toBeNull());
   });
 

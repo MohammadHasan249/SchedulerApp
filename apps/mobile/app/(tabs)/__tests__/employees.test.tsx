@@ -94,7 +94,11 @@ describe("EmployeesScreen", () => {
   it("shows an 'Inactive' tag for deactivated employees", async () => {
     (getEmployees as jest.Mock).mockResolvedValue([makeEmployee({ isActive: false })]);
 
-    const { findByText } = await render(<EmployeesScreen />);
+    const { findByText, getByText } = await render(<EmployeesScreen />);
+
+    // Inactive employees are hidden until the "Active only" filter is toggled off.
+    await findByText("No active employees.");
+    await fireEvent.press(getByText("Active only"));
 
     expect(await findByText("Inactive")).toBeTruthy();
   });
@@ -334,6 +338,9 @@ describe("EmployeesScreen", () => {
       (getEmployees as jest.Mock).mockResolvedValue([makeEmployee({ isActive: false })]);
 
       const { findByText, getByLabelText, getByText } = await render(<EmployeesScreen />);
+      // Inactive employees are hidden until the "Active only" filter is toggled off.
+      await findByText("No active employees.");
+      await fireEvent.press(getByText("Active only"));
       await findByText("Jane Doe");
       await fireEvent.press(getByLabelText("Edit Jane Doe"));
       await findByText("Activate Employee");

@@ -13,6 +13,7 @@ import {
   getShifts,
   getShiftAssignments,
   getEmployees,
+  getBranches,
 } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
@@ -29,6 +30,7 @@ jest.mock("@/lib/api", () => ({
   getShifts: jest.fn(),
   getShiftAssignments: jest.fn(),
   getEmployees: jest.fn(),
+  getBranches: jest.fn(),
 }));
 
 jest.mock("@/lib/myEmployeeStore", () => ({
@@ -114,6 +116,7 @@ describe("RequestsScreen", () => {
     (getShifts as jest.Mock).mockResolvedValue([]);
     (getShiftAssignments as jest.Mock).mockResolvedValue([]);
     (getEmployees as jest.Mock).mockResolvedValue([makeEmployee()]);
+    (getBranches as jest.Mock).mockResolvedValue([]);
   });
 
   describe("Time Off — employee", () => {
@@ -305,11 +308,13 @@ describe("RequestsScreen", () => {
         id: "mine",
         assignments: [{ id: "a1", employeeId: "emp-1", employeeName: "Jane Doe", jobRoleId: null }],
       });
+      const coworker = makeEmployee({ id: "emp-2", name: "Bob", branchId: "branch-1" });
       (getShiftSwaps as jest.Mock).mockResolvedValueOnce([]).mockResolvedValueOnce([makeSwap()]);
       (getShifts as jest.Mock)
         .mockResolvedValueOnce([myShift])
         .mockResolvedValueOnce([])
         .mockResolvedValue([myShift]);
+      (getEmployees as jest.Mock).mockResolvedValue([makeEmployee(), coworker]);
       (createShiftSwap as jest.Mock).mockResolvedValue(makeSwap());
 
       const { findByText, getByText } = await render(<RequestsScreen />);
@@ -321,6 +326,9 @@ describe("RequestsScreen", () => {
       const dayLabel = format(new Date(myShift.startTime), "EEE, MMM d");
       await fireEvent.press(await findByText(dayLabel));
 
+      // Selecting the shift moves to the cover picker — pick the eligible coworker.
+      await fireEvent.press(await findByText("Bob"));
+
       expect(Alert.alert).toHaveBeenCalledWith(
         "Request Swap",
         expect.any(String),
@@ -330,7 +338,7 @@ describe("RequestsScreen", () => {
       await act(async () => { await confirmBtn?.onPress?.(); });
 
       await waitFor(() =>
-        expect(createShiftSwap).toHaveBeenCalledWith({ shiftId: "mine" })
+        expect(createShiftSwap).toHaveBeenCalledWith({ shiftId: "mine", coverId: "emp-2" })
       );
     });
 
