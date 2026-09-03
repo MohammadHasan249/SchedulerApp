@@ -89,6 +89,12 @@ export function EmployeeForm({ open, onOpenChange, employee, branches, jobRoles,
       return;
     }
 
+    const trimmedEmail = email.trim();
+    if (!isEdit && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError("Enter a valid email address");
+      return;
+    }
+
     setLoading(true);
     setError("");
 
@@ -101,7 +107,7 @@ export function EmployeeForm({ open, onOpenChange, employee, branches, jobRoles,
     };
 
     if (!isEdit) {
-      payload.email = email;
+      payload.email = trimmedEmail;
     }
 
     if (pin) payload.pin = pin;

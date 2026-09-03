@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   ActivityIndicator, Alert, RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect } from "expo-router";
 import { getNotifications, markNotificationRead } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useNotificationsStore } from "@/lib/notificationsStore";
@@ -54,7 +55,23 @@ export default function NotificationsScreen() {
   useEffect(() => {
     load();
     refreshUnreadCount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Silently refresh on subsequent focuses (e.g. returning after a manager
+  // approves a request) so the list doesn't go stale while the tab stays mounted.
+  const firstFocusRef = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (firstFocusRef.current) {
+        firstFocusRef.current = false;
+        return;
+      }
+      load();
+      refreshUnreadCount();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+  );
 
   async function handlePress(n: Notification) {
     if (n.isRead) return;

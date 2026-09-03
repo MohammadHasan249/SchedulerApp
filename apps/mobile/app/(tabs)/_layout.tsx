@@ -1,5 +1,6 @@
 import { Tabs, useRouter } from "expo-router";
 import { useEffect } from "react";
+import { AppState } from "react-native";
 import {
   Calendar,
   Clock,
@@ -39,6 +40,14 @@ export default function TabLayout() {
         })
         .catch(() => {});
     }
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") refreshUnreadCount();
+    });
+    return () => sub.remove();
   }, [session]);
 
   // If the device relaunched while in kiosk mode, force it back to the

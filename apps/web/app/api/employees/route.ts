@@ -13,7 +13,7 @@ import { eq, and, gt } from "drizzle-orm";
 
 const inviteSchema = z.object({
   name: z.string().min(1),
-  email: z.string().email(),
+  email: z.string().trim().email(),
   role: z.enum(["org_admin", "branch_manager", "employee"]).default("employee"),
   branchId: z.string().uuid().nullable().optional(),
   jobRoleId: z.string().uuid().nullable().optional(),

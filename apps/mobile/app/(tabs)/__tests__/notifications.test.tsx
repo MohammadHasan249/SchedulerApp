@@ -11,6 +11,10 @@ jest.mock("@/lib/api", () => ({
   getUnreadNotificationCount: jest.fn(),
 }));
 
+jest.mock("expo-router", () => ({
+  useFocusEffect: jest.fn(),
+}));
+
 function makeNotification(overrides: Partial<Notification> = {}): Notification {
   return {
     id: "n1",
