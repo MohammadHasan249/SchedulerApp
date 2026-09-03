@@ -86,8 +86,8 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
     organizationId: user.organizationId,
     message:
       parsed.data.status === "approved"
-        ? `Your time-off request for ${updated.startDate} – ${updated.endDate} was approved.`
-        : `Your time-off request for ${updated.startDate} – ${updated.endDate} was denied.`,
+        ? `Your time-off request was approved.`
+        : `Your time-off request was denied.`,
   });
 
   // Best-effort email — failures here shouldn't fail the approval/denial itself.
