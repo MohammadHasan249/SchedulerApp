@@ -13,6 +13,15 @@ import type { TimeOffRequest, Employee } from "@scheduler/types";
 
 type RequestWithEmployee = TimeOffRequest & { employee?: Employee };
 
+// req.startDate/endDate are plain "yyyy-MM-dd" strings. `new Date(str)` parses
+// that as UTC midnight, which `format()` then renders in the browser's local
+// timezone — shifting the displayed date back a day west of UTC. Parse the
+// components directly as a local date instead.
+function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
 type Props = {
   requests: RequestWithEmployee[];
   canApprove: boolean;
@@ -91,8 +100,8 @@ export function TimeOffRequestTable({ requests, canApprove, employees = [] }: Pr
             {requests.map((req) => (
               <TableRow key={req.id}>
                 {canApprove && <TableCell>{empMap[req.employeeId] ?? "—"}</TableCell>}
-                <TableCell>{format(new Date(req.startDate), "MMM d, yyyy")}</TableCell>
-                <TableCell>{format(new Date(req.endDate), "MMM d, yyyy")}</TableCell>
+                <TableCell>{format(parseLocalDate(req.startDate), "MMM d, yyyy")}</TableCell>
+                <TableCell>{format(parseLocalDate(req.endDate), "MMM d, yyyy")}</TableCell>
                 <TableCell className="max-w-xs truncate">{req.reason ?? "—"}</TableCell>
                 <TableCell>
                   <Badge variant={statusVariant[req.status]}>

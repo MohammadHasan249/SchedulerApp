@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  ActivityIndicator, RefreshControl, Modal, FlatList, Pressable, Alert, TextInput,
+  ActivityIndicator, RefreshControl, Modal, FlatList, Pressable, Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ChevronLeft, ChevronRight, Bot, X, Plus, UserMinus, Trash2, Send } from "lucide-react-native";
@@ -58,6 +58,7 @@ export default function ScheduleScreen() {
   const [createAssignedIds, setCreateAssignedIds] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
+  const [timePickerFor, setTimePickerFor] = useState<"start" | "end" | null>(null);
 
   const loadShifts = useCallback(async (start: Date) => {
     try {
@@ -545,24 +546,16 @@ export default function ScheduleScreen() {
 
             <View style={styles.timeRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.sectionLabel}>Start (HH:MM)</Text>
-                <TextInput
-                  style={styles.timeInput}
-                  value={createStart}
-                  onChangeText={setCreateStart}
-                  placeholder="09:00"
-                  placeholderTextColor={theme.inactive}
-                />
+                <Text style={styles.sectionLabel}>Start</Text>
+                <TouchableOpacity style={styles.timeInput} onPress={() => setTimePickerFor("start")}>
+                  <Text style={{ fontSize: 15, color: theme.text }}>{createStart}</Text>
+                </TouchableOpacity>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.sectionLabel}>End (HH:MM)</Text>
-                <TextInput
-                  style={styles.timeInput}
-                  value={createEnd}
-                  onChangeText={setCreateEnd}
-                  placeholder="17:00"
-                  placeholderTextColor={theme.inactive}
-                />
+                <Text style={styles.sectionLabel}>End</Text>
+                <TouchableOpacity style={styles.timeInput} onPress={() => setTimePickerFor("end")}>
+                  <Text style={{ fontSize: 15, color: theme.text }}>{createEnd}</Text>
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -608,7 +601,87 @@ export default function ScheduleScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* Time picker (wheel-based, no keyboard) */}
+      <Modal
+        visible={timePickerFor !== null}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setTimePickerFor(null)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setTimePickerFor(null)}>
+          <Pressable style={styles.timePickerSheet} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>{timePickerFor === "start" ? "Start Time" : "End Time"}</Text>
+            <TimeWheelPicker
+              theme={theme}
+              value={timePickerFor === "start" ? createStart : createEnd}
+              onChange={(v) => {
+                if (timePickerFor === "start") setCreateStart(v);
+                else setCreateEnd(v);
+              }}
+            />
+            <TouchableOpacity
+              style={[styles.createBtn, { alignSelf: "stretch" }]}
+              onPress={() => setTimePickerFor(null)}
+            >
+              <Text style={styles.createBtnText}>Done</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
+  );
+}
+
+function TimeWheelPicker({
+  theme,
+  value,
+  onChange,
+}: {
+  theme: ReturnType<typeof useAppTheme>;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [hh, mm] = value.split(":");
+  const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, "0"));
+  const minutes = ["00", "15", "30", "45"];
+
+  return (
+    <View style={{ flexDirection: "row", gap: 16, marginVertical: 16 }}>
+      <FlatList
+        data={hours}
+        keyExtractor={(h) => h}
+        style={{ maxHeight: 220 }}
+        showsVerticalScrollIndicator={false}
+        renderItem={({ item: h }) => (
+          <TouchableOpacity
+            style={{ paddingVertical: 10, alignItems: "center" }}
+            onPress={() => onChange(`${h}:${mm}`)}
+          >
+            <Text style={{ fontSize: 18, fontWeight: h === hh ? "700" : "400", color: h === hh ? theme.primary : theme.text }}>
+              {h}
+            </Text>
+          </TouchableOpacity>
+        )}
+      />
+      <Text style={{ fontSize: 18, color: theme.text, alignSelf: "center" }}>:</Text>
+      <FlatList
+        data={minutes}
+        keyExtractor={(m) => m}
+        style={{ maxHeight: 220 }}
+        showsVerticalScrollIndicator={false}
+        renderItem={({ item: m }) => (
+          <TouchableOpacity
+            style={{ paddingVertical: 10, alignItems: "center" }}
+            onPress={() => onChange(`${hh}:${m}`)}
+          >
+            <Text style={{ fontSize: 18, fontWeight: m === mm ? "700" : "400", color: m === mm ? theme.primary : theme.text }}>
+              {m}
+            </Text>
+          </TouchableOpacity>
+        )}
+      />
+    </View>
   );
 }
 
@@ -787,6 +860,10 @@ function makeStyles(theme: ReturnType<typeof useAppTheme>) {
     modalSheet: {
       backgroundColor: theme.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20,
       padding: 24, paddingBottom: 40, maxHeight: "80%",
+    },
+    timePickerSheet: {
+      backgroundColor: theme.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+      padding: 24, paddingBottom: 40, alignItems: "center",
     },
     modalHeader: {
       flexDirection: "row", justifyContent: "space-between",
