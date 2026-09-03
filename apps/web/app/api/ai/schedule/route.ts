@@ -1,7 +1,7 @@
 import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createAgentUIStreamResponse } from "ai";
+import { APICallError, createAgentUIStreamResponse } from "ai";
 import { safeJson } from "@/lib/utils/safe-json";
 import { getApiUser as getUser } from "@/lib/auth/getUser";
 import { withAuth } from "@/lib/auth/withAuth";
@@ -9,6 +9,15 @@ import { checkRateLimit } from "@/lib/utils/rate-limit";
 import { createScheduleAgent } from "@/lib/ai/schedule-agent";
 
 const AI_RATE_LIMIT = { maxAttempts: 20, windowMs: 60 * 60 * 1000 };
+
+// AI Gateway rejects with 402 once the configured budget (Vercel dashboard →
+// AI Gateway → Usage & Budgets) is exhausted, and 403 for account-level
+// issues like a missing card. Both are billing conditions, not bugs — flag
+// them distinctly in Sentry so an alert reads as "go check the Gateway
+// dashboard" rather than a generic crash to chase.
+function isGatewayBillingError(e: unknown): boolean {
+  return APICallError.isInstance(e) && (e.statusCode === 402 || e.statusCode === 403);
+}
 
 // Only the last N messages are sent to the model each turn — keeps cost/latency
 // bounded on long conversations while retaining enough context for a multi-turn
@@ -82,19 +91,34 @@ export const POST = withAuth(async function POST(request: Request) {
       agent,
       uiMessages,
       timeout: 30_000,
+      // Errors thrown mid-stream (e.g. a Gateway rejection after the model
+      // call starts) never reach the catch block below — the Response has
+      // already been returned by then. Report them here instead, and keep
+      // the client-facing message generic; only Sentry gets the real cause.
+      onError: (e) => {
+        if (isGatewayBillingError(e)) {
+          logger.error("Schedule AI Gateway billing/budget error:", e);
+        } else {
+          logger.error("Schedule AI stream failed:", e);
+        }
+        return "AI service error";
+      },
     });
   } catch (e) {
     const isTimeout = e instanceof DOMException && e.name === "TimeoutError";
+    const isBilling = isGatewayBillingError(e);
     // Timeouts are an expected, noisy condition — log them without
     // reporting to Sentry (logger.error reports; logger.warn doesn't).
     if (isTimeout) {
       logger.warn("Schedule AI agent timed out:", e);
+    } else if (isBilling) {
+      logger.error("Schedule AI Gateway billing/budget error:", e);
     } else {
       logger.error("Schedule AI agent failed:", e);
     }
     return NextResponse.json(
       { error: isTimeout ? "AI service timed out" : "AI service error" },
-      { status: isTimeout ? 504 : 500 }
+      { status: isTimeout ? 504 : isBilling ? 503 : 500 }
     );
   }
 });

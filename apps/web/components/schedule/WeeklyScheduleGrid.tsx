@@ -199,7 +199,7 @@ export function WeeklyScheduleGrid({
   const [aiInput, setAiInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const { messages: aiMessages, sendMessage, status: aiStatus } = useChat<ScheduleAgentUIMessage>({
+  const { messages: aiMessages, sendMessage, status: aiStatus, error: aiError, clearError: clearAiError } = useChat<ScheduleAgentUIMessage>({
     transport: new DefaultChatTransport({ api: "/api/ai/schedule" }),
     onFinish: ({ message }) => {
       // Refresh the schedule only when this reply actually mutated something.
@@ -207,8 +207,12 @@ export function WeeklyScheduleGrid({
         refreshWeek();
       }
     },
+    onError: (err) => {
+      toast.error(err.message || "AI assistant hit an error — please try again.");
+    },
   });
   const aiLoading = aiStatus === "submitted" || aiStatus === "streaming";
+  const aiErrored = aiStatus === "error";
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -499,6 +503,24 @@ export function WeeklyScheduleGrid({
                     <span className="w-1.5 h-1.5 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:150ms]" />
                     <span className="w-1.5 h-1.5 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:300ms]" />
                   </span>
+                </div>
+              </div>
+            )}
+            {aiErrored && (
+              <div className="flex gap-2 justify-start">
+                <div className="w-7 h-7 rounded-full bg-destructive/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <Bot className="h-3.5 w-3.5 text-destructive" />
+                </div>
+                <div className="flex flex-col gap-1.5 max-w-[80%]">
+                  <div className="rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm bg-destructive/10 text-destructive">
+                    {aiError?.message || "Something went wrong reaching the AI assistant."}
+                  </div>
+                  <button
+                    onClick={clearAiError}
+                    className="self-start text-xs text-muted-foreground hover:text-foreground underline"
+                  >
+                    Dismiss
+                  </button>
                 </div>
               </div>
             )}
