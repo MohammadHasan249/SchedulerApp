@@ -2,8 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Poppins } from "next/font/google";
 import { Toaster } from "sonner";
 import { Analytics } from "@vercel/analytics/next";
-import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
-import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -15,12 +13,6 @@ const poppins = Poppins({
 export const metadata: Metadata = {
   title: "Workplix",
   description: "Workforce scheduling platform",
-  manifest: "/manifest.webmanifest",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "Workplix",
-  },
 };
 
 export const viewport: Viewport = {
@@ -36,13 +28,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <head>
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        <meta name="mobile-web-app-capable" content="yes" />
       </head>
       <body className={`${poppins.variable} font-sans antialiased`}>
         {children}
         <Toaster richColors position="top-right" />
-        <ServiceWorkerRegistrar />
-        <PWAInstallBanner />
         <Analytics />
       </body>
     </html>
