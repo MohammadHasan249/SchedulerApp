@@ -8,7 +8,7 @@ import {
   timeOffRequests,
   branches,
 } from "@scheduler/database/schema";
-import { eq, and, gte, lte, inArray } from "drizzle-orm";
+import { eq, and, ne, gte, lte, inArray } from "drizzle-orm";
 import { coversAvailability, type AvailabilitySchedule } from "./availability";
 import { getZonedParts } from "@/lib/utils/timezone";
 
@@ -84,7 +84,13 @@ export async function autoAssignShifts(
   const allEmployees = await db
     .select()
     .from(employees)
-    .where(and(eq(employees.organizationId, organizationId), eq(employees.isActive, true)));
+    .where(
+      and(
+        eq(employees.organizationId, organizationId),
+        eq(employees.isActive, true),
+        ne(employees.role, "org_admin")
+      )
+    );
 
   const employeeIds = allEmployees.map((e) => e.id);
 

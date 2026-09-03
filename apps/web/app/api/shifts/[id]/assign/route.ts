@@ -84,6 +84,10 @@ export const POST = withAuth(async function POST(request: Request, { params }: {
 
   if (!employee) return NextResponse.json({ error: "Employee not found" }, { status: 404 });
 
+  if (employee.role === "org_admin") {
+    return NextResponse.json({ error: "Org admins cannot be assigned to shifts" }, { status: 403 });
+  }
+
   // Employees can only be assigned to shifts in their own branch
   if (employee.branchId !== row.branch.id) {
     return NextResponse.json({ error: "Employee does not belong to this shift's branch" }, { status: 403 });
