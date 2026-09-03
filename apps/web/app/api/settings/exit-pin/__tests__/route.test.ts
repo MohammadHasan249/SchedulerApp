@@ -15,6 +15,7 @@ vi.mock("@/lib/utils/rate-limit", () => ({
 
 const orgAdmin = { id: "u1", role: "org_admin" as const, organizationId: "org-1", branchId: null };
 const manager = { id: "u2", role: "branch_manager" as const, organizationId: "org-1", branchId: "b1" };
+const employee = { id: "u3", role: "employee" as const, organizationId: "org-1", branchId: "b1" };
 
 function req(body?: unknown) {
   return new Request("http://test", { method: "PUT", body: body === undefined ? undefined : JSON.stringify(body) });
@@ -46,6 +47,21 @@ describe("PUT /api/settings/exit-pin", () => {
 
 describe("POST /api/settings/exit-pin (verify)", () => {
   beforeEach(() => vi.resetAllMocks());
+
+  it("forbids employees from verifying the exit pin", async () => {
+    (getApiUser as any).mockResolvedValue(employee);
+    const res = await POST(req({ pin: "1234" }));
+    expect(res.status).toBe(403);
+  });
+
+  it("allows branch managers to verify the exit pin", async () => {
+    (getApiUser as any).mockResolvedValue(manager);
+    (checkRateLimit as any).mockResolvedValue({ allowed: true });
+    const hash = await bcrypt.hash("5678", 10);
+    (db.select as any).mockReturnValue(chain([{ exitPinHash: hash }]));
+    const res = await POST(req({ pin: "5678" }));
+    expect(await res.json()).toEqual({ valid: true, configured: true });
+  }, 10000);
 
   it("rate limits repeated attempts", async () => {
     (getApiUser as any).mockResolvedValue(orgAdmin);

@@ -50,6 +50,13 @@ export const PUT = withAuth(async function PUT(request: Request) {
 export const POST = withAuth(async function POST(request: Request) {
   const user = await getUser();
 
+  // Only reachable through /kiosk/[branchSlug], which is itself gated to
+  // org_admin/branch_manager — a plain employee session has no legitimate
+  // reason to call this directly.
+  if (user.role !== "org_admin" && user.role !== "branch_manager") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   // Brute-force defense — same pattern as /api/clock POST. Keyed by IP+org so a
   // single tampered kiosk can't lock out other kiosks at the same branch.
   const rl = await checkRateLimit(
