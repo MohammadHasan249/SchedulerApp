@@ -20,17 +20,23 @@ import {
 } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { formatZonedTime } from "@/lib/utils/timezone";
+import { useRole, useBranchId } from "@/lib/useRole";
 
 const DEFAULT_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 export default function ReportsScreen() {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
+  const role = useRole();
+  const ownBranchId = useBranchId();
+  const isBranchManager = role === "branch_manager";
 
   const [day, setDay] = useState(new Date());
   const [rows, setRows] = useState<ClockEventRow[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [branchId, setBranchId] = useState<string | "all">("all");
+  const [branchId, setBranchId] = useState<string | "all">(
+    isBranchManager && ownBranchId ? ownBranchId : "all"
+  );
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -57,6 +63,8 @@ export default function ReportsScreen() {
   }, [load]);
 
   useEffect(() => {
+    // Still fetched for branch managers so we can resolve their branch's
+    // timezone below — only the picker UI is hidden for them.
     getBranches().then(setBranches).catch(() => {});
   }, []);
 
@@ -88,7 +96,7 @@ export default function ReportsScreen() {
           </TouchableOpacity>
         </View>
 
-        {branches.length > 1 && (
+        {!isBranchManager && branches.length > 1 && (
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
