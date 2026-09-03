@@ -222,7 +222,10 @@ export default function ProfileScreen() {
             )}
             {!BRAND.lockedThemeKey && (
               <TouchableOpacity
-                style={styles.settingsRow}
+                style={[
+                  styles.settingsRow,
+                  role !== "org_admin" && styles.rowLast,
+                ]}
                 onPress={() => router.push("/(admin)/settings-theme")}
               >
                 <Palette size={18} color={theme.secondary} />
@@ -230,14 +233,16 @@ export default function ProfileScreen() {
                 <ChevronRight size={16} color={theme.muted} />
               </TouchableOpacity>
             )}
-            <TouchableOpacity
-              style={[styles.settingsRow, styles.rowLast]}
-              onPress={() => router.push("/(admin)/settings-exit-pin")}
-            >
-              <KeyRound size={18} color={theme.secondary} />
-              <Text style={styles.settingsRowText}>Kiosk Exit PIN</Text>
-              <ChevronRight size={16} color={theme.muted} />
-            </TouchableOpacity>
+            {role === "org_admin" && (
+              <TouchableOpacity
+                style={[styles.settingsRow, styles.rowLast]}
+                onPress={() => router.push("/(admin)/settings-exit-pin")}
+              >
+                <KeyRound size={18} color={theme.secondary} />
+                <Text style={styles.settingsRowText}>Kiosk Exit PIN</Text>
+                <ChevronRight size={16} color={theme.muted} />
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
