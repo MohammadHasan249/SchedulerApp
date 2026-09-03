@@ -55,7 +55,7 @@ export function updateEmployee(
       Employee,
       "name" | "isActive" | "branchId" | "jobRoleId" | "maxHoursPerWeek" | "permissionProfileId"
     >
-  >
+  > & { pin?: string }
 ): Promise<Employee> {
   return apiFetch(`/api/employees/${id}`, {
     method: "PATCH",

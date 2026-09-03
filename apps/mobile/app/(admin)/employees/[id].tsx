@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Mail, User, Briefcase, GitBranch, Clock, KeyRound, ShieldCheck, Power } from "lucide-react-native";
+import { Mail, User, Briefcase, GitBranch, Clock, ShieldCheck, Power } from "lucide-react-native";
 import {
   getEmployee,
   getBranches,
@@ -36,7 +36,7 @@ export default function EmployeeDetailScreen() {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
 
-  const [employee, setEmployee] = useState<(Employee & { pinHash?: string | null }) | null>(null);
+  const [employee, setEmployee] = useState<Employee | null>(null);
   const [branchMap, setBranchMap] = useState<Record<string, Branch>>({});
   const [jobRoleMap, setJobRoleMap] = useState<Record<string, JobRole>>({});
   const [loading, setLoading] = useState(true);
@@ -162,12 +162,6 @@ export default function EmployeeDetailScreen() {
             icon={<Clock size={16} color={theme.primary} />}
             label="Max hours/week"
             value={String(employee.maxHoursPerWeek ?? 40)}
-            theme={theme}
-          />
-          <DetailRow
-            icon={<KeyRound size={16} color={theme.primary} />}
-            label="Kiosk PIN"
-            value={employee.pinHash ? "Set" : "Not set"}
             theme={theme}
             last
           />

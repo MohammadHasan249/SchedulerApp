@@ -51,6 +51,7 @@ type EditForm = {
   branchId: string;
   jobRoleId: string;
   maxHoursPerWeek: string;
+  pin: string;
 };
 
 // Pill selector shared between invite and edit modals
@@ -113,7 +114,7 @@ export default function EmployeesScreen() {
 
   // Edit modal
   const [editTarget, setEditTarget] = useState<Employee | null>(null);
-  const [editForm, setEditForm] = useState<EditForm>({ branchId: "", jobRoleId: "", maxHoursPerWeek: "40" });
+  const [editForm, setEditForm] = useState<EditForm>({ branchId: "", jobRoleId: "", maxHoursPerWeek: "40", pin: "" });
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
 
@@ -208,6 +209,7 @@ export default function EmployeesScreen() {
       branchId: defaultBranchId,
       jobRoleId: emp.jobRoleId ?? "",
       maxHoursPerWeek: String(emp.maxHoursPerWeek),
+      pin: "",
     });
     setEditError("");
   }
@@ -217,6 +219,7 @@ export default function EmployeesScreen() {
     if (editTarget.role !== "org_admin" && !editForm.branchId) { setEditError("Select a branch for this role."); return; }
     const maxHours = parseInt(editForm.maxHoursPerWeek);
     if (isNaN(maxHours) || maxHours < 1 || maxHours > 168) { setEditError("Max hours must be 1–168."); return; }
+    if (editForm.pin && !/^\d{4}$/.test(editForm.pin)) { setEditError("PIN must be exactly 4 digits."); return; }
 
     setEditSaving(true);
     setEditError("");
@@ -225,6 +228,7 @@ export default function EmployeesScreen() {
         branchId: editTarget.role === "org_admin" ? null : editForm.branchId || null,
         jobRoleId: editForm.jobRoleId || null,
         maxHoursPerWeek: maxHours,
+        ...(editForm.pin ? { pin: editForm.pin } : {}),
       });
       setEditTarget(null);
       load();
@@ -493,6 +497,18 @@ export default function EmployeesScreen() {
                 value={editForm.maxHoursPerWeek}
                 onChangeText={(v) => setEditForm((f) => ({ ...f, maxHoursPerWeek: v }))}
                 keyboardType="numeric"
+              />
+
+              <Text style={[styles.fieldLabel, { color: theme.muted }]}>Kiosk PIN (leave blank to keep current)</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.muted + "33" }]}
+                placeholder="4-digit PIN"
+                placeholderTextColor={theme.muted}
+                value={editForm.pin}
+                onChangeText={(v) => setEditForm((f) => ({ ...f, pin: v.replace(/\D/g, "").slice(0, 4) }))}
+                keyboardType="numeric"
+                secureTextEntry
+                maxLength={4}
               />
 
               {editError ? <Text style={styles.errorText}>{editError}</Text> : null}
