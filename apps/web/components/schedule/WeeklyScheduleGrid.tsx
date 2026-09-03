@@ -389,7 +389,7 @@ export function WeeklyScheduleGrid({
               {publishing ? "Publishing…" : `Publish Week (${unpublishedCount} unpublished)`}
             </Button>
           )}
-          {unpublishedCount === 0 && visibleShifts.length > 0 && (
+          {canEdit && unpublishedCount === 0 && visibleShifts.length > 0 && (
             <Badge variant="secondary">Published</Badge>
           )}
         </div>
