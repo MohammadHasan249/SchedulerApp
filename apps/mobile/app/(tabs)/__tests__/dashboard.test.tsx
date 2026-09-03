@@ -4,16 +4,23 @@ import { render, fireEvent, waitFor } from "@testing-library/react-native";
 import DashboardScreen from "../dashboard";
 import { getDashboardStats } from "@/lib/api";
 import type { DashboardStats } from "@/lib/api";
+import { useAuthStore } from "@/lib/authStore";
+import type { Session } from "@supabase/supabase-js";
 
 jest.mock("@/lib/api", () => ({
   getDashboardStats: jest.fn(),
 }));
 
 const mockPush = jest.fn();
+const mockReplace = jest.fn();
 
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => ({ push: mockPush, replace: mockReplace }),
 }));
+
+function adminSession(): Session {
+  return { user: { id: "auth-1", app_metadata: { role: "org_admin" } } } as unknown as Session;
+}
 
 function makeStats(overrides: Partial<DashboardStats> = {}): DashboardStats {
   return {
@@ -29,6 +36,20 @@ describe("DashboardScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    useAuthStore.setState({ session: adminSession(), employeeName: null });
+  });
+
+  it("redirects non-admins to the schedule screen instead of rendering stats", async () => {
+    useAuthStore.setState({
+      session: { user: { id: "auth-2", app_metadata: { role: "employee" } } } as unknown as Session,
+      employeeName: null,
+    });
+    (getDashboardStats as jest.Mock).mockResolvedValue(makeStats());
+
+    const { queryByText } = await render(<DashboardScreen />);
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/(tabs)/schedule"));
+    expect(queryByText("Clocked In")).toBeNull();
   });
 
   it("renders stats once loaded", async () => {

@@ -27,7 +27,7 @@ import {
 } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useAuthStore } from "@/lib/authStore";
-import { useRole } from "@/lib/useRole";
+import { useRole, useIsAdmin } from "@/lib/useRole";
 import type { Employee } from "@scheduler/types";
 
 type RoleOption = "employee" | "branch_manager" | "org_admin";
@@ -94,6 +94,7 @@ export default function EmployeesScreen() {
   const styles = makeStyles(theme);
   const router = useRouter();
   const role = useRole();
+  const isAdmin = useIsAdmin();
   const { session } = useAuthStore();
   const userBranchId = session?.user?.app_metadata?.branch_id as string | undefined;
 
@@ -131,6 +132,16 @@ export default function EmployeesScreen() {
   }, []);
 
   useEffect(() => { load(); }, []);
+
+  // Employees is admin/manager-only — hidden from the employee tab bar
+  // (`(tabs)/_layout.tsx` sets `href: null` for it), but `href: null` only
+  // removes the tab entry, it doesn't block navigation. A deep link
+  // (`seaudecrabe://employees`) could still reach this screen directly. Same
+  // effect-redirect + render-gate pattern as clock-in.tsx, dashboard.tsx, and
+  // (admin)/_layout.tsx.
+  useEffect(() => {
+    if (!isAdmin) router.replace("/(tabs)/schedule");
+  }, [isAdmin, router]);
 
   // ── Invite ────────────────────────────────────────────────────
   function openInvite() {
@@ -268,6 +279,8 @@ export default function EmployeesScreen() {
   const visibleEmployees = showInactive ? employees : employees.filter((e) => e.isActive);
 
   // ── Render ────────────────────────────────────────────────────
+  if (!isAdmin) return null;
+
   return (
     <SafeAreaView style={styles.container} edges={[]}>
       <View style={styles.toolbar}>

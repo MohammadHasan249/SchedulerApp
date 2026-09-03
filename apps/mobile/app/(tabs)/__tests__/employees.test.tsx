@@ -22,9 +22,10 @@ jest.mock("@/lib/api", () => ({
 }));
 
 const mockPush = jest.fn();
+const mockReplace = jest.fn();
 
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => ({ push: mockPush, replace: mockReplace }),
 }));
 
 function makeEmployee(overrides: Partial<Employee> = {}): Employee {
@@ -67,6 +68,16 @@ describe("EmployeesScreen", () => {
     useAuthStore.setState({ session: sessionWith({ role: "org_admin" }) });
     (getBranches as jest.Mock).mockResolvedValue([makeBranch()]);
     (getJobRoles as jest.Mock).mockResolvedValue([makeJobRole()]);
+  });
+
+  it("redirects a non-admin employee to the schedule screen instead of rendering the list", async () => {
+    useAuthStore.setState({ session: sessionWith({ role: "employee" }) });
+    (getEmployees as jest.Mock).mockResolvedValue([makeEmployee()]);
+
+    const { queryByText } = await render(<EmployeesScreen />);
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/(tabs)/schedule"));
+    expect(queryByText("Jane Doe")).toBeNull();
   });
 
   it("shows the empty state when there are no employees", async () => {

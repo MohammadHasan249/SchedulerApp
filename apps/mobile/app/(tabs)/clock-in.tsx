@@ -221,6 +221,15 @@ export default function ClockInScreen() {
     setBranchModalVisible(false);
   }
 
+  // Belt-and-suspenders alongside the redirect effect above: on a cold start
+  // via deep link (e.g. `seaudecrabe://clock-in`), this screen can be the
+  // very first thing mounted, before the navigator has finished settling —
+  // `router.replace` called from a `useEffect` in that window can be silently
+  // swallowed, leaving a non-admin looking at a live kiosk PIN pad. Gating
+  // the render itself means that failure mode shows a blank screen for a
+  // moment instead of exposing kiosk functionality.
+  if (!isAdmin) return null;
+
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       {/* Unlocked toolbar */}

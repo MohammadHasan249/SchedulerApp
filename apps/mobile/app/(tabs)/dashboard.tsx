@@ -14,6 +14,7 @@ import { useRouter } from "expo-router";
 import { Users, CalendarCheck, Clock, Timer, ChevronRight } from "lucide-react-native";
 import { getDashboardStats, type DashboardStats } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
+import { useIsAdmin } from "@/lib/useRole";
 import { formatZonedTime } from "@/lib/utils/timezone";
 
 function formatTime(iso: string, timezone: string) {
@@ -56,6 +57,7 @@ export default function DashboardScreen() {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
   const router = useRouter();
+  const isAdmin = useIsAdmin();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -82,10 +84,21 @@ export default function DashboardScreen() {
     load();
   }, []);
 
+  // Dashboard is admin/manager-only — hidden from the employee tab bar
+  // (`(tabs)/_layout.tsx` sets `href: null` for it), but `href: null` only
+  // removes the tab entry, it doesn't block navigation. A deep link
+  // (`seaudecrabe://dashboard`) could still reach this screen directly. Same
+  // effect-redirect + render-gate pattern as clock-in.tsx and (admin)/_layout.tsx.
+  useEffect(() => {
+    if (!isAdmin) router.replace("/(tabs)/schedule");
+  }, [isAdmin, router]);
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     load();
   }, []);
+
+  if (!isAdmin) return null;
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
