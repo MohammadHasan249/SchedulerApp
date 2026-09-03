@@ -7,6 +7,7 @@ import { getApiUser as getUser } from "@/lib/auth/getUser";
 import { withAuth } from "@/lib/auth/withAuth";
 import { checkRateLimit } from "@/lib/utils/rate-limit";
 import { createScheduleAgent } from "@/lib/ai/schedule-agent";
+import { redactHandlesTransform } from "@/lib/ai/redact-handles-transform";
 
 const AI_RATE_LIMIT = { maxAttempts: 20, windowMs: 60 * 60 * 1000 };
 
@@ -91,6 +92,10 @@ export const POST = withAuth(async function POST(request: Request) {
       agent,
       uiMessages,
       timeout: 30_000,
+      // Backstop against the model echoing internal handles (e.g. "shift_5")
+      // into its reply — confirmed to happen despite the system prompt
+      // forbidding it. Strips them server-side before they reach the client.
+      experimental_transform: redactHandlesTransform(),
       // Errors thrown mid-stream (e.g. a Gateway rejection after the model
       // call starts) never reach the catch block below — the Response has
       // already been returned by then. Report them here instead, and keep

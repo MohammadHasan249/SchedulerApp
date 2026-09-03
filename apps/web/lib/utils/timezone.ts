@@ -70,6 +70,17 @@ export function formatZonedDateTime(at: Date | string, timezone: string): string
 }
 
 /**
+ * Same as `formatZonedDateTime` but with the weekday spelled out (e.g.
+ * "Thursday, Sep 3, 2:30 PM"). Use anywhere a reader needs to reason about
+ * day-of-week without recomputing it themselves — notably the AI schedule
+ * agent's system prompt, which otherwise leaves the model to infer the
+ * weekday from the date on its own and gets it wrong.
+ */
+export function formatZonedDateTimeWithWeekday(at: Date | string, timezone: string): string {
+  return formatInTimeZone(new Date(at), timezone, "EEEE, MMM d, h:mm a");
+}
+
+/**
  * Converts a naive local wall-clock string (e.g. "2026-06-01T09:00:00", no
  * offset) as read in the given IANA timezone into the UTC instant it
  * represents. Use when a caller (e.g. an LLM tool argument) supplies a

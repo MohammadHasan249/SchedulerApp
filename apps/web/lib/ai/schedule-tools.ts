@@ -11,7 +11,7 @@ import {
 import type { AppUser } from "@/lib/auth/getUser";
 import { validateAssignment } from "@/lib/scheduling/assignment-validator";
 import { createNotification } from "@/lib/notifications";
-import { formatZonedDateTime, getZonedWeekStart, zonedTimeToUtc } from "@/lib/utils/timezone";
+import { formatZonedDateTime, formatZonedDateTimeWithWeekday, getZonedWeekStart, zonedTimeToUtc } from "@/lib/utils/timezone";
 import { eq, and, gte, lte, inArray } from "drizzle-orm";
 
 export const MAX_SHIFT_HOURS = 10;
@@ -185,7 +185,9 @@ export function buildScheduleTools(user: AppUser) {
               branchId: toHandle("branch", s.branchId),
               // Branch-local wall-clock time, not UTC — the model must reason about
               // shifts in the timezone the organization actually operates in.
-              startTime: formatZonedDateTime(s.startTime, timezone),
+              // Weekday is spelled out explicitly so the model never has to
+              // recompute day-of-week from the date itself (it gets this wrong).
+              startTime: formatZonedDateTimeWithWeekday(s.startTime, timezone),
               endTime: formatZonedDateTime(s.endTime, timezone),
               timezone,
               durationHours: Math.round(hours * 10) / 10,
