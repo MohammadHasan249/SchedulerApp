@@ -2,13 +2,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET, POST } from "../route";
 import { db } from "@/lib/db";
 import { getApiUser } from "@/lib/auth/getUser";
-import { generateUniquePin } from "@/lib/employees";
+import { generateUniquePin, unbanAuthUser } from "@/lib/employees";
 import { sendEmployeeInvitationEmail } from "@/lib/email/send-employee-invitation";
 import { chain } from "@/test/db-mock";
 
-vi.mock("@/lib/db", () => ({ db: { select: vi.fn(), insert: vi.fn() } }));
+vi.mock("@/lib/db", () => ({ db: { select: vi.fn(), insert: vi.fn(), update: vi.fn() } }));
 vi.mock("@/lib/auth/getUser", () => ({ getApiUser: vi.fn() }));
-vi.mock("@/lib/employees", () => ({ generateUniquePin: vi.fn() }));
+vi.mock("@/lib/employees", () => ({ generateUniquePin: vi.fn(), unbanAuthUser: vi.fn() }));
 vi.mock("@/lib/email/send-employee-invitation", () => ({ sendEmployeeInvitationEmail: vi.fn() }));
 
 const orgAdmin = { id: "u1", role: "org_admin" as const, organizationId: "org-1", branchId: null };
@@ -80,7 +80,9 @@ describe("POST /api/employees (invite)", () => {
     (generateUniquePin as any).mockResolvedValue("4321");
     const created = { id: "emp-new", name: "New", email: "new@x.com" };
     const branchId = "11111111-1111-4111-8111-111111111111";
-    (db.select as any).mockReturnValue(chain([{ id: branchId }]));
+    (db.select as any)
+      .mockReturnValueOnce(chain([{ id: branchId }])) // branch ownership check
+      .mockReturnValueOnce(chain([])); // no existing employee row for this email
     (db.insert as any).mockReturnValue(chain([created]));
     (sendEmployeeInvitationEmail as any).mockResolvedValue({ sent: true });
 
@@ -88,5 +90,35 @@ describe("POST /api/employees (invite)", () => {
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual({ ...created, emailSent: true });
     expect(sendEmployeeInvitationEmail).toHaveBeenCalledWith("New", "new@x.com", "org-1", "4321");
+  });
+
+  it("rejects re-inviting an email that's already an active employee here", async () => {
+    (getApiUser as any).mockResolvedValue(orgAdmin);
+    const branchId = "11111111-1111-4111-8111-111111111111";
+    (db.select as any)
+      .mockReturnValueOnce(chain([{ id: branchId }])) // branch ownership check
+      .mockReturnValueOnce(chain([{ id: "emp-existing", isActive: true, authUserId: null }]));
+
+    const res = await POST(postReq({ name: "New", email: "new@x.com", role: "branch_manager", branchId }));
+    expect(res.status).toBe(409);
+  });
+
+  it("reactivates a previously deactivated employee instead of inserting a duplicate row", async () => {
+    (getApiUser as any).mockResolvedValue(orgAdmin);
+    (generateUniquePin as any).mockResolvedValue("9999");
+    const branchId = "11111111-1111-4111-8111-111111111111";
+    const reactivated = { id: "emp-old", name: "New", email: "new@x.com", isActive: true };
+    (db.select as any)
+      .mockReturnValueOnce(chain([{ id: branchId }])) // branch ownership check
+      .mockReturnValueOnce(chain([{ id: "emp-old", isActive: false, authUserId: "auth-old" }]));
+    (db.update as any).mockReturnValue(chain([reactivated]));
+    (sendEmployeeInvitationEmail as any).mockResolvedValue({ sent: true });
+
+    const res = await POST(postReq({ name: "New", email: "new@x.com", role: "branch_manager", branchId }));
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ ...reactivated, emailSent: true });
+    expect(db.update).toHaveBeenCalled();
+    expect(db.insert).not.toHaveBeenCalled();
+    expect(unbanAuthUser).toHaveBeenCalledWith("auth-old");
   });
 });

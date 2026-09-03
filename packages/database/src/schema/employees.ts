@@ -18,8 +18,10 @@ export const employees = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
     branchId: uuid("branch_id").references(() => branches.id, { onDelete: "set null" }),
-    // FK to auth.users added via raw SQL after migration — Drizzle can't cross schemas
-    authUserId: uuid("auth_user_id").unique(),
+    // FK to auth.users added via raw SQL after migration — Drizzle can't cross schemas.
+    // Unique per-org (not globally) so one auth user can hold employee rows in
+    // multiple organizations at once.
+    authUserId: uuid("auth_user_id"),
     name: text("name").notNull(),
     email: text("email").notNull(),
     role: employeeRoleEnum("role").notNull().default("employee"),
@@ -35,7 +37,10 @@ export const employees = pgTable(
       { onDelete: "set null" }
     ),
   },
-  (t) => [unique("employees_org_email_unique").on(t.organizationId, t.email)]
+  (t) => [
+    unique("employees_org_email_unique").on(t.organizationId, t.email),
+    unique("employees_org_auth_user_unique").on(t.organizationId, t.authUserId),
+  ]
 );
 
 export type Employee = typeof employees.$inferSelect;

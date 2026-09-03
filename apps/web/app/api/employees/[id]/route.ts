@@ -7,7 +7,7 @@ import { employees, branches, jobRoles, shifts, shiftAssignments, permissionProf
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { pinCollidesWithExisting, isLastActiveOrgAdmin } from "@/lib/employees";
+import { pinCollidesWithExisting, isLastActiveOrgAdmin, unbanAuthUser } from "@/lib/employees";
 import { eq, and, gte, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
@@ -235,14 +235,7 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
 
   // Re-enable the auth user when an employee is reactivated.
   if (rest.isActive === true && !employee.isActive && employee.authUserId) {
-    try {
-      const supabase = createAdminClient();
-      await supabase.auth.admin.updateUserById(employee.authUserId, {
-        ban_duration: "none",
-      });
-    } catch (e) {
-      logger.error("Failed to unban reactivated employee's auth user:", e);
-    }
+    await unbanAuthUser(employee.authUserId);
   }
 
   return NextResponse.json(updated);

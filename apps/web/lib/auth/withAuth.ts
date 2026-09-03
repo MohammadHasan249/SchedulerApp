@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ApiAuthError } from "./getUser";
+import { ApiAuthError, SelectOrganizationError } from "./getUser";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function withAuth<T extends (...args: any[]) => Promise<Response>>(handler: T): T {
@@ -7,6 +7,12 @@ export function withAuth<T extends (...args: any[]) => Promise<Response>>(handle
     try {
       return await handler(...args);
     } catch (e) {
+      if (e instanceof SelectOrganizationError) {
+        return NextResponse.json(
+          { error: "select_organization", memberships: e.memberships },
+          { status: 409 }
+        );
+      }
       if (e instanceof ApiAuthError) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }

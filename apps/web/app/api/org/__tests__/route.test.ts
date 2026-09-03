@@ -37,7 +37,7 @@ function baseSupabase() {
         updateUserById: vi.fn().mockResolvedValue({ error: null }),
         deleteUser: vi.fn().mockResolvedValue({}),
         generateLink: vi.fn().mockResolvedValue({
-          data: { properties: { action_link: "http://test/confirm" } },
+          data: { properties: { hashed_token: "tok123" } },
           error: null,
         }),
       },
@@ -85,7 +85,7 @@ describe("POST /api/org (create organization)", () => {
     );
     expect(sendConfirmationEmail).toHaveBeenCalledWith(
       "jane@acme.com",
-      "http://test/confirm",
+      `${BRANDS.workplix.appUrl}/confirmed?token_hash=tok123&type=signup`,
       "Jane Admin",
       BRANDS.workplix
     );

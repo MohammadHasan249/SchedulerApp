@@ -8,7 +8,7 @@ import { employees, branches, jobRoles } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { sendEmployeeInvitationEmail } from "@/lib/email/send-employee-invitation";
-import { generateUniquePin } from "@/lib/employees";
+import { generateUniquePin, unbanAuthUser } from "@/lib/employees";
 import { eq, and, gt } from "drizzle-orm";
 
 const inviteSchema = z.object({
@@ -132,6 +132,23 @@ export const POST = withAuth(async function POST(request: Request) {
     }
   }
 
+  const normalizedEmail = email.trim().toLowerCase();
+
+  // An invite for an email that already has a row in this org either means
+  // they're already active here (reject), or they were previously
+  // deactivated and are being brought back — reactivate that row instead of
+  // inserting a second one (the per-org unique email constraint would reject
+  // the insert anyway, but with an ugly DB error instead of this).
+  const [existing] = await db
+    .select({ id: employees.id, isActive: employees.isActive, authUserId: employees.authUserId })
+    .from(employees)
+    .where(and(eq(employees.organizationId, user.organizationId), eq(employees.email, normalizedEmail)))
+    .limit(1);
+
+  if (existing?.isActive) {
+    return NextResponse.json({ error: "Already an active employee in this organization" }, { status: 409 });
+  }
+
   const pin = await generateUniquePin(user.organizationId, targetBranchId);
   const pinHash = await bcryptjs.hash(pin, 10);
 
@@ -141,34 +158,46 @@ export const POST = withAuth(async function POST(request: Request) {
     defaultSchedule[i] = { startTime: "09:00", endTime: "23:00" };
   }
 
-  const [employee] = await db
-    .insert(employees)
-    .values({
-      organizationId: user.organizationId,
-      branchId: targetBranchId,
-      authUserId: null,
-      name,
-      email: email.trim().toLowerCase(),
-      role,
-      jobRoleId: jobRoleId ?? null,
-      maxHoursPerWeek,
-      pinHash,
-      availabilitySchedule: defaultSchedule,
-    })
-    .returning({
-      id: employees.id,
-      organizationId: employees.organizationId,
-      branchId: employees.branchId,
-      authUserId: employees.authUserId,
-      name: employees.name,
-      email: employees.email,
-      role: employees.role,
-      jobRoleId: employees.jobRoleId,
-      maxHoursPerWeek: employees.maxHoursPerWeek,
-      isActive: employees.isActive,
-      availabilitySchedule: employees.availabilitySchedule,
-      permissionProfileId: employees.permissionProfileId,
-    });
+  const values = {
+    organizationId: user.organizationId,
+    branchId: targetBranchId,
+    name,
+    role,
+    jobRoleId: jobRoleId ?? null,
+    maxHoursPerWeek,
+    pinHash,
+    isActive: true,
+  };
+
+  const EMPLOYEE_COLUMNS = {
+    id: employees.id,
+    organizationId: employees.organizationId,
+    branchId: employees.branchId,
+    authUserId: employees.authUserId,
+    name: employees.name,
+    email: employees.email,
+    role: employees.role,
+    jobRoleId: employees.jobRoleId,
+    maxHoursPerWeek: employees.maxHoursPerWeek,
+    isActive: employees.isActive,
+    availabilitySchedule: employees.availabilitySchedule,
+    permissionProfileId: employees.permissionProfileId,
+  } as const;
+
+  const [employee] = existing
+    ? await db
+        .update(employees)
+        .set(values)
+        .where(eq(employees.id, existing.id))
+        .returning(EMPLOYEE_COLUMNS)
+    : await db
+        .insert(employees)
+        .values({ ...values, authUserId: null, email: normalizedEmail, availabilitySchedule: defaultSchedule })
+        .returning(EMPLOYEE_COLUMNS);
+
+  if (existing?.authUserId) {
+    await unbanAuthUser(existing.authUserId);
+  }
 
   let emailSent = false;
   try {

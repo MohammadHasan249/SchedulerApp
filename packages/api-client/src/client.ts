@@ -2,6 +2,7 @@ let _baseUrl = "";
 let _getToken: (() => Promise<string | null>) | null = null;
 let _refreshToken: (() => Promise<string | null>) | null = null;
 let _onError: ((error: Error, path: string) => void) | null = null;
+let _getOrganizationId: (() => string | null) | null = null;
 
 export function configureApiClient(opts: {
   baseUrl: string;
@@ -15,19 +16,29 @@ export function configureApiClient(opts: {
    * place that sees every failure. Wire it to error reporting (e.g. Sentry).
    */
   onError?: (error: Error, path: string) => void;
+  /**
+   * Returns the org the user has selected as "active", if they belong to
+   * more than one. Sent as X-Organization-Id so the server can disambiguate
+   * which of the caller's employee memberships to use — only needed once an
+   * account has more than one active membership; omit otherwise.
+   */
+  getOrganizationId?: () => string | null;
 }) {
   _baseUrl = opts.baseUrl.replace(/\/$/, "");
   _getToken = opts.getToken;
   _refreshToken = opts.refreshToken ?? null;
   _onError = opts.onError ?? null;
+  _getOrganizationId = opts.getOrganizationId ?? null;
 }
 
 async function doFetch(path: string, init: RequestInit, token: string | null): Promise<Response> {
+  const organizationId = _getOrganizationId ? _getOrganizationId() : null;
   return fetch(`${_baseUrl}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(organizationId ? { "X-Organization-Id": organizationId } : {}),
       ...init.headers,
     },
   });

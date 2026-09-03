@@ -90,8 +90,11 @@ export async function POST(request: Request) {
     );
   }
 
-  // Try to create auth user. If they already exist (rare race or stale invite),
-  // fall back to looking them up — but never return the existing record's data.
+  // Try to create auth user. If email/password auth already exists (e.g. this
+  // person already works at another org), fall back to verifying the
+  // submitted password against that existing account and linking it instead
+  // of failing outright — this is what lets one person hold employee rows in
+  // multiple organizations.
   let authUserId: string;
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({
     email,
@@ -105,22 +108,42 @@ export async function POST(request: Request) {
     },
   });
 
-  if (authError) {
-    // If the user already exists, refuse — they should log in instead.
-    // Do NOT enumerate all users via listUsers().
-    return NextResponse.json(
-      { error: "Unable to complete signup. If you already have an account, please log in instead." },
-      { status: 400 }
-    );
-  }
+  let linkingExistingAccount = false;
 
-  authUserId = authData.user.id;
+  if (authError) {
+    // Do NOT enumerate accounts via listUsers() — instead, prove ownership by
+    // checking the password they just submitted against the existing account.
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (signInError || !signInData.user) {
+      return NextResponse.json(
+        {
+          error:
+            "An account with this email already exists. Log in with your existing password to accept this invite.",
+        },
+        { status: 400 }
+      );
+    }
+    authUserId = signInData.user.id;
+    linkingExistingAccount = true;
+  } else {
+    authUserId = authData.user.id;
+  }
 
   // Link auth user to employee record
   await db
     .update(employees)
     .set({ authUserId })
     .where(eq(employees.id, employee.id));
+
+  // Their email is already verified from the original account — no need to
+  // send another confirmation link, and generateLink would just re-issue a
+  // signup link for an account that already exists.
+  if (linkingExistingAccount) {
+    return NextResponse.json({ success: true, linked: true }, { status: 201 });
+  }
 
   // admin.createUser() does not send a confirmation email by itself —
   // generate the confirmation link and send it ourselves via Resend

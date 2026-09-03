@@ -1,0 +1,2 @@
+ALTER TABLE "employees" DROP CONSTRAINT "employees_auth_user_id_unique";--> statement-breakpoint
+ALTER TABLE "employees" ADD CONSTRAINT "employees_org_auth_user_unique" UNIQUE("organization_id","auth_user_id");

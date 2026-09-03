@@ -2,6 +2,8 @@ import bcryptjs from "bcryptjs";
 import { db } from "@/lib/db";
 import { employees } from "@scheduler/database/schema";
 import { eq, and, ne, isNotNull } from "drizzle-orm";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { logger } from "@/lib/logger";
 
 /**
  * Returns true if any *other* active employee at the same branch — or any
@@ -81,4 +83,20 @@ export async function isLastActiveOrgAdmin(
     )
     .limit(1);
   return otherAdmins.length === 0;
+}
+
+/**
+ * Lifts the ~100-year ban applied when an employee is deactivated (see
+ * DELETE /api/employees/[id]). Used both when reactivating an existing
+ * employee (PATCH isActive: true) and when re-inviting a previously
+ * deactivated employee, which reactivates their row instead of erroring on
+ * the per-org unique email constraint.
+ */
+export async function unbanAuthUser(authUserId: string): Promise<void> {
+  try {
+    const supabase = createAdminClient();
+    await supabase.auth.admin.updateUserById(authUserId, { ban_duration: "none" });
+  } catch (e) {
+    logger.error("Failed to unban reactivated employee's auth user:", e);
+  }
 }

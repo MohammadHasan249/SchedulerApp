@@ -9,6 +9,7 @@ vi.mock("@/lib/db", () => ({ db: { select: vi.fn(), insert: vi.fn() } }));
 vi.mock("@/lib/auth/getUser", () => ({
   getApiUser: vi.fn(),
   ApiAuthError: class ApiAuthError extends Error {},
+  SelectOrganizationError: class SelectOrganizationError extends Error {},
 }));
 vi.mock("@/lib/email/send-time-off-notification", () => ({ sendTimeOffNotification: vi.fn() }));
 
@@ -79,6 +80,7 @@ describe("POST /api/time-off", () => {
     (getApiUser as any).mockResolvedValue(employeeUser);
     (db.select as any)
       .mockReturnValueOnce(chain([{ id: "emp-1" }]))
+      .mockReturnValueOnce(chain([]))
       .mockReturnValueOnce(chain([]));
     const created = { id: "req-1" };
     (db.insert as any).mockReturnValue(chain([created]));
