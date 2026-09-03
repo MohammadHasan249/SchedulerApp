@@ -84,9 +84,9 @@ export const POST = withAuth(async function POST(request: Request, { params }: {
 
   if (!employee) return NextResponse.json({ error: "Employee not found" }, { status: 404 });
 
-  // Branch managers can only assign employees from their own branch
-  if (user.role === "branch_manager" && employee.branchId !== user.branchId) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  // Employees can only be assigned to shifts in their own branch
+  if (employee.branchId !== row.branch.id) {
+    return NextResponse.json({ error: "Employee does not belong to this shift's branch" }, { status: 403 });
   }
 
   const validation = await validateAssignment(row.shift, employee, row.branch.timezone);
