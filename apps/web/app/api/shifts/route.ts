@@ -29,12 +29,12 @@ export const GET = withAuth(async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const weekStart = searchParams.get("weekStart"); // ISO date string
 
-  if (user.role === "branch_manager" && !user.branchId) {
+  if ((user.role === "branch_manager" || user.role === "employee") && !user.branchId) {
     return NextResponse.json([]);
   }
 
   const branchIds =
-    user.role === "branch_manager"
+    user.role === "branch_manager" || user.role === "employee"
       ? [user.branchId!]
       : await getOrgBranchIds(user.organizationId);
 
