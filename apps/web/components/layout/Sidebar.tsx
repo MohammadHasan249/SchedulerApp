@@ -36,10 +36,10 @@ const NAV: NavItem[] = [
   { label: "Clock In / Out", href: "/dashboard/kiosk", icon: Timer, roles: ["org_admin", "branch_manager"], group: "manage" },
   { label: "Employees", href: "/dashboard/employees", icon: Users, roles: ["org_admin", "branch_manager"], group: "manage" },
   { label: "Reports", href: "/dashboard/reports", icon: BarChart2, roles: ["org_admin", "branch_manager"], group: "manage" },
-  { label: "Job Roles", href: "/dashboard/settings/job-roles", icon: Briefcase, roles: ["org_admin"], group: "settings" },
-  { label: "Branches", href: "/dashboard/settings/branches", icon: GitBranch, roles: ["org_admin"], group: "settings" },
+  { label: "Job Roles", href: "/dashboard/settings/job-roles", icon: Briefcase, roles: ["org_admin", "branch_manager"], group: "settings" },
+  { label: "Branches", href: "/dashboard/settings/branches", icon: GitBranch, roles: ["org_admin", "branch_manager"], group: "settings" },
   { label: "Permissions", href: "/dashboard/settings/permissions", icon: ShieldCheck, roles: ["org_admin"], group: "settings" },
-  { label: "Settings", href: "/dashboard/settings/organization", icon: Settings, roles: ["org_admin"], group: "settings" },
+  { label: "Settings", href: "/dashboard/settings/organization", icon: Settings, roles: ["org_admin", "branch_manager"], group: "settings" },
 ];
 
 const GROUP_LABELS: Record<string, string> = {

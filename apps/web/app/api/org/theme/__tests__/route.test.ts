@@ -10,6 +10,7 @@ vi.mock("next/cache", () => ({ revalidateTag: vi.fn() }));
 
 const orgAdmin = { id: "u1", role: "org_admin" as const, organizationId: "org-1", branchId: null };
 const manager = { id: "u2", role: "branch_manager" as const, organizationId: "org-1", branchId: "b1" };
+const employee = { id: "u3", role: "employee" as const, organizationId: "org-1", branchId: "b1" };
 
 const validTheme = {
   primary: "#111111",
@@ -38,8 +39,8 @@ describe("GET /api/org/theme", () => {
 describe("PATCH /api/org/theme", () => {
   beforeEach(() => vi.resetAllMocks());
 
-  it("forbids non-admins from updating the theme", async () => {
-    (getApiUser as any).mockResolvedValue(manager);
+  it("forbids employees from updating the theme", async () => {
+    (getApiUser as any).mockResolvedValue(employee);
     const res = await PATCH(req(validTheme));
     expect(res.status).toBe(403);
   });
@@ -50,8 +51,16 @@ describe("PATCH /api/org/theme", () => {
     expect(res.status).toBe(400);
   });
 
-  it("saves a valid theme", async () => {
+  it("saves a valid theme as org admin", async () => {
     (getApiUser as any).mockResolvedValue(orgAdmin);
+    (db.update as any).mockReturnValue(chain([{ theme: validTheme }]));
+    const res = await PATCH(req(validTheme));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(validTheme);
+  });
+
+  it("saves a valid theme as branch manager", async () => {
+    (getApiUser as any).mockResolvedValue(manager);
     (db.update as any).mockReturnValue(chain([{ theme: validTheme }]));
     const res = await PATCH(req(validTheme));
     expect(res.status).toBe(200);

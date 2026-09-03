@@ -30,7 +30,7 @@ const themeSchema = z.object({
 export const PATCH = withAuth(async function PATCH(request: Request) {
   const user = await getUser();
 
-  if (user.role !== "org_admin") {
+  if (user.role !== "org_admin" && user.role !== "branch_manager") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

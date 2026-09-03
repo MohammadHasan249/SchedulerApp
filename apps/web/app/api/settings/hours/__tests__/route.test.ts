@@ -9,6 +9,7 @@ vi.mock("@/lib/auth/getUser", () => ({ getApiUser: vi.fn() }));
 
 const orgAdmin = { id: "u1", role: "org_admin" as const, organizationId: "org-1", branchId: null };
 const manager = { id: "u2", role: "branch_manager" as const, organizationId: "org-1", branchId: "b1" };
+const employee = { id: "u3", role: "employee" as const, organizationId: "org-1", branchId: "b1" };
 
 function req(body?: unknown) {
   return new Request("http://test", { method: "PUT", body: body === undefined ? undefined : JSON.stringify(body) });
@@ -29,10 +30,19 @@ describe("GET /api/settings/hours", () => {
 describe("PUT /api/settings/hours", () => {
   beforeEach(() => vi.resetAllMocks());
 
-  it("forbids non-admins", async () => {
-    (getApiUser as any).mockResolvedValue(manager);
+  it("forbids employees", async () => {
+    (getApiUser as any).mockResolvedValue(employee);
     const res = await PUT(req({ "1": { startTime: "09:00", endTime: "17:00" } }));
     expect(res.status).toBe(403);
+  });
+
+  it("allows branch managers to save a valid schedule", async () => {
+    (getApiUser as any).mockResolvedValue(manager);
+    const saved = { "1": { startTime: "09:00", endTime: "17:00" } };
+    (db.update as any).mockReturnValue(chain([{ hoursSchedule: saved }]));
+    const res = await PUT(req(saved));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(saved);
   });
 
   it("rejects an invalid time value", async () => {

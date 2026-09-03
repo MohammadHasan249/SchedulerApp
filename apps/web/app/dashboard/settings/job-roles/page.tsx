@@ -8,7 +8,7 @@ import { serializeJobRole } from "@/lib/serialize";
 
 export default async function JobRolesPage() {
   const user = await getUser();
-  requireRole(user, "org_admin");
+  requireRole(user, "org_admin", "branch_manager");
 
   const roles = await db
     .select()

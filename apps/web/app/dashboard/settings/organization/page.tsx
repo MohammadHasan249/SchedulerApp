@@ -9,12 +9,12 @@ import { KioskExitPinClient } from "@/components/settings/KioskExitPinClient";
 export default async function OrganizationSettingsPage() {
   const user = await getUser();
 
-  if (user.role !== "org_admin") {
+  if (user.role !== "org_admin" && user.role !== "branch_manager") {
     return (
       <div>
         <h1 className="text-2xl font-semibold">Organization Settings</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Only organization admins can access this page.
+          Only organization admins and branch managers can access this page.
         </p>
       </div>
     );
@@ -58,10 +58,12 @@ export default async function OrganizationSettingsPage() {
           <OrgHoursClient initialHours={org?.hoursSchedule ?? {}} />
         </div>
 
-        <div>
-          <h2 className="text-lg font-semibold mb-4">Kiosk Exit PIN</h2>
-          <KioskExitPinClient initialIsSet={!!org?.exitPinHash} />
-        </div>
+        {user.role === "org_admin" && (
+          <div>
+            <h2 className="text-lg font-semibold mb-4">Kiosk Exit PIN</h2>
+            <KioskExitPinClient initialIsSet={!!org?.exitPinHash} />
+          </div>
+        )}
       </div>
     </div>
   );

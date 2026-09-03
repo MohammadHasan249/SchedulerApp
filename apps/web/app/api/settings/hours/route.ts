@@ -35,7 +35,7 @@ export const GET = withAuth(async function GET() {
 
 export const PUT = withAuth(async function PUT(request: Request) {
   const user = await getUser();
-  if (user.role !== "org_admin") {
+  if (user.role !== "org_admin" && user.role !== "branch_manager") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
