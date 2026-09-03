@@ -271,7 +271,7 @@ export function ShiftCreateDialog({
             <Label>Assign Employees</Label>
             <div className="max-h-40 overflow-y-auto border rounded p-2 space-y-1">
               {employees
-                .filter((e) => e.isActive)
+                .filter((e) => e.isActive && e.role !== "org_admin" && e.branchId === branchId)
                 .map((emp) => (
                   <label key={emp.id} className="flex items-center gap-2 text-sm cursor-pointer">
                     <input
@@ -285,7 +285,7 @@ export function ShiftCreateDialog({
                     </div>
                   </label>
                 ))}
-              {employees.filter((e) => e.isActive).length === 0 && (
+              {employees.filter((e) => e.isActive && e.role !== "org_admin" && e.branchId === branchId).length === 0 && (
                 <p className="text-xs text-muted-foreground">No active employees.</p>
               )}
             </div>

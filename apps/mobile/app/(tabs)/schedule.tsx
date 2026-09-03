@@ -222,8 +222,8 @@ export default function ScheduleScreen() {
   }
 
   const assignedIds = new Set((selectedShift?.assignments ?? []).map((a) => a.employeeId));
-  const unassignedEmployees = branchEmployees.filter(
-    (e) => e.role === "employee" && !assignedIds.has(e.id)
+  const unassignedEmployees = teamEmployees.filter(
+    (e) => e.role !== "org_admin" && e.branchId === selectedShift?.branchId && !assignedIds.has(e.id)
   );
 
   function openCreateShift() {
@@ -568,10 +568,9 @@ export default function ScheduleScreen() {
 
             <Text style={[styles.sectionLabel, { marginTop: 16 }]}>Assign Employees</Text>
             <FlatList
-              data={(createBranchId
-                ? teamEmployees.filter((e) => e.branchId === createBranchId)
-                : teamEmployees
-              ).filter((e) => e.role === "employee")}
+              data={teamEmployees.filter(
+                (e) => e.role !== "org_admin" && e.branchId === createBranchId
+              )}
               keyExtractor={(e) => e.id}
               scrollEnabled={false}
               ListEmptyComponent={<Text style={styles.emptyText}>No employees found</Text>}
