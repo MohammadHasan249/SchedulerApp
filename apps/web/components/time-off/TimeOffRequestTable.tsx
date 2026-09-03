@@ -28,16 +28,27 @@ const statusVariant: Record<string, "default" | "secondary" | "destructive" | "o
 export function TimeOffRequestTable({ requests, canApprove, employees = [] }: Props) {
   const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
 
   const empMap = Object.fromEntries(employees.map((e) => [e.id, e.name]));
 
   async function updateStatus(id: string, status: "approved" | "denied") {
-    await fetch(`/api/time-off/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    router.refresh();
+    if (pendingIds.has(id)) return;
+    setPendingIds((prev) => new Set(prev).add(id));
+    try {
+      await fetch(`/api/time-off/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      router.refresh();
+    } finally {
+      setPendingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
   }
 
   async function deleteRequest(id: string, status: string) {
@@ -92,13 +103,19 @@ export function TimeOffRequestTable({ requests, canApprove, employees = [] }: Pr
                 <TableCell className="text-right space-x-1">
                   {canApprove && req.status === "pending" && (
                     <>
-                      <Button size="sm" variant="ghost" onClick={() => updateStatus(req.id, "approved")}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={pendingIds.has(req.id)}
+                        onClick={() => updateStatus(req.id, "approved")}
+                      >
                         Approve
                       </Button>
                       <Button
                         size="sm"
                         variant="ghost"
                         className="text-destructive hover:text-destructive"
+                        disabled={pendingIds.has(req.id)}
                         onClick={() => updateStatus(req.id, "denied")}
                       >
                         Deny

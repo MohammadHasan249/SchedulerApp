@@ -103,9 +103,10 @@ export async function apiFetch<T>(
       // not JSON — fall through to the generic message below
     }
     const message = typeof parsed?.error === "string" ? parsed.error : null;
-    // A 401 that survives the refresh-and-retry above is an expected
-    // "please log in again" state, not a bug — don't report it.
-    if (res.status !== 401) {
+    // Only report server/unexpected failures — 4xx statuses (401 "please log
+    // in again", 409 conflicts, validation errors, etc.) are expected
+    // business-logic outcomes the caller already surfaces to the user, not bugs.
+    if (res.status >= 500) {
       _onError?.(new Error(`${res.status} ${res.statusText} on ${path}: ${message ?? text}`), path);
     }
     throw new Error(message ?? `Request failed: ${res.status} ${res.statusText}`);

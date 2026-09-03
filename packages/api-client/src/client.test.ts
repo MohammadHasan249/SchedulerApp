@@ -64,6 +64,29 @@ describe("apiFetch", () => {
 
     await expect(apiFetch("/thing")).rejects.toThrow("Request failed: 500");
   });
+
+  it("does not report an expected 4xx business-logic error to onError", async () => {
+    const onError = vi.fn();
+    configureApiClient({ baseUrl: "http://api.test", getToken: async () => "token", onError });
+    mockFetchOnce({
+      ok: false,
+      status: 409,
+      statusText: "Conflict",
+      text: async () => JSON.stringify({ error: "An identical shift already exists at this branch" }),
+    } as Response);
+
+    await expect(apiFetch("/thing")).rejects.toThrow("An identical shift already exists at this branch");
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("reports a genuine 5xx server error to onError", async () => {
+    const onError = vi.fn();
+    configureApiClient({ baseUrl: "http://api.test", getToken: async () => "token", onError });
+    mockFetchOnce({ ok: false, status: 500, statusText: "Internal Server Error", text: async () => "oops" } as Response);
+
+    await expect(apiFetch("/thing")).rejects.toThrow("Request failed: 500");
+    expect(onError).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("createAuthenticatedFetch", () => {

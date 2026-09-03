@@ -44,6 +44,12 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
+  // Already in the target state — treat as a no-op so a duplicate/retried
+  // request doesn't send a second notification/email for the same decision.
+  if (row.req.status === parsed.data.status) {
+    return NextResponse.json(row.req);
+  }
+
   const updated = await db.transaction(async (tx) => {
     const [row] = await tx
       .update(timeOffRequests)
