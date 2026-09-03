@@ -43,6 +43,11 @@ export default async function SchedulePage() {
       ? [user.branchId]
       : branchRows.map((b) => b.id);
 
+  const visibleBranchRows =
+    user.role === "branch_manager" && user.branchId
+      ? branchRows.filter((b) => b.id === user.branchId)
+      : branchRows;
+
   const primaryBranch =
     (user.role === "branch_manager" && user.branchId
       ? branchRows.find((b) => b.id === user.branchId)
@@ -97,7 +102,7 @@ export default async function SchedulePage() {
         shifts={visibleShifts.map((s) => serializeShift(s))}
         assignments={assignmentRows.map(serializeAssignment)}
         employees={employeeRows.map(serializeEmployee)}
-        branches={branchRows.map(serializeBranch)}
+        branches={visibleBranchRows.map(serializeBranch)}
         availability={availabilityRows}
         canEdit={user.role !== "employee"}
         currentBranchId={currentBranchId}
