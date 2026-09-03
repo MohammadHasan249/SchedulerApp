@@ -32,6 +32,7 @@ export function KioskContent({ branchSlug, adminEmployeeId, needsPinSetup = fals
   const [showPinSetup, setShowPinSetup] = useState(needsPinSetup);
 
   async function handlePin(pin: string) {
+    if (loading) return;
     setLoading(true);
     setResult(null);
     setError("");

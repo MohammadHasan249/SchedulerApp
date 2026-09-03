@@ -82,6 +82,7 @@ export function EmployeeForm({ open, onOpenChange, employee, branches, jobRoles,
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return;
 
     if (role !== "org_admin" && !branchId) {
       setError("Select a branch for this role");

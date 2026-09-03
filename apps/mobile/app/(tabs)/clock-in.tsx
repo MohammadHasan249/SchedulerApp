@@ -193,7 +193,7 @@ export default function ClockInScreen() {
   }
 
   async function handleExitSubmit() {
-    if (exitPin.length < 4) return;
+    if (exitPin.length < 4 || exitLoading) return;
     setExitLoading(true);
     setExitError(null);
     try {

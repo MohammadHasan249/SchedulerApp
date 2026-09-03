@@ -291,6 +291,7 @@ export function WeeklyScheduleGrid({
   }
 
   async function handlePublish() {
+    if (publishing) return;
     setPublishing(true);
     await fetch("/api/shifts/publish", {
       method: "POST",

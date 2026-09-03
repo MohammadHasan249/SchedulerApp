@@ -33,6 +33,7 @@ export function TimeOffRequestForm({ open, onOpenChange }: Props) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return;
     setError("");
 
     if (startDate && endDate && startDate > endDate) {

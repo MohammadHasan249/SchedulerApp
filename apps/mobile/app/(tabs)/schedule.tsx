@@ -209,7 +209,7 @@ export default function ScheduleScreen() {
   }
 
   async function handlePublishWeek() {
-    if (!selectedBranchId) return;
+    if (!selectedBranchId || publishing) return;
     setPublishing(true);
     try {
       await publishShifts(selectedBranchId, weekStart.toISOString());

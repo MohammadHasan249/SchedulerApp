@@ -172,6 +172,7 @@ export default function EmployeesScreen() {
     const maxHours = parseInt(inviteForm.maxHoursPerWeek);
     if (isNaN(maxHours) || maxHours < 1 || maxHours > 168) { setInviteError("Max hours must be 1–168."); return; }
     if (inviteForm.pin && !/^\d{4,6}$/.test(inviteForm.pin)) { setInviteError("PIN must be 4–6 digits."); return; }
+    if (inviteSaving) return;
 
     setInviteSaving(true);
     setInviteError("");

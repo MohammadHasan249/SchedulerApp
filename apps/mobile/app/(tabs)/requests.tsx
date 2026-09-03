@@ -115,6 +115,7 @@ function TimeOffSection() {
       Alert.alert("Error", "Please fill in start and end dates (YYYY-MM-DD)");
       return;
     }
+    if (submitting) return;
     setSubmitting(true);
     try {
       await createTimeOffRequest({ startDate, endDate, reason: reason || undefined });
@@ -425,6 +426,7 @@ function SwapSection() {
   useEffect(() => { load(); }, []);
 
   async function handleCreateSwap(shiftId: string, coverId: string) {
+    if (submitting) return;
     setSubmitting(true);
     try {
       await createShiftSwap({ shiftId, coverId });

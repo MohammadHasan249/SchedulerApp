@@ -58,6 +58,7 @@ export function ShiftSwapForm({ open, onOpenChange, shifts, employees, currentEm
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return;
     setError("");
 
     if (!shiftId || !coverId) {
