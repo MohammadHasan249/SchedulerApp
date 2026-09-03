@@ -20,8 +20,12 @@ const validTheme = {
   foreground: "#000000",
 };
 
-function req(body?: unknown) {
-  return new Request("http://test", { method: "PATCH", body: body === undefined ? undefined : JSON.stringify(body) });
+function req(body?: unknown, headers?: Record<string, string>) {
+  return new Request("http://test", {
+    method: "PATCH",
+    body: body === undefined ? undefined : JSON.stringify(body),
+    headers,
+  });
 }
 
 describe("GET /api/org/theme", () => {
@@ -65,5 +69,11 @@ describe("PATCH /api/org/theme", () => {
     const res = await PATCH(req(validTheme));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual(validTheme);
+  });
+
+  it("rejects theme writes on a locked-brand domain even for org admins", async () => {
+    (getApiUser as any).mockResolvedValue(orgAdmin);
+    const res = await PATCH(req(validTheme, { host: "seaudecrabe.workplix.app" }));
+    expect(res.status).toBe(403);
   });
 });

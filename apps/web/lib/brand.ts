@@ -9,6 +9,13 @@ export type BrandConfig = {
   lockedOrgSlug: string | null;
   /** Base URL used for links in emails and auth redirects for this brand. */
   appUrl: string;
+  /**
+   * When set, the dashboard's brand-color theme is fixed to this value and
+   * the "Brand Colors" picker in Settings is hidden — mirrors the mobile
+   * app's `lockedThemeKey`, which ignores `organizations.theme` entirely for
+   * locked-brand variants so the two clients can't visually diverge.
+   */
+  lockedThemePrimary: string | null;
 };
 
 export const BRANDS: Record<BrandKey, BrandConfig> = {
@@ -18,6 +25,7 @@ export const BRANDS: Record<BrandKey, BrandConfig> = {
     hostname: null,
     lockedOrgSlug: null,
     appUrl: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+    lockedThemePrimary: null,
   },
   seaudecrabe: {
     key: "seaudecrabe",
@@ -25,6 +33,8 @@ export const BRANDS: Record<BrandKey, BrandConfig> = {
     hostname: "seaudecrabe.workplix.app",
     lockedOrgSlug: "seau-de-crabe",
     appUrl: "https://seaudecrabe.workplix.app",
+    // Antique brass — matches apps/mobile/lib/brand.ts BRANDS.seaudecrabe.authAction.
+    lockedThemePrimary: "#c99a45",
   },
 };
 

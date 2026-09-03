@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { getUser } from "@/lib/auth/getUser";
 import { db } from "@/lib/db";
 import { organizations } from "@scheduler/database/schema";
@@ -5,9 +6,12 @@ import { eq } from "drizzle-orm";
 import { OrganizationThemeClient } from "@/components/settings/OrganizationThemeClient";
 import { OrgHoursClient } from "@/components/settings/OrgHoursClient";
 import { KioskExitPinClient } from "@/components/settings/KioskExitPinClient";
+import { getBrandForHost } from "@/lib/brand";
 
 export default async function OrganizationSettingsPage() {
   const user = await getUser();
+  const headerStore = await headers();
+  const brand = getBrandForHost(headerStore.get("host"));
 
   if (user.role !== "org_admin" && user.role !== "branch_manager") {
     return (
@@ -48,10 +52,12 @@ export default async function OrganizationSettingsPage() {
       </div>
 
       <div className="max-w-2xl space-y-6">
-        <div>
-          <h2 className="text-lg font-semibold mb-4">Brand Colors</h2>
-          <OrganizationThemeClient initialTheme={theme} />
-        </div>
+        {!brand.lockedThemePrimary && (
+          <div>
+            <h2 className="text-lg font-semibold mb-4">Brand Colors</h2>
+            <OrganizationThemeClient initialTheme={theme} />
+          </div>
+        )}
 
         <div>
           <h2 className="text-lg font-semibold mb-4">Hours of Operation</h2>

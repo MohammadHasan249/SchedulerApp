@@ -7,6 +7,7 @@ import { withAuth } from "@/lib/auth/withAuth";
 import { db } from "@/lib/db";
 import { organizations } from "@scheduler/database/schema";
 import { CACHE_TAGS } from "@/lib/cache";
+import { getBrandForHost } from "@/lib/brand";
 import { eq } from "drizzle-orm";
 
 export const GET = withAuth(async function GET() {
@@ -32,6 +33,15 @@ export const PATCH = withAuth(async function PATCH(request: Request) {
 
   if (user.role !== "org_admin" && user.role !== "branch_manager") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // Locked-brand domains (e.g. seaudecrabe.workplix.app) fix the dashboard's
+  // brand color to match the mobile app's locked theme — reject writes here
+  // too, not just hide the picker, so the DB value can't drift via direct
+  // API calls.
+  const brand = getBrandForHost(request.headers.get("host"));
+  if (brand.lockedThemePrimary) {
+    return NextResponse.json({ error: "Theme is locked for this organization" }, { status: 403 });
   }
 
   const [body, jsonErr] = await safeJson(request);
