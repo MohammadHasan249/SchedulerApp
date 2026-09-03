@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { format, addDays, startOfWeek, isSameDay } from "date-fns";
+import { format, addDays } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
+import { getZonedWeekStart } from "@/lib/utils/timezone";
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { useDroppable } from "@dnd-kit/core";
 import { ChevronLeft, ChevronRight, Bot, Send, X } from "lucide-react";
@@ -21,6 +23,13 @@ import {
   getScheduleChatSuccessfulToolCount,
 } from "@scheduler/types";
 import type { ScheduleAgentUIMessage } from "@/lib/ai/schedule-agent";
+
+// Calendar-date key ("yyyy-MM-dd") for an instant as seen in the branch's own
+// timezone — used for all "is this today / in the past" comparisons so they
+// agree with the branch's wall clock rather than the viewer's browser.
+function zonedDateKey(date: Date, timezone: string): string {
+  return formatInTimeZone(date, timezone, "yyyy-MM-dd");
+}
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DAY_LABELS_FULL = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -98,13 +107,13 @@ function MobileDayView({
   onNext: () => void;
   timezone: string;
 }) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const isPast = day < today;
-  const isToday = isSameDay(day, new Date());
+  const dayKey = zonedDateKey(day, timezone);
+  const todayKey = zonedDateKey(new Date(), timezone);
+  const isPast = dayKey < todayKey;
+  const isToday = dayKey === todayKey;
 
   const dayShifts = shifts.filter(
-    (s) => format(new Date(s.startTime), "yyyy-MM-dd") === format(day, "yyyy-MM-dd")
+    (s) => zonedDateKey(new Date(s.startTime), timezone) === dayKey
   );
 
   return (
@@ -171,7 +180,10 @@ export function WeeklyScheduleGrid({
   currentBranchId,
   userRole,
 }: ScheduleData) {
-  const [weekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const initialTimezone =
+    branches.find((b) => b.id === currentBranchId)?.timezone ??
+    Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const [weekStart, setWeekStart] = useState(() => getZonedWeekStart(initialTimezone, new Date(), 1));
   const [shifts, setShifts] = useState<Shift[]>(initialShifts);
   const [assignments, setAssignments] = useState<ShiftAssignment[]>(initialAssignments);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -343,13 +355,11 @@ export function WeeklyScheduleGrid({
     );
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
   const canShowAdminControls = canEdit && (userRole === "org_admin" || userRole === "branch_manager");
   const selectedTimezone =
     branches.find((b) => b.id === selectedBranchId)?.timezone ??
     Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const todayKey = zonedDateKey(new Date(), selectedTimezone);
 
   return (
     <div className="space-y-4">
@@ -357,7 +367,7 @@ export function WeeklyScheduleGrid({
       <div className="flex items-center gap-3 flex-wrap">
         {/* Desktop controls */}
         <div className="hidden md:flex items-center gap-4 flex-wrap">
-          <WeekNavigator weekStart={weekStart} onWeekChange={loadWeek} />
+          <WeekNavigator weekStart={weekStart} onWeekChange={loadWeek} timezone={selectedTimezone} />
           <BranchSelector branches={branches} value={selectedBranchId} onChange={setSelectedBranchId} />
           {canShowAdminControls && (
             <div className="flex gap-2">
@@ -386,7 +396,7 @@ export function WeeklyScheduleGrid({
 
         {/* Mobile controls */}
         <div className="flex md:hidden items-center gap-2 w-full flex-wrap">
-          <WeekNavigator weekStart={weekStart} onWeekChange={loadWeek} />
+          <WeekNavigator weekStart={weekStart} onWeekChange={loadWeek} timezone={selectedTimezone} />
           <BranchSelector branches={branches} value={selectedBranchId} onChange={setSelectedBranchId} className="w-full" />
           {canEdit && unpublishedCount > 0 && (
             <Button size="sm" onClick={handlePublish} disabled={publishing} className="flex-1">
@@ -531,7 +541,7 @@ export function WeeklyScheduleGrid({
                 <div
                   key={i}
                   className={`px-2 py-2 text-xs font-semibold text-center border-r last:border-r-0 ${
-                    format(day, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd")
+                    zonedDateKey(day, selectedTimezone) === todayKey
                       ? "text-primary"
                       : "text-muted-foreground"
                   }`}
@@ -543,11 +553,11 @@ export function WeeklyScheduleGrid({
             </div>
             <div className="grid grid-cols-7 border border-t-0 rounded-b-md">
               {weekDays.map((day, i) => {
-                const dayKey = format(day, "yyyy-MM-dd");
+                const dayKey = zonedDateKey(day, selectedTimezone);
                 const dayShifts = visibleShifts.filter(
-                  (s) => format(new Date(s.startTime), "yyyy-MM-dd") === dayKey
+                  (s) => zonedDateKey(new Date(s.startTime), selectedTimezone) === dayKey
                 );
-                const isPast = day < today;
+                const isPast = dayKey < todayKey;
                 return (
                   <DayCell
                     key={i}
@@ -573,10 +583,11 @@ export function WeeklyScheduleGrid({
       <div className="md:hidden">
         <div className="flex gap-1 overflow-x-auto pb-2 mb-2 scrollbar-hide">
           {weekDays.map((day, i) => {
-            const isSelected = isSameDay(day, mobileDay);
-            const isToday = isSameDay(day, new Date());
+            const dayKey = zonedDateKey(day, selectedTimezone);
+            const isSelected = dayKey === zonedDateKey(mobileDay, selectedTimezone);
+            const isToday = dayKey === todayKey;
             const dayShiftCount = visibleShifts.filter(
-              (s) => format(new Date(s.startTime), "yyyy-MM-dd") === format(day, "yyyy-MM-dd")
+              (s) => zonedDateKey(new Date(s.startTime), selectedTimezone) === dayKey
             ).length;
             return (
               <button

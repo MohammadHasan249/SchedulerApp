@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { clockEvents, employees, branches } from "@scheduler/database/schema";
 import { eq, and, desc, gte, inArray } from "drizzle-orm";
 import { AttendanceLog } from "@/components/reports/AttendanceLog";
-import { format, startOfDay } from "date-fns";
+import { getZonedDayStart } from "@/lib/utils/timezone";
 
 export default async function ReportsPage() {
   const user = await getUser();
@@ -20,7 +20,12 @@ export default async function ReportsPage() {
       ? [user.branchId]
       : branchRows.map((b) => b.id);
 
-  const todayStart = startOfDay(new Date());
+  const visibleBranchesForTz =
+    user.role === "branch_manager" && user.branchId
+      ? branchRows.filter((b) => b.id === user.branchId)
+      : branchRows;
+  const timezone = visibleBranchesForTz[0]?.timezone ?? "America/New_York";
+  const todayStart = getZonedDayStart(timezone);
 
   const initialRows =
     visibleBranchIds.length > 0

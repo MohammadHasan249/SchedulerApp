@@ -84,9 +84,12 @@ export function ShiftCreateDialog({
   }
 
   function getEmployeeAvailability(empId: string): string {
+    // `date` is already the exact calendar date the manager picked (e.g. from a
+    // date input), so derive day-of-week via UTC calendar math — never through a
+    // browser-local Date, which would depend on the viewer's own timezone and
+    // could disagree with the branch's/server's day-of-week near midnight.
     const [year, month, day] = date.split("-").map(Number);
-    const shiftDate = new Date(year, month - 1, day);
-    const dayOfWeek = shiftDate.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+    const dayOfWeek = new Date(Date.UTC(year, month - 1, day)).getUTCDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
 
     const employee = employees.find((e) => e.id === empId);
     if (!employee) return "Employee not found";
@@ -99,9 +102,12 @@ export function ShiftCreateDialog({
   }
 
   function checkAvailabilityConflicts(): string[] {
+    // `date` is already the exact calendar date the manager picked (e.g. from a
+    // date input), so derive day-of-week via UTC calendar math — never through a
+    // browser-local Date, which would depend on the viewer's own timezone and
+    // could disagree with the branch's/server's day-of-week near midnight.
     const [year, month, day] = date.split("-").map(Number);
-    const shiftDate = new Date(year, month - 1, day);
-    const dayOfWeek = shiftDate.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+    const dayOfWeek = new Date(Date.UTC(year, month - 1, day)).getUTCDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
 
     const conflicts: string[] = [];
 

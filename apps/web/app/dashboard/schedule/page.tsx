@@ -2,8 +2,8 @@ import { getUser } from "@/lib/auth/getUser";
 import { db } from "@/lib/db";
 import { shifts, shiftAssignments, employees, branches } from "@scheduler/database/schema";
 import { eq, and, inArray, gte, lte } from "drizzle-orm";
-import { startOfWeek, addDays } from "date-fns";
 import { WeeklyScheduleGrid } from "@/components/schedule/WeeklyScheduleGrid";
+import { getZonedWeekStart } from "@/lib/utils/timezone";
 import {
   serializeShift,
   serializeAssignment,
@@ -25,9 +25,6 @@ function scheduleToRows(schedule: Record<number, { startTime: string; endTime: s
 export default async function SchedulePage() {
   const user = await getUser();
 
-  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-  const weekEnd = addDays(weekStart, 7);
-
   // Branches and employees are independent — fetch in parallel.
   const [branchRows, allEmployeeRows] = await Promise.all([
     db.select().from(branches).where(eq(branches.organizationId, user.organizationId)),
@@ -45,6 +42,14 @@ export default async function SchedulePage() {
     user.role === "branch_manager" && user.branchId
       ? [user.branchId]
       : branchRows.map((b) => b.id);
+
+  const primaryBranch =
+    (user.role === "branch_manager" && user.branchId
+      ? branchRows.find((b) => b.id === user.branchId)
+      : branchRows[0]) ?? null;
+  const timezone = primaryBranch?.timezone ?? "America/New_York";
+  const weekStart = getZonedWeekStart(timezone, new Date(), 1);
+  const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   const shiftRows =
     visibleBranchIds.length > 0

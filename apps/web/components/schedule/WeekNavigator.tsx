@@ -1,15 +1,17 @@
 "use client";
 
-import { format, addWeeks, subWeeks, startOfWeek } from "date-fns";
+import { format, addWeeks, subWeeks } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { getZonedWeekStart } from "@/lib/utils/timezone";
 
 type Props = {
   weekStart: Date;
   onWeekChange: (d: Date) => void;
+  timezone: string;
 };
 
-export function WeekNavigator({ weekStart, onWeekChange }: Props) {
+export function WeekNavigator({ weekStart, onWeekChange, timezone }: Props) {
   const end = new Date(weekStart);
   end.setDate(end.getDate() + 6);
 
@@ -27,7 +29,7 @@ export function WeekNavigator({ weekStart, onWeekChange }: Props) {
       <Button
         variant="ghost"
         size="sm"
-        onClick={() => onWeekChange(startOfWeek(new Date(), { weekStartsOn: 1 }))}
+        onClick={() => onWeekChange(getZonedWeekStart(timezone, new Date(), 1))}
       >
         Today
       </Button>

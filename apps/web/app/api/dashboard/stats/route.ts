@@ -11,6 +11,7 @@ import {
 import { getApiUser as getUser } from "@/lib/auth/getUser";
 import { withAuth } from "@/lib/auth/withAuth";
 import { eq, and, gte, lte, inArray } from "drizzle-orm";
+import { getZonedDayStart } from "@/lib/utils/timezone";
 
 export const GET = withAuth(async function GET() {
   const user = await getUser();
@@ -39,11 +40,6 @@ export const GET = withAuth(async function GET() {
     });
   }
 
-  const dayStart = new Date();
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date();
-  dayEnd.setHours(23, 59, 59, 999);
-
   const orgEmployeeIds = (
     await db
       .select({ id: employees.id })
@@ -62,7 +58,26 @@ export const GET = withAuth(async function GET() {
     .where(inArray(branches.id, branchIds));
   const branchTimezones = Object.fromEntries(branchTimezoneRows.map((b) => [b.id, b.timezone]));
 
-  const [todayShiftRows, todayClockEvents, pendingTimeOff] = await Promise.all([
+  // Each branch has its own local "today", so compute per-branch day boundaries
+  // rather than a single server/UTC-relative window.
+  const now = new Date();
+  const branchDayBounds = Object.fromEntries(
+    branchTimezoneRows.map((b) => {
+      const start = getZonedDayStart(b.timezone, now);
+      const end = new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1);
+      return [b.id, { start, end }];
+    })
+  );
+  // Widest window across all branches, to bound the SQL query; exact filtering
+  // per-branch happens in JS below.
+  const queryWindowStart = new Date(
+    Math.min(...Object.values(branchDayBounds).map((b) => b.start.getTime()))
+  );
+  const queryWindowEnd = new Date(
+    Math.max(...Object.values(branchDayBounds).map((b) => b.end.getTime()))
+  );
+
+  const [allShiftRows, allClockEvents, pendingTimeOff] = await Promise.all([
     db
       .select({
         id: shifts.id,
@@ -77,18 +92,23 @@ export const GET = withAuth(async function GET() {
       .where(
         and(
           inArray(shifts.branchId, branchIds),
-          gte(shifts.startTime, dayStart),
-          lte(shifts.startTime, dayEnd),
+          gte(shifts.startTime, queryWindowStart),
+          lte(shifts.startTime, queryWindowEnd),
           eq(shifts.isPublished, true)
         )
       ),
     db
-      .select({ employeeId: clockEvents.employeeId, type: clockEvents.type })
+      .select({
+        employeeId: clockEvents.employeeId,
+        type: clockEvents.type,
+        branchId: clockEvents.branchId,
+        timestamp: clockEvents.timestamp,
+      })
       .from(clockEvents)
       .where(
         and(
           inArray(clockEvents.branchId, branchIds),
-          gte(clockEvents.timestamp, dayStart)
+          gte(clockEvents.timestamp, queryWindowStart)
         )
       )
       .orderBy(clockEvents.timestamp),
@@ -104,6 +124,17 @@ export const GET = withAuth(async function GET() {
           )
       : Promise.resolve([]),
   ]);
+
+  const todayShiftRows = allShiftRows.filter((r) => {
+    const bounds = branchDayBounds[r.branchId];
+    return (
+      bounds && r.startTime >= bounds.start && r.startTime <= bounds.end
+    );
+  });
+  const todayClockEvents = allClockEvents.filter((e) => {
+    const bounds = branchDayBounds[e.branchId];
+    return bounds && e.timestamp >= bounds.start;
+  });
 
   const latestByEmployee = new Map<string, "clock_in" | "clock_out">();
   for (const e of todayClockEvents) {

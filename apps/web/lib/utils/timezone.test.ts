@@ -66,4 +66,21 @@ describe("getZonedWeekStart", () => {
     // never a different day entirely.
     expect(["2024-03-10T04:00:00.000Z", "2024-03-10T05:00:00.000Z"]).toContain(weekStart.toISOString());
   });
+
+  it("walks back to Monday, not Sunday, when weekStartsOn is 1", () => {
+    // 2024-01-09T02:30Z is Monday 21:30 in New York — the branch-local Monday
+    // that starts this Mon-Sun week is that same calendar day.
+    const at = new Date("2024-01-09T02:30:00Z");
+    const nyMondayStart = getZonedWeekStart("America/New_York", at, 1);
+    // Branch-local Monday 2024-01-08 00:00 America/New_York = 2024-01-08T05:00:00Z.
+    expect(nyMondayStart.toISOString()).toBe("2024-01-08T05:00:00.000Z");
+  });
+
+  it("with weekStartsOn 1, returns the same instant as getZonedDayStart when `at` already falls on a branch-local Monday", () => {
+    // 2024-01-08 is a Monday.
+    const at = new Date("2024-01-08T12:00:00Z");
+    const weekStart = getZonedWeekStart("UTC", at, 1);
+    const dayStart = getZonedDayStart("UTC", at);
+    expect(weekStart.getTime()).toBe(dayStart.getTime());
+  });
 });

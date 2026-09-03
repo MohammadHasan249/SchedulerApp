@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { safeJson } from "@/lib/utils/safe-json";
 import { db } from "@/lib/db";
-import { timeOffRequests, employees } from "@scheduler/database/schema";
+import { timeOffRequests, employees, branches } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { sendTimeOffNotification } from "@/lib/email/send-time-off-notification";
 import { createNotifications } from "@/lib/notifications";
 import { eq, and, inArray, gte, lte, ne } from "drizzle-orm";
+import { getZonedParts } from "@/lib/utils/timezone";
 
 const MAX_TIME_OFF_DAYS = 90;
 
@@ -82,8 +83,18 @@ export const POST = withAuth(async function POST(request: Request) {
     return NextResponse.json({ error: "Start date must be before end date" }, { status: 400 });
   }
 
-  // Reject past requests (compared by ISO date string — safe lexicographically).
-  const today = new Date().toISOString().split("T")[0];
+  // Reject past requests (compared by ISO date string — safe lexicographically),
+  // using the employee's branch-local calendar date, not UTC/server time.
+  let timezone = "America/New_York";
+  if (emp.branchId) {
+    const [branch] = await db
+      .select({ timezone: branches.timezone })
+      .from(branches)
+      .where(eq(branches.id, emp.branchId))
+      .limit(1);
+    if (branch) timezone = branch.timezone;
+  }
+  const today = getZonedParts(new Date(), timezone).dateStr;
   if (startDate < today) {
     return NextResponse.json({ error: "Cannot request time off in the past" }, { status: 400 });
   }

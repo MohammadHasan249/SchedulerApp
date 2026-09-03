@@ -122,19 +122,26 @@ export function getZonedDayStart(timezone: string, at: Date = new Date()): Date 
 }
 
 /**
- * Returns the UTC instant of 00:00:00 on the Sunday that starts the
- * branch-local week containing `at`. Used for weekly-hours-cap boundaries so
- * they line up with the same branch timezone availability/time-off checks
- * already use, instead of the server's own timezone (Vercel runs UTC).
+ * Returns the UTC instant of 00:00:00 on the day that starts the branch-local
+ * week containing `at`. Defaults to Sunday (`weekStartsOn: 0`) — used for
+ * weekly-hours-cap boundaries so they line up with the same branch timezone
+ * availability/time-off checks already use, instead of the server's own
+ * timezone (Vercel runs UTC). Pass `weekStartsOn: 1` for a Monday-starting
+ * week (e.g. the schedule UI, which displays Mon–Sun).
  *
  * Walks back one local calendar day at a time — via `getZonedDayStart`, not a
  * fixed 24h subtraction — so the result stays correct across a DST transition
  * that falls inside the same week.
  */
-export function getZonedWeekStart(timezone: string, at: Date = new Date()): Date {
+export function getZonedWeekStart(
+  timezone: string,
+  at: Date = new Date(),
+  weekStartsOn: 0 | 1 = 0
+): Date {
   const { dayOfWeek } = getZonedParts(at, timezone);
+  const daysSinceWeekStart = (dayOfWeek - weekStartsOn + 7) % 7;
   let cursor = getZonedDayStart(timezone, at);
-  for (let i = 0; i < dayOfWeek; i++) {
+  for (let i = 0; i < daysSinceWeekStart; i++) {
     // 12h before local midnight is guaranteed to still fall on the previous
     // local calendar day, even when that day was a 23h or 25h DST day.
     const prevLocalDay = new Date(cursor.getTime() - 12 * 60 * 60 * 1000);
