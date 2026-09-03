@@ -51,7 +51,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <OrgContextProvider user={user} organization={org as any}>
-      <ThemeInjector lockedPrimary={hostBrand.lockedThemePrimary} />
+      <ThemeInjector
+        lockedPrimary={hostBrand.lockedThemePrimary}
+        lockedSidebarBg={hostBrand.lockedSidebarBg}
+      />
       {/* Next.js hoists bare <link> tags to <head> automatically */}
       <link rel="apple-touch-icon" href={appleTouchIcon} />
       <DashboardShell

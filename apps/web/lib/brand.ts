@@ -10,12 +10,20 @@ export type BrandConfig = {
   /** Base URL used for links in emails and auth redirects for this brand. */
   appUrl: string;
   /**
-   * When set, the dashboard's brand-color theme is fixed to this value and
-   * the "Brand Colors" picker in Settings is hidden — mirrors the mobile
-   * app's `lockedThemeKey`, which ignores `organizations.theme` entirely for
-   * locked-brand variants so the two clients can't visually diverge.
+   * When set, the dashboard's brand-color theme is fixed to this value
+   * (buttons, links, focus rings) and the "Brand Colors" picker in Settings
+   * is hidden — mirrors the mobile app's `lockedThemeKey`, which ignores
+   * `organizations.theme` entirely for locked-brand variants so the two
+   * clients can't visually diverge.
    */
   lockedThemePrimary: string | null;
+  /**
+   * When set, the sidebar's background is fixed to this value instead of
+   * `lockedThemePrimary` — mirrors mobile's dark crimson chrome
+   * (apps/mobile/lib/useAppTheme.ts DARK_CRIMSON.bg), which is a distinct
+   * color from the brass accent used on buttons/active states.
+   */
+  lockedSidebarBg: string | null;
 };
 
 export const BRANDS: Record<BrandKey, BrandConfig> = {
@@ -26,6 +34,7 @@ export const BRANDS: Record<BrandKey, BrandConfig> = {
     lockedOrgSlug: null,
     appUrl: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
     lockedThemePrimary: null,
+    lockedSidebarBg: null,
   },
   seaudecrabe: {
     key: "seaudecrabe",
@@ -35,6 +44,8 @@ export const BRANDS: Record<BrandKey, BrandConfig> = {
     appUrl: "https://seaudecrabe.workplix.app",
     // Antique brass — matches apps/mobile/lib/brand.ts BRANDS.seaudecrabe.authAction.
     lockedThemePrimary: "#c99a45",
+    // Deep wine-red — matches apps/mobile/lib/useAppTheme.ts DARK_CRIMSON.bg.
+    lockedSidebarBg: "#57101a",
   },
 };
 
