@@ -171,6 +171,14 @@ export interface JobRole {
   name: string;
 }
 
+export interface SchedulingRule {
+  id: string;
+  branchId: string;
+  ruleText: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
 export interface Organization {
   id: string;
   name: string;

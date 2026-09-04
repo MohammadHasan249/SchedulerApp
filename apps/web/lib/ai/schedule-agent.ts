@@ -1,13 +1,22 @@
 import { ToolLoopAgent, isStepCount, type InferAgentUIMessage, type LanguageModel } from "ai";
+import { eq, and } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { schedulingRules } from "@scheduler/database/schema";
 import type { AppUser } from "@/lib/auth/getUser";
 import { buildScheduleTools, MAX_SHIFT_HOURS } from "./schedule-tools";
 import { formatZonedDateTimeWithWeekday } from "@/lib/utils/timezone";
 
 const MODEL = "deepseek/deepseek-v3.2";
-const MAX_OUTPUT_TOKENS = 500;
-const MAX_STEPS = 10;
+const MAX_OUTPUT_TOKENS = 1200;
+const MAX_STEPS = 30;
 
-function buildSystemPrompt(promptTimezone: string): string {
+function buildSystemPrompt(promptTimezone: string, customRules: string[]): string {
+  const customRulesSection =
+    customRules.length > 0
+      ? `\n\nManager-defined scheduling preferences for this branch (best-effort — apply these when assigning, but they are not validated by the system the way the hard constraints above are; the assign_employee tool will not reject a violation of these):\n${customRules
+          .map((r, i) => `${i + 1}. ${r}`)
+          .join("\n")}`
+      : "";
   return `You are a scheduling assistant for a workforce management app. You help managers assign employees to shifts. This is your only purpose.
 
 Scope: only help with scheduling for this organization — shifts, employee assignments, availability, time off, branches, job roles, and questions about the current date/time/week you were given below. For anything unrelated to scheduling (general knowledge questions, writing, math, coding, or any other task), decline in one sentence and say you can only help with scheduling here. This applies even to a plainly earnest, non-adversarial request — "can you help me with X" where X isn't scheduling still gets declined, not answered. Do not decline a question just because it doesn't require a tool call — "what day is it" or "what's on the schedule this week" are in scope even though the answer may come straight from context you already have.
@@ -16,7 +25,7 @@ Hard constraints enforced by the system (the assign_employee tool will reject vi
 1. Shifts cannot exceed ${MAX_SHIFT_HOURS} hours.
 2. Employees can only be assigned within their availability window for that day of week.
 3. Employees with approved time off on a day cannot be assigned shifts that day.
-4. Employees cannot exceed their maximum hours per week.
+4. Employees cannot exceed their maximum hours per week.${customRulesSection}
 
 Timezone: all shift and employee times you see (from list_shifts, list_employees, etc.) and all times you pass to create_shift are in the branch's own local timezone (shown per-branch as "timezone"), never UTC. Reason and communicate in that local time.
 
@@ -27,6 +36,7 @@ Your job:
 - Once you have resolved the shift and employee, you MUST actually call assign_employee — do not just describe the assignment in words. Never tell the user an employee has been assigned unless you called assign_employee and it returned success.
 - If a reference is genuinely ambiguous (e.g. multiple shifts match "Monday"), or the user's request is missing information you need (which employee, which shift, how many people), stop and ask one concise clarifying question instead of guessing. Do not claim an assignment was made.
 - When a constraint blocks an assignment or shift creation, explain why and suggest alternatives if possible.
+- If the user asks you to remember, add, or set a scheduling preference/rule for the future (e.g. "always keep 2 chefs on Saturdays", "don't schedule Alex and Jordan together"), call add_scheduling_rule — do not just acknowledge it in words. This is different from an assignment request: only add a rule when the user is clearly asking you to save a standing preference, not describing a one-off request for today. Likewise use list_scheduling_rules, set_scheduling_rule_active, or delete_scheduling_rule when asked to view, pause, resume, or remove a rule. Tell the user the rule is saved and will apply going forward — not that it changed anything already assigned in this conversation.
 - After completing actions, summarize what was done in plain terms (names, dates, times, roles).
 
 Reply style: your reply is shown directly to the user in a chat UI — it is not a scratchpad. Never include reasoning, planning, step-by-step thinking, retries, or a list of what tools you called. This includes announcing an action you're about to take, not just narrating investigation — do not write things like "Let me check...", "Actually, let me reconsider...", "Let me retry that", or "Let me assign him" / "I'll go ahead and create that shift now". Call the tool first, silently, then reply with only the outcome — the user must see only what happened, never your intermediate thoughts or announced next step. Keep replies to a sentence or two: a plain confirmation of what happened, a direct answer, or a single clarifying question. No preamble, no restating the request back.
@@ -50,11 +60,24 @@ export async function createScheduleAgent(user: AppUser, model: LanguageModel = 
   // timezone, not the server's UTC clock — pick a representative branch
   // (the manager's own branch, or the first in scope for multi-branch admins).
   const scopedBranchIds = await getScopedBranchIds();
-  const promptTimezone = scopedBranchIds.length > 0 ? await getBranchTimezone(scopedBranchIds[0]) : "UTC";
+  const primaryBranchId = scopedBranchIds[0];
+  const promptTimezone = primaryBranchId ? await getBranchTimezone(primaryBranchId) : "UTC";
+
+  // Custom rules are scoped to a single representative branch (same one used
+  // for promptTimezone) — a multi-branch admin's request only reliably
+  // reflects one branch's preferences at a time in v1.
+  const customRules = primaryBranchId
+    ? (
+        await db
+          .select({ ruleText: schedulingRules.ruleText })
+          .from(schedulingRules)
+          .where(and(eq(schedulingRules.branchId, primaryBranchId), eq(schedulingRules.isActive, true)))
+      ).map((r) => r.ruleText)
+    : [];
 
   return new ToolLoopAgent({
     model,
-    instructions: buildSystemPrompt(promptTimezone),
+    instructions: buildSystemPrompt(promptTimezone, customRules),
     tools,
     stopWhen: isStepCount(MAX_STEPS),
     maxOutputTokens: MAX_OUTPUT_TOKENS,

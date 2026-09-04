@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   X,
   Timer,
+  ListChecks,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type AppUser } from "@/lib/auth/getUser";
@@ -38,6 +39,7 @@ const NAV: NavItem[] = [
   { label: "Reports", href: "/dashboard/reports", icon: BarChart2, roles: ["org_admin", "branch_manager"], group: "manage" },
   { label: "Job Roles", href: "/dashboard/settings/job-roles", icon: Briefcase, roles: ["org_admin", "branch_manager"], group: "settings" },
   { label: "Branches", href: "/dashboard/settings/branches", icon: GitBranch, roles: ["org_admin", "branch_manager"], group: "settings" },
+  { label: "Scheduling Rules", href: "/dashboard/settings/scheduling-rules", icon: ListChecks, roles: ["org_admin", "branch_manager"], group: "settings" },
   { label: "Permissions", href: "/dashboard/settings/permissions", icon: ShieldCheck, roles: ["org_admin"], group: "settings" },
   { label: "Settings", href: "/dashboard/settings/organization", icon: Settings, roles: ["org_admin", "branch_manager"], group: "settings" },
 ];

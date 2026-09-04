@@ -4,9 +4,11 @@ import { db } from "@/lib/db";
 import {
   shifts,
   shiftAssignments,
+  shiftRoleRequirements,
   employees,
   branches,
   jobRoles,
+  schedulingRules,
 } from "@scheduler/database/schema";
 import type { AppUser } from "@/lib/auth/getUser";
 import { validateAssignment } from "@/lib/scheduling/assignment-validator";
@@ -136,7 +138,7 @@ export function buildScheduleTools(user: AppUser) {
 
     list_shifts: tool({
       description:
-        "List upcoming shifts (next 2 weeks) for this branch, including duration, who is already assigned, and whether they are within the 10-hour maximum.",
+        "List upcoming shifts (next 2 weeks) for this branch, including duration, who is already assigned, any per-role headcount requirements (e.g. \"needs 2 Chef\"), and whether they are within the 10-hour maximum.",
       inputSchema: z.object({}),
       execute: async () => {
         const now = new Date();
@@ -176,6 +178,23 @@ export function buildScheduleTools(user: AppUser) {
           byShift.get(a.shiftId)!.push(a);
         }
 
+        const requirementRows = await db
+          .select({
+            shiftId: shiftRoleRequirements.shiftId,
+            jobRoleId: shiftRoleRequirements.jobRoleId,
+            jobRoleName: jobRoles.name,
+            headcount: shiftRoleRequirements.headcount,
+          })
+          .from(shiftRoleRequirements)
+          .innerJoin(jobRoles, eq(shiftRoleRequirements.jobRoleId, jobRoles.id))
+          .where(inArray(shiftRoleRequirements.shiftId, shiftIds));
+
+        const requirementsByShift = new Map<string, typeof requirementRows>();
+        for (const r of requirementRows) {
+          if (!requirementsByShift.has(r.shiftId)) requirementsByShift.set(r.shiftId, []);
+          requirementsByShift.get(r.shiftId)!.push(r);
+        }
+
         return Promise.all(
           shiftRows.map(async (s) => {
             const hours = shiftHours(new Date(s.startTime), new Date(s.endTime));
@@ -193,6 +212,11 @@ export function buildScheduleTools(user: AppUser) {
               durationHours: Math.round(hours * 10) / 10,
               exceedsMaxHours: hours > MAX_SHIFT_HOURS,
               isPublished: s.isPublished,
+              roleRequirements: (requirementsByShift.get(s.id) ?? []).map((r) => ({
+                jobRoleId: toHandle("role", r.jobRoleId),
+                jobRoleName: r.jobRoleName,
+                headcount: r.headcount,
+              })),
               assignments: (byShift.get(s.id) ?? []).map((a) => ({
                 id: toHandle("assignment", a.id),
                 employeeId: toHandle("employee", a.employeeId),
@@ -481,6 +505,119 @@ export function buildScheduleTools(user: AppUser) {
           if (!shift) return { error: "Assignment out of scope" };
 
           await db.delete(shiftAssignments).where(eq(shiftAssignments.id, assignmentId));
+          return { success: true };
+        }),
+    }),
+
+    list_scheduling_rules: tool({
+      description:
+        "List the manager-defined free-text scheduling rules (e.g. staffing preferences) for the branches in scope, including inactive ones. Use this before adding a rule to check whether something similar already exists, or when the user asks what rules are in effect.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const branchIds = await getScopedBranchIds();
+        if (branchIds.length === 0) return [];
+
+        const rows = await db
+          .select()
+          .from(schedulingRules)
+          .where(inArray(schedulingRules.branchId, branchIds));
+
+        return rows.map((r) => ({
+          id: toHandle("rule", r.id),
+          branchId: toHandle("branch", r.branchId),
+          ruleText: r.ruleText,
+          isActive: r.isActive,
+        }));
+      },
+    }),
+
+    add_scheduling_rule: tool({
+      description:
+        "Add a new free-text scheduling rule for a branch (e.g. \"always assign 2 employees with the Chef role on weekends\", \"avoid scheduling Alex and Jordan on the same shift\"). Only use this when the user explicitly asks you to remember or add a scheduling preference/rule — not for one-off assignment requests. The rule takes effect on the NEXT message in this conversation onward (the system prompt for the current turn was already built), so tell the user it's saved rather than that it's already being applied to what you just did.",
+      inputSchema: z.object({
+        ruleText: z.string().min(1).describe("The rule, written in plain English, exactly as it should be applied."),
+        branchId: z
+          .string()
+          .optional()
+          .describe(
+            "The branch reference (from list_branches) to add the rule to. Optional if there is only one branch in scope."
+          ),
+      }),
+      execute: (input) =>
+        serialize(async () => {
+          const branchIds = await getScopedBranchIds();
+          if (branchIds.length === 0) return { error: "No branch in scope" };
+
+          let branchId: string;
+          if (input.branchId) {
+            const resolved = fromHandle(input.branchId);
+            if (!resolved || !branchIds.includes(resolved)) {
+              return { error: "Branch not found or out of scope. Call list_branches to get a valid reference." };
+            }
+            branchId = resolved;
+          } else if (branchIds.length === 1) {
+            branchId = branchIds[0];
+          } else {
+            return { error: "Multiple branches in scope — call list_branches and specify branchId." };
+          }
+
+          const [rule] = await db
+            .insert(schedulingRules)
+            .values({ branchId, ruleText: input.ruleText })
+            .returning();
+
+          return { success: true, ruleId: toHandle("rule", rule.id) };
+        }),
+    }),
+
+    set_scheduling_rule_active: tool({
+      description:
+        "Enable or disable an existing scheduling rule without deleting it. Use this when the user asks to turn a rule off/on or pause it temporarily.",
+      inputSchema: z.object({
+        ruleId: z.string().describe("The rule reference (from list_scheduling_rules) to update."),
+        isActive: z.boolean(),
+      }),
+      execute: (input) =>
+        serialize(async () => {
+          const branchIds = await getScopedBranchIds();
+          const ruleId = fromHandle(input.ruleId);
+          if (!ruleId) return { error: "Rule not found. Call list_scheduling_rules to get a valid reference." };
+
+          const [row] = await db
+            .select({ branchId: schedulingRules.branchId })
+            .from(schedulingRules)
+            .where(eq(schedulingRules.id, ruleId))
+            .limit(1);
+          if (!row || !branchIds.includes(row.branchId)) {
+            return { error: "Rule not found or out of scope" };
+          }
+
+          await db.update(schedulingRules).set({ isActive: input.isActive }).where(eq(schedulingRules.id, ruleId));
+          return { success: true };
+        }),
+    }),
+
+    delete_scheduling_rule: tool({
+      description: "Permanently delete a scheduling rule. Use set_scheduling_rule_active instead if the user just wants to pause it.",
+      inputSchema: z.object({
+        ruleId: z.string().describe("The rule reference (from list_scheduling_rules) to delete."),
+      }),
+      execute: (input) =>
+        serialize(async () => {
+          const branchIds = await getScopedBranchIds();
+          const ruleId = fromHandle(input.ruleId);
+          if (!ruleId) return { error: "Rule not found. Call list_scheduling_rules to get a valid reference." };
+
+          const [row] = await db
+            .select({ branchId: schedulingRules.branchId })
+            .from(schedulingRules)
+            .where(eq(schedulingRules.id, ruleId))
+            .limit(1);
+          if (!row || !branchIds.includes(row.branchId)) {
+            return { error: "Rule not found or out of scope" };
+          }
+
+          await db.delete(schedulingRules).where(eq(schedulingRules.id, ruleId));
           return { success: true };
         }),
     }),

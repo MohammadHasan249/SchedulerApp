@@ -164,11 +164,14 @@ describe("POST /api/ai/schedule", () => {
   function mockListAndAssignDbCalls() {
     (db.select as unknown as ReturnType<typeof vi.fn>)
       // system prompt: getScopedBranchIds + branch timezone (caches "b1" -> UTC
-      // for the rest of the request, via the shared branchTimezoneCache)
+      // for the rest of the request, via the shared branchTimezoneCache) +
+      // active scheduling rules for that branch
       .mockReturnValueOnce(chain([{ id: "b1" }]))
       .mockReturnValueOnce(chain([{ timezone: "UTC" }]))
-      // list_shifts: getScopedBranchIds, shiftRows, assignmentRows (per-shift
-      // timezone lookup hits the cache from above, no DB call)
+      .mockReturnValueOnce(chain([]))
+      // list_shifts: getScopedBranchIds, shiftRows, assignmentRows,
+      // roleRequirements (per-shift timezone lookup hits the cache from
+      // above, no DB call)
       .mockReturnValueOnce(chain([{ id: "b1" }]))
       .mockReturnValueOnce(
         chain([
@@ -181,6 +184,7 @@ describe("POST /api/ai/schedule", () => {
           },
         ])
       )
+      .mockReturnValueOnce(chain([]))
       .mockReturnValueOnce(chain([]))
       // list_employees: employee rows, jobRoles rows, getScopedBranchIds (week
       // hours), weekAssignments (branch timezone for the week-hours loop also

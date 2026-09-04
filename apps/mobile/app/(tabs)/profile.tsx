@@ -21,6 +21,7 @@ import {
   Briefcase,
   BarChart2,
   ShieldCheck,
+  ListChecks,
 } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
@@ -208,6 +209,14 @@ export default function ProfileScreen() {
             >
               <Briefcase size={18} color={theme.secondary} />
               <Text style={styles.settingsRowText}>Job Roles</Text>
+              <ChevronRight size={16} color={theme.muted} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.settingsRow}
+              onPress={() => router.push("/(admin)/settings-scheduling-rules")}
+            >
+              <ListChecks size={18} color={theme.secondary} />
+              <Text style={styles.settingsRowText}>Scheduling Rules</Text>
               <ChevronRight size={16} color={theme.muted} />
             </TouchableOpacity>
             {role === "org_admin" && (
