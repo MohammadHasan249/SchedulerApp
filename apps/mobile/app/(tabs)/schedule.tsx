@@ -17,6 +17,7 @@ import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
 import { useIsAdmin, useBranchId } from "@/lib/useRole";
 import { BranchSelector } from "@/components/BranchSelector";
 import { formatZonedTime } from "@/lib/utils/timezone";
+import { fromZonedTime } from "date-fns-tz";
 import type { Shift, Employee, ShiftAssignmentDetail } from "@scheduler/types";
 
 const DEFAULT_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -256,8 +257,9 @@ export default function ScheduleScreen() {
     setCreateError("");
     try {
       const dateStr = format(selectedDay, "yyyy-MM-dd");
-      const startISO = new Date(`${dateStr}T${createStart}:00`).toISOString();
-      const endISO = new Date(`${dateStr}T${createEnd}:00`).toISOString();
+      const branchTz = tzForBranch(createBranchId);
+      const startISO = fromZonedTime(`${dateStr}T${createStart}:00`, branchTz).toISOString();
+      const endISO = fromZonedTime(`${dateStr}T${createEnd}:00`, branchTz).toISOString();
       const newShift = await createShift({ branchId: createBranchId, startTime: startISO, endTime: endISO });
       for (const empId of createAssignedIds) {
         await assignEmployee(newShift.id, empId);
