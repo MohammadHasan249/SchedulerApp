@@ -8,7 +8,6 @@ import bcrypt from "bcryptjs";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { checkRateLimit, getClientIp } from "@/lib/utils/rate-limit";
-import { getZonedDayStart } from "@/lib/utils/timezone";
 import { logger } from "@/lib/logger";
 import { createNotifications } from "@/lib/notifications";
 
@@ -179,20 +178,16 @@ export const POST = withAuth(async function POST(request: Request) {
 
   const matchedEmployee = matches[0];
 
-  // Use the branch's timezone for the day boundary, not the server's. Without
-  // this, a Tokyo branch on a UTC server would see "today" start at 09:00 JST
-  // and misclassify late-night/early-morning clock_in/clock_out toggles.
-  const dayStart = getZonedDayStart(branch.timezone);
-
+  // Toggle off the employee's most recent event ever, not "today's" event.
+  // A day-boundary cutoff here would strand an overnight shift: someone who
+  // clocks in at 6pm and punches again at 1am (past local midnight) would
+  // find no "today" event, get clocked in a second time, and leave their
+  // original clock-in open forever. Whether they're still open is the only
+  // thing that matters, not which calendar day they opened it on.
   const [lastEvent] = await db
     .select()
     .from(clockEvents)
-    .where(
-      and(
-        eq(clockEvents.employeeId, matchedEmployee.id),
-        gte(clockEvents.timestamp, dayStart)
-      )
-    )
+    .where(eq(clockEvents.employeeId, matchedEmployee.id))
     .orderBy(desc(clockEvents.timestamp))
     .limit(1);
 
