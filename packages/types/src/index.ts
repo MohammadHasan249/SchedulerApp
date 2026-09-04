@@ -121,6 +121,10 @@ export interface ShiftSwapRequest {
   managerId: string | null;
   status: SwapStatus;
   createdAt: string;
+  /** Only populated for an employee's own view (GET /api/shift-swaps) — the
+   *  other party's name on a swap they're already part of, not the roster. */
+  requesterName?: string | null;
+  coverName?: string | null;
 }
 
 export interface TimeOffRequest {

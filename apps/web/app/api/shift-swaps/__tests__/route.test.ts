@@ -27,12 +27,31 @@ describe("GET /api/shift-swaps", () => {
 
   it("scopes an employee's view to swaps where they're requester or cover", async () => {
     (getApiUser as any).mockResolvedValue(employeeUser);
-    const rows = [{ id: "s1" }];
+    const rows = [{ id: "s1", requesterId: "emp-1", coverId: null }];
     (db.select as any)
       .mockReturnValueOnce(chain([{ id: "emp-1" }]))
-      .mockReturnValueOnce(chain(rows));
+      .mockReturnValueOnce(chain(rows))
+      .mockReturnValueOnce(chain([{ id: "emp-1", name: "Jane Doe" }]));
     const res = await GET();
-    expect(await res.json()).toEqual(rows);
+    expect(await res.json()).toEqual([{ ...rows[0], requesterName: "Jane Doe", coverName: null }]);
+  });
+
+  it("denormalizes the other party's name onto each swap", async () => {
+    (getApiUser as any).mockResolvedValue(employeeUser);
+    const rows = [{ id: "s1", requesterId: "emp-1", coverId: "emp-2" }];
+    (db.select as any)
+      .mockReturnValueOnce(chain([{ id: "emp-1" }]))
+      .mockReturnValueOnce(chain(rows))
+      .mockReturnValueOnce(
+        chain([
+          { id: "emp-1", name: "Jane Doe" },
+          { id: "emp-2", name: "Bob" },
+        ])
+      );
+    const res = await GET();
+    expect(await res.json()).toEqual([
+      { ...rows[0], requesterName: "Jane Doe", coverName: "Bob" },
+    ]);
   });
 });
 

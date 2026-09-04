@@ -585,8 +585,12 @@ function SwapSection() {
             const isCover = swap.coverId === employeeId;
             const canAccept = !isAdmin && isCover && swap.status === "pending";
             const canManagerDecide = isAdmin && swap.status === "cover_accepted";
-            const requesterName = employeeMap[swap.requesterId]?.name;
-            const coverName = swap.coverId ? employeeMap[swap.coverId]?.name : undefined;
+            // requesterName/coverName come pre-filled from the server for an
+            // employee's own swaps (see GET /api/shift-swaps) since
+            // employeeMap only ever has their own record; admins already
+            // have the full roster in employeeMap.
+            const requesterName = swap.requesterName ?? employeeMap[swap.requesterId]?.name;
+            const coverName = swap.coverId ? (swap.coverName ?? employeeMap[swap.coverId]?.name) : undefined;
             return (
               <View key={swap.id} style={styles.card}>
                 <View style={styles.cardHeader}>
@@ -604,7 +608,11 @@ function SwapSection() {
                 <Text style={styles.cardSub}>
                   {isAdmin
                     ? `${requesterName ?? "Requester"} → ${coverName ?? "(no cover yet)"}`
-                    : isRequester ? "You requested" : isCover ? "You're covering" : "Open swap"}
+                    : isRequester
+                    ? `You asked ${coverName ?? "someone"} to cover this shift`
+                    : isCover
+                    ? `Covering for ${requesterName ?? "a coworker"}`
+                    : "Open swap"}
                 </Text>
 
                 {canAccept && (

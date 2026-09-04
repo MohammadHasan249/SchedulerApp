@@ -35,7 +35,29 @@ export const GET = withAuth(async function GET() {
       .from(shiftSwapRequests)
       .where(or(eq(shiftSwapRequests.requesterId, emp.id), eq(shiftSwapRequests.coverId, emp.id)));
 
-    return NextResponse.json(rows);
+    // GET /api/employees only ever returns this caller's own record, so the
+    // client has no way to label these cards with the other party's name.
+    // Denormalize it here instead — this only reveals the name of whoever
+    // is on the other side of a swap the employee is already part of, not
+    // the org roster.
+    const otherIds = [
+      ...new Set(
+        rows.flatMap((r) => [r.requesterId, r.coverId]).filter((id): id is string => !!id)
+      ),
+    ];
+    const nameRows =
+      otherIds.length > 0
+        ? await db.select({ id: employees.id, name: employees.name }).from(employees).where(inArray(employees.id, otherIds))
+        : [];
+    const nameById = Object.fromEntries(nameRows.map((e) => [e.id, e.name]));
+
+    return NextResponse.json(
+      rows.map((r) => ({
+        ...r,
+        requesterName: nameById[r.requesterId] ?? null,
+        coverName: r.coverId ? (nameById[r.coverId] ?? null) : null,
+      }))
+    );
   }
 
   // Manager/admin sees all in their org/branch

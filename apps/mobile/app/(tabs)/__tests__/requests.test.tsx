@@ -348,6 +348,30 @@ describe("RequestsScreen", () => {
       );
     });
 
+    it("names the cover on a swap the employee requested", async () => {
+      const swap = makeSwap({ requesterId: "emp-1", coverId: "emp-2", coverName: "Bob" });
+      (getShiftSwaps as jest.Mock).mockResolvedValue([swap]);
+      (getShifts as jest.Mock).mockResolvedValue([makeShift()]);
+
+      const { findByText } = await render(<RequestsScreen />);
+      await findByText("No time-off requests");
+      await fireEvent.press(await findByText("Swap Shifts"));
+
+      expect(await findByText("You asked Bob to cover this shift")).toBeTruthy();
+    });
+
+    it("names the requester on a swap the employee is covering", async () => {
+      const swap = makeSwap({ requesterId: "emp-2", coverId: "emp-1", requesterName: "Alice" });
+      (getShiftSwaps as jest.Mock).mockResolvedValue([swap]);
+      (getShifts as jest.Mock).mockResolvedValue([makeShift()]);
+
+      const { findByText } = await render(<RequestsScreen />);
+      await findByText("No time-off requests");
+      await fireEvent.press(await findByText("Swap Shifts"));
+
+      expect(await findByText("Covering for Alice")).toBeTruthy();
+    });
+
     it("lets an assigned cover accept a pending swap", async () => {
       const swap = makeSwap({ status: "pending", requesterId: "emp-2", coverId: "emp-1" });
       (getShiftSwaps as jest.Mock)
