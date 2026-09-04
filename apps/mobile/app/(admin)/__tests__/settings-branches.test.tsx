@@ -196,14 +196,18 @@ describe("SettingsBranchesScreen", () => {
   it("picks a timezone from the picker", async () => {
     (getBranches as jest.Mock).mockResolvedValue([]);
 
-    const { findByText, getByText, getByLabelText } = await render(<SettingsBranchesScreen />);
+    const { findByText, getByText, getByLabelText, getByPlaceholderText } = await render(
+      <SettingsBranchesScreen />
+    );
     await findByText("No branches yet");
 
     await fireEvent.press(getByLabelText("Add branch"));
     // Opens the timezone picker (swaps the modal's content in place).
-    await fireEvent.press(getByText("Eastern Time (ET)"));
-    await fireEvent.press(getByText("Pacific Time (PT)"));
+    await fireEvent.press(getByText("New York (America)"));
+    // Search narrows the (potentially hundreds-long) list down to one match.
+    fireEvent.changeText(getByPlaceholderText("Search timezones…"), "Los Angeles");
+    await fireEvent.press(await findByText("Los Angeles (America)"));
 
-    expect(await findByText("Pacific Time (PT)")).toBeTruthy();
+    expect(await findByText("Los Angeles (America)")).toBeTruthy();
   });
 });

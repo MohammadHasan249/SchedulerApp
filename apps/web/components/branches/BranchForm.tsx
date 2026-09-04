@@ -6,8 +6,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { US_TIMEZONES, type Branch } from "@scheduler/types";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { getTimezoneOptions, type Branch } from "@scheduler/types";
+
+const TIMEZONE_OPTIONS = getTimezoneOptions();
 
 type Props = {
   open: boolean;
@@ -25,6 +27,8 @@ export function BranchForm({ open, onOpenChange, branch }: Props) {
   const [timezone, setTimezone] = useState(branch?.timezone ?? "America/New_York");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [tzOpen, setTzOpen] = useState(false);
+  const [tzSearch, setTzSearch] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -40,6 +44,7 @@ export function BranchForm({ open, onOpenChange, branch }: Props) {
         setTimezone("America/New_York");
       }
       setError("");
+      setTzSearch("");
     }
   }, [open, branch]);
 
@@ -95,20 +100,42 @@ export function BranchForm({ open, onOpenChange, branch }: Props) {
           </div>
           <div className="space-y-1">
             <Label>Timezone</Label>
-            <Select value={timezone} onValueChange={(v) => setTimezone(v ?? "America/New_York")}>
-              <SelectTrigger className="w-full">
-                <SelectValue>
-                  {US_TIMEZONES.find((tz) => tz.value === timezone)?.label ?? timezone}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {US_TIMEZONES.map((tz) => (
-                  <SelectItem key={tz.value} value={tz.value}>
-                    {tz.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={tzOpen} onOpenChange={setTzOpen}>
+              <PopoverTrigger
+                type="button"
+                className="flex h-9 w-full items-center rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+              >
+                {TIMEZONE_OPTIONS.find((tz) => tz.value === timezone)?.label ?? timezone}
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-(--anchor-width) p-0">
+                <Input
+                  autoFocus
+                  value={tzSearch}
+                  onChange={(e) => setTzSearch(e.target.value)}
+                  placeholder="Search timezones…"
+                  className="m-2 w-[calc(100%-1rem)]"
+                />
+                <div className="max-h-64 overflow-y-auto px-1 pb-1">
+                  {TIMEZONE_OPTIONS.filter((tz) =>
+                    tz.label.toLowerCase().includes(tzSearch.trim().toLowerCase())
+                  )
+                    .slice(0, 100)
+                    .map((tz) => (
+                      <button
+                        type="button"
+                        key={tz.value}
+                        onClick={() => {
+                          setTimezone(tz.value);
+                          setTzOpen(false);
+                        }}
+                        className="block w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
+                      >
+                        {tz.label}
+                      </button>
+                    ))}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <DialogFooter>

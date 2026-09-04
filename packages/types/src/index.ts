@@ -92,15 +92,43 @@ export interface AutoAssignResult {
   jobRoleId: string | null;
 }
 
-export const US_TIMEZONES = [
-  { value: "America/New_York", label: "Eastern Time (ET)" },
-  { value: "America/Chicago", label: "Central Time (CT)" },
-  { value: "America/Denver", label: "Mountain Time (MT)" },
-  { value: "America/Phoenix", label: "Mountain Time – Arizona (no DST)" },
-  { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
-  { value: "America/Anchorage", label: "Alaska Time (AKT)" },
-  { value: "Pacific/Honolulu", label: "Hawaii Time (HST)" },
-] as const;
+export interface TimezoneOption {
+  value: string;
+  label: string;
+}
+
+// Used only if the runtime doesn't support Intl.supportedValuesOf.
+const FALLBACK_TIMEZONES = [
+  "America/New_York", "America/Chicago", "America/Denver", "America/Phoenix",
+  "America/Los_Angeles", "America/Anchorage", "Pacific/Honolulu",
+  "America/Toronto", "America/Vancouver", "Asia/Tokyo", "Asia/Shanghai",
+  "Asia/Kolkata", "Europe/London", "Europe/Paris", "Australia/Sydney", "UTC",
+];
+
+function formatTimezoneLabel(tz: string): string {
+  if (tz === "UTC") return "UTC";
+  const parts = tz.split("/");
+  const city = parts[parts.length - 1].replace(/_/g, " ");
+  const region = parts.length > 1 ? parts.slice(0, -1).join("/").replace(/_/g, " ") : "";
+  return region ? `${city} (${region})` : city;
+}
+
+/**
+ * Every IANA timezone the runtime knows about, labeled by city with its
+ * region for disambiguation (e.g. "Toronto (America)"), sorted by label.
+ * Falls back to a short curated list on engines without
+ * Intl.supportedValuesOf.
+ */
+export function getTimezoneOptions(): TimezoneOption[] {
+  const zones =
+    typeof Intl.supportedValuesOf === "function"
+      ? Intl.supportedValuesOf("timeZone")
+      : FALLBACK_TIMEZONES;
+
+  return zones
+    .map((value) => ({ value, label: formatTimezoneLabel(value) }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
 
 export interface Branch {
   id: string;

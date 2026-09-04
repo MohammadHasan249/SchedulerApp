@@ -8,9 +8,10 @@ import {
   Alert,
   TextInput,
   Modal,
+  FlatList,
 } from "react-native";
 import { Stack } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Pencil, Trash2, X, GitBranch, Check } from "lucide-react-native";
 import {
   getBranches,
@@ -21,7 +22,9 @@ import {
 } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useRole, useBranchId } from "@/lib/useRole";
-import { US_TIMEZONES } from "@scheduler/types";
+import { getTimezoneOptions } from "@scheduler/types";
+
+const TIMEZONE_OPTIONS = getTimezoneOptions();
 
 type FormState = {
   name: string;
@@ -47,6 +50,12 @@ export default function SettingsBranchesScreen() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const [tzPickerVisible, setTzPickerVisible] = useState(false);
+  const [tzSearch, setTzSearch] = useState("");
+  const filteredTimezones = useMemo(() => {
+    const q = tzSearch.trim().toLowerCase();
+    const list = q ? TIMEZONE_OPTIONS.filter((tz) => tz.label.toLowerCase().includes(q)) : TIMEZONE_OPTIONS;
+    return list.slice(0, 100);
+  }, [tzSearch]);
 
   async function load() {
     try {
@@ -214,32 +223,64 @@ export default function SettingsBranchesScreen() {
         visible={modalVisible}
         animationType="slide"
         transparent
-        onRequestClose={() => (tzPickerVisible ? setTzPickerVisible(false) : setModalVisible(false))}
+        onRequestClose={() => {
+          if (tzPickerVisible) {
+            setTzPickerVisible(false);
+            setTzSearch("");
+          } else {
+            setModalVisible(false);
+          }
+        }}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             {tzPickerVisible ? (
-              <>
+              <View style={{ maxHeight: "80%" }}>
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>Timezone</Text>
-                  <TouchableOpacity onPress={() => setTzPickerVisible(false)}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setTzPickerVisible(false);
+                      setTzSearch("");
+                    }}
+                  >
                     <X size={20} color={theme.muted} />
                   </TouchableOpacity>
                 </View>
-                {US_TIMEZONES.map((tz) => (
-                  <TouchableOpacity
-                    key={tz.value}
-                    style={styles.tzOption}
-                    onPress={() => {
-                      setForm((f) => ({ ...f, timezone: tz.value }));
-                      setTzPickerVisible(false);
-                    }}
-                  >
-                    <Text style={{ color: theme.text, fontSize: 14 }}>{tz.label}</Text>
-                    {form.timezone === tz.value && <Check size={18} color={theme.primary} />}
-                  </TouchableOpacity>
-                ))}
-              </>
+                <TextInput
+                  style={[styles.input, { color: theme.text, borderColor: theme.surface2, backgroundColor: theme.bg }]}
+                  value={tzSearch}
+                  onChangeText={setTzSearch}
+                  placeholder="Search timezones…"
+                  placeholderTextColor={theme.muted}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoFocus
+                />
+                <FlatList
+                  data={filteredTimezones}
+                  keyExtractor={(tz) => tz.value}
+                  keyboardShouldPersistTaps="handled"
+                  renderItem={({ item: tz }) => (
+                    <TouchableOpacity
+                      style={styles.tzOption}
+                      onPress={() => {
+                        setForm((f) => ({ ...f, timezone: tz.value }));
+                        setTzPickerVisible(false);
+                        setTzSearch("");
+                      }}
+                    >
+                      <Text style={{ color: theme.text, fontSize: 14 }}>{tz.label}</Text>
+                      {form.timezone === tz.value && <Check size={18} color={theme.primary} />}
+                    </TouchableOpacity>
+                  )}
+                  ListEmptyComponent={
+                    <Text style={{ color: theme.muted, fontSize: 14, paddingVertical: 14 }}>
+                      No matching timezones.
+                    </Text>
+                  }
+                />
+              </View>
             ) : (
               <>
                 <View style={styles.modalHeader}>
@@ -293,7 +334,7 @@ export default function SettingsBranchesScreen() {
                     onPress={() => setTzPickerVisible(true)}
                   >
                     <Text style={{ color: theme.text, fontSize: 14 }}>
-                      {US_TIMEZONES.find((tz) => tz.value === form.timezone)?.label ?? form.timezone}
+                      {TIMEZONE_OPTIONS.find((tz) => tz.value === form.timezone)?.label ?? form.timezone}
                     </Text>
                   </TouchableOpacity>
                 </View>
