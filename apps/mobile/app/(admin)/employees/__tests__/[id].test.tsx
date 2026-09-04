@@ -32,9 +32,7 @@ jest.mock("expo-router", () => ({
   Stack: { Screen: () => null },
 }));
 
-function makeEmployee(
-  overrides: Partial<Employee & { pinHash?: string | null }> = {}
-): Employee & { pinHash?: string | null } {
+function makeEmployee(overrides: Partial<Employee> = {}): Employee {
   return {
     id: "emp-1",
     organizationId: "org-1",
@@ -46,9 +44,8 @@ function makeEmployee(
     jobRoleId: null,
     maxHoursPerWeek: 40,
     isActive: true,
-    pinHash: null,
     ...overrides,
-  } as Employee & { pinHash?: string | null };
+  } as Employee;
 }
 
 function makeBranch(overrides: Partial<Branch> = {}): Branch {
@@ -83,15 +80,6 @@ describe("EmployeeDetailScreen", () => {
     expect(await findByText("Main Branch")).toBeTruthy();
     expect(await findByText("Cook")).toBeTruthy();
     expect(await findByText("35")).toBeTruthy();
-    expect(await findByText("Not set")).toBeTruthy();
-  });
-
-  it("shows 'Set' for the kiosk PIN when one exists", async () => {
-    (getEmployee as jest.Mock).mockResolvedValue(makeEmployee({ pinHash: "hashed" }));
-
-    const { findByText } = await render(<EmployeeDetailScreen />);
-
-    expect(await findByText("Set")).toBeTruthy();
   });
 
   it("shows an alert when loading fails", async () => {

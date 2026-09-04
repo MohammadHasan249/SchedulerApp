@@ -31,7 +31,7 @@ export async function getEmployees(): Promise<Employee[]> {
   return all;
 }
 
-export function getEmployee(id: string): Promise<Employee & { pinHash?: string | null }> {
+export function getEmployee(id: string): Promise<Employee> {
   return apiFetch(`/api/employees/${id}`);
 }
 
