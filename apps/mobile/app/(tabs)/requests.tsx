@@ -8,7 +8,7 @@ import { format, startOfWeek, addDays } from "date-fns";
 import {
   getTimeOffRequests, createTimeOffRequest, updateTimeOffRequest, cancelTimeOffRequest,
   getShiftSwaps, createShiftSwap, updateShiftSwap,
-  getShifts, getShiftAssignments, getEmployees, getBranches,
+  getShifts, getShiftAssignments, getEmployees, getBranches, getEligibleCovers,
 } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useAuthStore } from "@/lib/authStore";
@@ -361,12 +361,13 @@ function SwapSection() {
   const [shiftMap, setShiftMap] = useState<Record<string, Shift>>({});
   const [employeeMap, setEmployeeMap] = useState<Record<string, Employee>>({});
   const [upcomingShifts, setUpcomingShifts] = useState<Shift[]>([]);
-  const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
   const [branchTimezones, setBranchTimezones] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [swapShift, setSwapShift] = useState<Shift | null>(null);
+  const [eligibleCovers, setEligibleCovers] = useState<{ id: string; name: string }[]>([]);
+  const [loadingCovers, setLoadingCovers] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [actioning, setActioning] = useState<string | null>(null);
 
@@ -407,11 +408,12 @@ function SwapSection() {
         );
       }
 
-      // Needed for admins to label swap cards, and for employees to pick an
-      // eligible cover — fetch for everyone.
+      // Needed to label swap cards with names. For admins this is the full
+      // org roster; for employees the API only ever returns their own
+      // record (see GET /api/employees), which is fine here since employees
+      // don't need it for anything but their own name.
       const emps = await getEmployees();
       setEmployeeMap(Object.fromEntries(emps.map((e) => [e.id, e])));
-      setAllEmployees(emps);
 
       const brs = await getBranches();
       setBranchTimezones(Object.fromEntries(brs.map((b) => [b.id, b.timezone])));
@@ -424,6 +426,19 @@ function SwapSection() {
   }
 
   useEffect(() => { load(); }, []);
+
+  async function selectSwapShift(shift: Shift) {
+    setSwapShift(shift);
+    setLoadingCovers(true);
+    try {
+      setEligibleCovers(await getEligibleCovers(shift.id));
+    } catch (e) {
+      Alert.alert("Couldn't load eligible covers", e instanceof Error ? e.message : "Please try again.");
+      setEligibleCovers([]);
+    } finally {
+      setLoadingCovers(false);
+    }
+  }
 
   async function handleCreateSwap(shiftId: string, coverId: string) {
     if (submitting) return;
@@ -500,7 +515,7 @@ function SwapSection() {
               key={shift.id}
               testID={`swap-shift-picker-${shift.id}`}
               style={styles.shiftPickerItem}
-              onPress={() => setSwapShift(shift)}
+              onPress={() => selectSwapShift(shift)}
             >
               <Text style={styles.shiftPickerDay}>{format(new Date(shift.startTime), "EEE, MMM d")}</Text>
               <Text style={styles.shiftPickerTime}>
@@ -511,41 +526,38 @@ function SwapSection() {
         </View>
       )}
 
-      {!isAdmin && showPicker && swapShift && (() => {
-        const eligibleCovers = allEmployees.filter(
-          (e) => e.id !== employeeId && e.branchId === swapShift.branchId && e.isActive
-        );
-        return (
-          <View style={styles.form}>
-            <Text style={styles.label}>
-              Who should cover {format(new Date(swapShift.startTime), "EEE MMM d,")} {formatZonedTime(swapShift.startTime, tzForBranch(swapShift.branchId))}?
-            </Text>
-            {eligibleCovers.length === 0 ? (
-              <Text style={styles.emptyText}>No eligible employees at this branch to cover the shift</Text>
-            ) : eligibleCovers.map((emp) => (
-              <TouchableOpacity
-                key={emp.id}
-                testID={`swap-cover-picker-${emp.id}`}
-                style={styles.shiftPickerItem}
-                disabled={submitting}
-                onPress={() => Alert.alert(
-                  "Request Swap",
-                  `Ask ${emp.name} to cover this shift?`,
-                  [
-                    { text: "Cancel", style: "cancel" },
-                    { text: "Request", onPress: () => handleCreateSwap(swapShift.id, emp.id) },
-                  ]
-                )}
-              >
-                <Text style={styles.shiftPickerDay}>{emp.name}</Text>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity onPress={() => setSwapShift(null)}>
-              <Text style={styles.label}>← Back to shift selection</Text>
+      {!isAdmin && showPicker && swapShift && (
+        <View style={styles.form}>
+          <Text style={styles.label}>
+            Who should cover {format(new Date(swapShift.startTime), "EEE MMM d,")} {formatZonedTime(swapShift.startTime, tzForBranch(swapShift.branchId))}?
+          </Text>
+          {loadingCovers ? (
+            <ActivityIndicator color={theme.primary} />
+          ) : eligibleCovers.length === 0 ? (
+            <Text style={styles.emptyText}>No eligible employees at this branch to cover the shift</Text>
+          ) : eligibleCovers.map((emp) => (
+            <TouchableOpacity
+              key={emp.id}
+              testID={`swap-cover-picker-${emp.id}`}
+              style={styles.shiftPickerItem}
+              disabled={submitting}
+              onPress={() => Alert.alert(
+                "Request Swap",
+                `Ask ${emp.name} to cover this shift?`,
+                [
+                  { text: "Cancel", style: "cancel" },
+                  { text: "Request", onPress: () => handleCreateSwap(swapShift.id, emp.id) },
+                ]
+              )}
+            >
+              <Text style={styles.shiftPickerDay}>{emp.name}</Text>
             </TouchableOpacity>
-          </View>
-        );
-      })()}
+          ))}
+          <TouchableOpacity onPress={() => setSwapShift(null)}>
+            <Text style={styles.label}>← Back to shift selection</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {loading ? (
         <ActivityIndicator color={theme.primary} style={{ marginTop: 32 }} />

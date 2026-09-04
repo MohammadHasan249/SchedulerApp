@@ -14,6 +14,7 @@ import {
   getShiftAssignments,
   getEmployees,
   getBranches,
+  getEligibleCovers,
 } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
@@ -31,6 +32,7 @@ jest.mock("@/lib/api", () => ({
   getShiftAssignments: jest.fn(),
   getEmployees: jest.fn(),
   getBranches: jest.fn(),
+  getEligibleCovers: jest.fn(),
 }));
 
 jest.mock("@/lib/myEmployeeStore", () => ({
@@ -117,6 +119,7 @@ describe("RequestsScreen", () => {
     (getShiftAssignments as jest.Mock).mockResolvedValue([]);
     (getEmployees as jest.Mock).mockResolvedValue([makeEmployee()]);
     (getBranches as jest.Mock).mockResolvedValue([]);
+    (getEligibleCovers as jest.Mock).mockResolvedValue([]);
   });
 
   describe("Time Off — employee", () => {
@@ -308,13 +311,14 @@ describe("RequestsScreen", () => {
         id: "mine",
         assignments: [{ id: "a1", employeeId: "emp-1", employeeName: "Jane Doe", jobRoleId: null }],
       });
-      const coworker = makeEmployee({ id: "emp-2", name: "Bob", branchId: "branch-1" });
       (getShiftSwaps as jest.Mock).mockResolvedValueOnce([]).mockResolvedValueOnce([makeSwap()]);
       (getShifts as jest.Mock)
         .mockResolvedValueOnce([myShift])
         .mockResolvedValueOnce([])
         .mockResolvedValue([myShift]);
-      (getEmployees as jest.Mock).mockResolvedValue([makeEmployee(), coworker]);
+      // Eligible covers come from the dedicated endpoint, not getEmployees —
+      // that call only ever returns the caller's own record for an employee.
+      (getEligibleCovers as jest.Mock).mockResolvedValue([{ id: "emp-2", name: "Bob" }]);
       (createShiftSwap as jest.Mock).mockResolvedValue(makeSwap());
 
       const { findByText, getByText } = await render(<RequestsScreen />);
@@ -325,6 +329,8 @@ describe("RequestsScreen", () => {
 
       const dayLabel = format(new Date(myShift.startTime), "EEE, MMM d");
       await fireEvent.press(await findByText(dayLabel));
+
+      await waitFor(() => expect(getEligibleCovers).toHaveBeenCalledWith("mine"));
 
       // Selecting the shift moves to the cover picker — pick the eligible coworker.
       await fireEvent.press(await findByText("Bob"));

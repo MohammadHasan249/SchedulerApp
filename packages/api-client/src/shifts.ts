@@ -58,6 +58,15 @@ export function getShiftAssignments(shiftId: string): Promise<ShiftAssignment[]>
   return apiFetch(`/api/shifts/${shiftId}/assign`);
 }
 
+// GET /api/employees only ever returns an "employee"-role caller's own
+// record (the roster is manager/admin-only), so employees building a shift
+// swap request can't use it to find a coworker to cover their shift. This
+// hits the dedicated endpoint that returns just the minimal id/name list of
+// employees eligible to cover a given shift.
+export function getEligibleCovers(shiftId: string): Promise<{ id: string; name: string }[]> {
+  return apiFetch(`/api/shifts/${shiftId}/eligible-covers`);
+}
+
 export function autoAssignShifts(
   branchId: string,
   fromDate: string,

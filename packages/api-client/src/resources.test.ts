@@ -46,6 +46,7 @@ import {
   unassignEmployee,
   publishShifts,
   getShiftAssignments,
+  getEligibleCovers,
   autoAssignShifts,
 } from "./shifts";
 import {
@@ -472,6 +473,11 @@ describe("shifts", () => {
   it("getShiftAssignments", () => {
     getShiftAssignments("s1");
     expect(apiFetch).toHaveBeenCalledWith("/api/shifts/s1/assign");
+  });
+
+  it("getEligibleCovers", () => {
+    getEligibleCovers("s1");
+    expect(apiFetch).toHaveBeenCalledWith("/api/shifts/s1/eligible-covers");
   });
 
   it("autoAssignShifts", () => {
