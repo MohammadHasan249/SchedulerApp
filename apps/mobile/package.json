@@ -12,6 +12,7 @@
   "dependencies": {
     "@ai-sdk/react": "^4.0.89",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/datetimepicker": "8.4.4",
     "@scheduler/api-client": "*",
     "@scheduler/types": "*",
     "@sentry/react-native": "^8.24.0",

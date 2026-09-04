@@ -4,6 +4,7 @@ import {
   TextInput, ActivityIndicator, Alert, RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { format, startOfWeek, addDays } from "date-fns";
 import {
   getTimeOffRequests, createTimeOffRequest, updateTimeOffRequest, cancelTimeOffRequest,
@@ -86,8 +87,9 @@ function TimeOffSection() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
+  const [openPicker, setOpenPicker] = useState<"start" | "end" | null>(null);
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [actioning, setActioning] = useState<string | null>(null);
@@ -112,15 +114,19 @@ function TimeOffSection() {
 
   async function handleSubmit() {
     if (!startDate || !endDate) {
-      Alert.alert("Error", "Please fill in start and end dates (YYYY-MM-DD)");
+      Alert.alert("Error", "Please select start and end dates");
       return;
     }
     if (submitting) return;
     setSubmitting(true);
     try {
-      await createTimeOffRequest({ startDate, endDate, reason: reason || undefined });
+      await createTimeOffRequest({
+        startDate: format(startDate, "yyyy-MM-dd"),
+        endDate: format(endDate, "yyyy-MM-dd"),
+        reason: reason || undefined,
+      });
       setShowForm(false);
-      setStartDate(""); setEndDate(""); setReason("");
+      setStartDate(null); setEndDate(null); setReason("");
       await load();
     } catch (e) {
       Alert.alert("Error", e instanceof Error ? e.message : "Failed to submit request");
@@ -170,7 +176,7 @@ function TimeOffSection() {
     <>
       {!isAdmin && (
         <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.newBtn} onPress={() => setShowForm((v) => !v)}>
+          <TouchableOpacity style={styles.newBtn} onPress={() => { setShowForm((v) => !v); setOpenPicker(null); }}>
             <Text style={styles.newBtnText}>{showForm ? "Cancel" : "+ Request"}</Text>
           </TouchableOpacity>
         </View>
@@ -181,25 +187,50 @@ function TimeOffSection() {
           <View style={styles.formRow}>
             <View style={styles.formField}>
               <Text style={styles.label}>Start date</Text>
-              <TextInput
+              <TouchableOpacity
                 style={styles.input}
-                value={startDate}
-                onChangeText={setStartDate}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={theme.inactive}
-              />
+                onPress={() => setOpenPicker(openPicker === "start" ? null : "start")}
+              >
+                <Text style={{ color: startDate ? theme.textSecondary : theme.inactive, fontSize: 14 }}>
+                  {startDate ? format(startDate, "MMM d, yyyy") : "Select date"}
+                </Text>
+              </TouchableOpacity>
             </View>
             <View style={styles.formField}>
               <Text style={styles.label}>End date</Text>
-              <TextInput
+              <TouchableOpacity
                 style={styles.input}
-                value={endDate}
-                onChangeText={setEndDate}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={theme.inactive}
-              />
+                onPress={() => setOpenPicker(openPicker === "end" ? null : "end")}
+              >
+                <Text style={{ color: endDate ? theme.textSecondary : theme.inactive, fontSize: 14 }}>
+                  {endDate ? format(endDate, "MMM d, yyyy") : "Select date"}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
+          {openPicker && (
+            <DateTimePicker
+              value={(openPicker === "start" ? startDate : endDate) ?? new Date()}
+              mode="date"
+              display="inline"
+              minimumDate={openPicker === "end" ? (startDate ?? undefined) : undefined}
+              onChange={(event, date) => {
+                if (event.type === "dismissed") {
+                  setOpenPicker(null);
+                  return;
+                }
+                if (date) {
+                  if (openPicker === "start") {
+                    setStartDate(date);
+                    if (endDate && date > endDate) setEndDate(date);
+                  } else {
+                    setEndDate(date);
+                  }
+                }
+                setOpenPicker(null);
+              }}
+            />
+          )}
           <Text style={styles.label}>Reason (optional)</Text>
           <TextInput
             style={[styles.input, styles.inputMulti]}
