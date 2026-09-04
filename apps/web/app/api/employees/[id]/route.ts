@@ -7,7 +7,7 @@ import { employees, branches, jobRoles, shifts, shiftAssignments, permissionProf
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { pinCollidesWithExisting, isLastActiveOrgAdmin, unbanAuthUser } from "@/lib/employees";
+import { pinCollidesWithExisting, isLastActiveOrgAdmin, unbanAuthUser, withPinLock } from "@/lib/employees";
 import { eq, and, gte, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
@@ -180,30 +180,32 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
 
   const updates: Partial<typeof employees.$inferInsert> = { ...rest };
 
-  if (pin) {
-    const targetBranch = rest.branchId !== undefined ? rest.branchId : employee.branchId;
-    const collides = await pinCollidesWithExisting(pin, employee.id, employee.organizationId, targetBranch);
-    if (collides) {
-      return NextResponse.json(
-        { error: "Another employee at this branch already uses that PIN. Pick a different one." },
-        { status: 409 }
-      );
-    }
-    updates.pinHash = await bcrypt.hash(pin, 10);
-  }
-
-  if (Object.keys(updates).length === 0) {
+  if (Object.keys(updates).length === 0 && !pin) {
     return NextResponse.json(employee);
   }
+
+  // Sentinel thrown inside the transaction below to distinguish "PIN
+  // collision" (409, generic message) from other transaction failures (500).
+  class PinCollisionError extends Error {}
 
   // Run DB update + auth metadata sync in a single transaction. If the metadata
   // sync fails we throw inside the tx and Postgres rolls back ALL field changes
   // — name/jobRoleId/maxHoursPerWeek/pin too, not just role/branch (the old
   // hand-rolled rollback only restored role+branchId, leaving the others
-  // committed → inconsistent state).
+  // committed → inconsistent state). The whole thing also runs under
+  // withPinLock's advisory lock when a PIN is being set, so the collision
+  // check below can't race a concurrent PIN write for this org (see
+  // lib/employees.ts).
   let updated;
   try {
-    updated = await db.transaction(async (tx) => {
+    const runUpdate = async (tx: Parameters<Parameters<typeof db.transaction>[0]>[0]) => {
+      if (pin) {
+        const targetBranch = rest.branchId !== undefined ? rest.branchId : employee.branchId;
+        const collides = await pinCollidesWithExisting(pin, employee.id, employee.organizationId, targetBranch, tx);
+        if (collides) throw new PinCollisionError();
+        updates.pinHash = await bcrypt.hash(pin, 10);
+      }
+
       const [row] = await tx
         .update(employees)
         .set(updates)
@@ -225,8 +227,20 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
       }
 
       return row;
-    });
+    };
+
+    updated = pin
+      ? await withPinLock(employee.organizationId, runUpdate)
+      : await db.transaction(runUpdate);
   } catch (e) {
+    if (e instanceof PinCollisionError) {
+      // Deliberately generic — confirming "someone else already has this
+      // PIN" would let a caller enumerate which PINs are live at the branch.
+      return NextResponse.json(
+        { error: "That PIN can't be used. Try a different one." },
+        { status: 409 }
+      );
+    }
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Failed to update employee" },
       { status: 500 }

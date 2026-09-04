@@ -2,13 +2,22 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET, POST } from "../route";
 import { db } from "@/lib/db";
 import { getApiUser } from "@/lib/auth/getUser";
-import { generateUniquePin, unbanAuthUser } from "@/lib/employees";
+import { generateUniquePin, unbanAuthUser, withPinLock } from "@/lib/employees";
 import { sendEmployeeInvitationEmail } from "@/lib/email/send-employee-invitation";
 import { chain } from "@/test/db-mock";
 
 vi.mock("@/lib/db", () => ({ db: { select: vi.fn(), insert: vi.fn(), update: vi.fn() } }));
 vi.mock("@/lib/auth/getUser", () => ({ getApiUser: vi.fn() }));
-vi.mock("@/lib/employees", () => ({ generateUniquePin: vi.fn(), unbanAuthUser: vi.fn() }));
+// withPinLock just runs its callback with the (mocked) db in place of a real
+// tx — these tests don't exercise real transaction/locking semantics.
+vi.mock("@/lib/employees", async () => {
+  const { db } = await import("@/lib/db");
+  return {
+    generateUniquePin: vi.fn(),
+    unbanAuthUser: vi.fn(),
+    withPinLock: vi.fn((_organizationId: string, fn: (tx: typeof db) => unknown) => fn(db)),
+  };
+});
 vi.mock("@/lib/email/send-employee-invitation", () => ({ sendEmployeeInvitationEmail: vi.fn() }));
 
 const orgAdmin = { id: "u1", role: "org_admin" as const, organizationId: "org-1", branchId: null };
@@ -49,7 +58,12 @@ describe("GET /api/employees", () => {
 });
 
 describe("POST /api/employees (invite)", () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    // resetAllMocks clears the passthrough implementation set in the factory
+    // above too, so it needs to be re-established here each time.
+    (withPinLock as any).mockImplementation((_organizationId: string, fn: (tx: typeof db) => unknown) => fn(db));
+  });
 
   it("forbids employees from inviting", async () => {
     (getApiUser as any).mockResolvedValue(employeeUser);

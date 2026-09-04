@@ -6,7 +6,7 @@ import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { db } from "@/lib/db";
 import { employees } from "@scheduler/database/schema";
-import { pinCollidesWithExisting } from "@/lib/employees";
+import { pinCollidesWithExisting, withPinLock } from "@/lib/employees";
 import { checkRateLimit, getClientIp } from "@/lib/utils/rate-limit";
 import { eq, and } from "drizzle-orm";
 
@@ -50,26 +50,35 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const collides = await pinCollidesWithExisting(
-    parsed.data.pin,
-    employee.id,
-    employee.organizationId,
-    employee.branchId
-  );
-  if (collides) {
+  // Locked so a second PIN-set for this org can't read "no collision" before
+  // this one's write commits (see withPinLock).
+  const result = await withPinLock(employee.organizationId, async (tx) => {
+    const collides = await pinCollidesWithExisting(
+      parsed.data.pin,
+      employee.id,
+      employee.organizationId,
+      employee.branchId,
+      tx
+    );
+    if (collides) return null;
+
+    const pinHash = await bcryptjs.hash(parsed.data.pin, 10);
+    const [updated] = await tx
+      .update(employees)
+      .set({ pinHash })
+      .where(eq(employees.id, id))
+      .returning();
+    return updated;
+  });
+
+  if (!result) {
+    // Deliberately generic — confirming "someone else already has this PIN"
+    // would let a caller enumerate which PINs are live at the branch.
     return NextResponse.json(
-      { error: "Another employee at this branch already uses that PIN. Pick a different one." },
+      { error: "That PIN can't be used. Try a different one." },
       { status: 409 }
     );
   }
 
-  const pinHash = await bcryptjs.hash(parsed.data.pin, 10);
-
-  const [updated] = await db
-    .update(employees)
-    .set({ pinHash })
-    .where(eq(employees.id, id))
-    .returning();
-
-  return NextResponse.json({ success: true, name: updated.name });
+  return NextResponse.json({ success: true, name: result.name });
 });

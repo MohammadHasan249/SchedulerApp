@@ -3,7 +3,7 @@ import { PATCH } from "../route";
 import { db } from "@/lib/db";
 import { getApiUser } from "@/lib/auth/getUser";
 import { checkRateLimit } from "@/lib/utils/rate-limit";
-import { pinCollidesWithExisting } from "@/lib/employees";
+import { pinCollidesWithExisting, withPinLock } from "@/lib/employees";
 import { chain } from "@/test/db-mock";
 
 vi.mock("@/lib/db", () => ({ db: { select: vi.fn(), update: vi.fn() } }));
@@ -12,7 +12,15 @@ vi.mock("@/lib/utils/rate-limit", () => ({
   checkRateLimit: vi.fn(),
   getClientIp: vi.fn(() => "127.0.0.1"),
 }));
-vi.mock("@/lib/employees", () => ({ pinCollidesWithExisting: vi.fn() }));
+// withPinLock just runs its callback with the (mocked) db in place of a real
+// tx — the tests below don't exercise real transaction/locking semantics.
+vi.mock("@/lib/employees", async () => {
+  const { db } = await import("@/lib/db");
+  return {
+    pinCollidesWithExisting: vi.fn(),
+    withPinLock: vi.fn((_organizationId: string, fn: (tx: typeof db) => unknown) => fn(db)),
+  };
+});
 
 const employeeUser = { id: "u1", role: "employee" as const, organizationId: "org-1", branchId: null };
 const params = (id: string) => ({ params: Promise.resolve({ id }) });
@@ -25,6 +33,9 @@ describe("PATCH /api/employees/[id]/pin", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     (checkRateLimit as any).mockResolvedValue({ allowed: true });
+    // resetAllMocks clears the passthrough implementation set in the factory
+    // above too, so it needs to be re-established here each time.
+    (withPinLock as any).mockImplementation((_organizationId: string, fn: (tx: typeof db) => unknown) => fn(db));
   });
 
   it("rate limits repeated PIN changes", async () => {

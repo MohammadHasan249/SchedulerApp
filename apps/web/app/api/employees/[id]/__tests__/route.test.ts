@@ -3,7 +3,7 @@ import { GET, PATCH, DELETE } from "../route";
 import { db } from "@/lib/db";
 import { getApiUser } from "@/lib/auth/getUser";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { pinCollidesWithExisting, isLastActiveOrgAdmin } from "@/lib/employees";
+import { pinCollidesWithExisting, isLastActiveOrgAdmin, withPinLock } from "@/lib/employees";
 import { chain } from "@/test/db-mock";
 
 vi.mock("@/lib/db", () => ({
@@ -11,10 +11,16 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("@/lib/auth/getUser", () => ({ getApiUser: vi.fn() }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
-vi.mock("@/lib/employees", () => ({
-  pinCollidesWithExisting: vi.fn(),
-  isLastActiveOrgAdmin: vi.fn().mockResolvedValue(false),
-}));
+// withPinLock just runs its callback with the (mocked) db in place of a real
+// tx — these tests don't exercise real transaction/locking semantics.
+vi.mock("@/lib/employees", async () => {
+  const { db } = await import("@/lib/db");
+  return {
+    pinCollidesWithExisting: vi.fn(),
+    isLastActiveOrgAdmin: vi.fn().mockResolvedValue(false),
+    withPinLock: vi.fn((_organizationId: string, fn: (tx: typeof db) => unknown) => fn(db)),
+  };
+});
 
 const orgAdmin = { id: "u1", role: "org_admin" as const, organizationId: "org-1", branchId: null };
 const manager = { id: "u2", role: "branch_manager" as const, organizationId: "org-1", branchId: "b1" };
@@ -55,6 +61,9 @@ describe("PATCH /api/employees/[id]", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     (isLastActiveOrgAdmin as any).mockResolvedValue(false);
+    // resetAllMocks clears the passthrough implementation set in the factory
+    // above too, so it needs to be re-established here each time.
+    (withPinLock as any).mockImplementation((_organizationId: string, fn: (tx: typeof db) => unknown) => fn(db));
   });
 
   it("forbids employees from editing", async () => {

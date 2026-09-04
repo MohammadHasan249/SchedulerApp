@@ -8,7 +8,7 @@ import { employees, branches, jobRoles } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { sendEmployeeInvitationEmail } from "@/lib/email/send-employee-invitation";
-import { generateUniquePin, unbanAuthUser } from "@/lib/employees";
+import { generateUniquePin, unbanAuthUser, withPinLock } from "@/lib/employees";
 import { eq, and, gt } from "drizzle-orm";
 
 const inviteSchema = z.object({
@@ -149,25 +149,11 @@ export const POST = withAuth(async function POST(request: Request) {
     return NextResponse.json({ error: "Already an active employee in this organization" }, { status: 409 });
   }
 
-  const pin = await generateUniquePin(user.organizationId, targetBranchId);
-  const pinHash = await bcryptjs.hash(pin, 10);
-
   // Initialize default availability schedule for all 7 days (9am-11pm)
   const defaultSchedule: Record<number, { startTime: string; endTime: string }> = {};
   for (let i = 0; i < 7; i++) {
     defaultSchedule[i] = { startTime: "09:00", endTime: "23:00" };
   }
-
-  const values = {
-    organizationId: user.organizationId,
-    branchId: targetBranchId,
-    name,
-    role,
-    jobRoleId: jobRoleId ?? null,
-    maxHoursPerWeek,
-    pinHash,
-    isActive: true,
-  };
 
   const EMPLOYEE_COLUMNS = {
     id: employees.id,
@@ -184,16 +170,37 @@ export const POST = withAuth(async function POST(request: Request) {
     permissionProfileId: employees.permissionProfileId,
   } as const;
 
-  const [employee] = existing
-    ? await db
-        .update(employees)
-        .set(values)
-        .where(eq(employees.id, existing.id))
-        .returning(EMPLOYEE_COLUMNS)
-    : await db
-        .insert(employees)
-        .values({ ...values, authUserId: null, email: normalizedEmail, availabilitySchedule: defaultSchedule })
-        .returning(EMPLOYEE_COLUMNS);
+  // Locked so this generate-then-insert can't race another PIN write for
+  // the org (see withPinLock) — low-probability with a random PIN, but a
+  // random collision would be just as confusing as a chosen one.
+  const { pin, employee } = await withPinLock(user.organizationId, async (tx) => {
+    const pin = await generateUniquePin(user.organizationId, targetBranchId, tx);
+    const pinHash = await bcryptjs.hash(pin, 10);
+
+    const values = {
+      organizationId: user.organizationId,
+      branchId: targetBranchId,
+      name,
+      role,
+      jobRoleId: jobRoleId ?? null,
+      maxHoursPerWeek,
+      pinHash,
+      isActive: true,
+    };
+
+    const [employee] = existing
+      ? await tx
+          .update(employees)
+          .set(values)
+          .where(eq(employees.id, existing.id))
+          .returning(EMPLOYEE_COLUMNS)
+      : await tx
+          .insert(employees)
+          .values({ ...values, authUserId: null, email: normalizedEmail, availabilitySchedule: defaultSchedule })
+          .returning(EMPLOYEE_COLUMNS);
+
+    return { pin, employee };
+  });
 
   if (existing?.authUserId) {
     await unbanAuthUser(existing.authUserId);
