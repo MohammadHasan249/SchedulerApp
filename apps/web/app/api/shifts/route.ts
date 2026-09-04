@@ -122,6 +122,15 @@ export const POST = withAuth(async function POST(request: Request) {
     );
   }
 
+  // Matches the lock enforced on assign/edit/delete ([id]/route.ts,
+  // [id]/assign/route.ts) — without this, creating a shift that starts in
+  // the past succeeds, but assigning an employee to it in the same flow
+  // (mobile's Add Shift form does both back-to-back) then 409s on that lock,
+  // leaving an orphaned, unassigned shift that can't be deleted either.
+  if (start < new Date()) {
+    return NextResponse.json({ error: "Past shifts are locked" }, { status: 409 });
+  }
+
   const durationMs = end.getTime() - start.getTime();
   if (durationMs < MIN_SHIFT_DURATION_MINUTES * 60 * 1000) {
     return NextResponse.json(

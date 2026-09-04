@@ -17,6 +17,12 @@ function postReq(body?: unknown) {
   return new Request("http://test", { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) });
 }
 
+// POST now rejects shifts starting in the past, so fixture times must stay
+// in the future relative to whenever the suite runs.
+function future(hoursFromNow: number) {
+  return new Date(Date.now() + hoursFromNow * 60 * 60 * 1000).toISOString();
+}
+
 describe("GET /api/shifts", () => {
   beforeEach(() => vi.resetAllMocks());
 
@@ -43,32 +49,38 @@ describe("POST /api/shifts", () => {
 
   it("forbids employees", async () => {
     (getApiUser as any).mockResolvedValue(employeeUser);
-    const res = await POST(postReq({ branchId: "550e8400-e29b-41d4-a716-446655440000", startTime: "2024-01-01T09:00:00Z", endTime: "2024-01-01T17:00:00Z" }));
+    const res = await POST(postReq({ branchId: "550e8400-e29b-41d4-a716-446655440000", startTime: future(24), endTime: future(32) }));
     expect(res.status).toBe(403);
   });
 
   it("rejects end time before start time", async () => {
     (getApiUser as any).mockResolvedValue(orgAdmin);
-    const res = await POST(postReq({ branchId: "550e8400-e29b-41d4-a716-446655440000", startTime: "2024-01-01T17:00:00Z", endTime: "2024-01-01T09:00:00Z" }));
+    const res = await POST(postReq({ branchId: "550e8400-e29b-41d4-a716-446655440000", startTime: future(32), endTime: future(24) }));
     expect(res.status).toBe(400);
   });
 
   it("rejects a shift shorter than the minimum duration", async () => {
     (getApiUser as any).mockResolvedValue(orgAdmin);
-    const res = await POST(postReq({ branchId: "550e8400-e29b-41d4-a716-446655440000", startTime: "2024-01-01T09:00:00Z", endTime: "2024-01-01T09:05:00Z" }));
+    const res = await POST(postReq({ branchId: "550e8400-e29b-41d4-a716-446655440000", startTime: future(24), endTime: future(24.083) }));
     expect(res.status).toBe(400);
   });
 
   it("rejects a shift longer than the maximum duration", async () => {
     (getApiUser as any).mockResolvedValue(orgAdmin);
-    const res = await POST(postReq({ branchId: "550e8400-e29b-41d4-a716-446655440000", startTime: "2024-01-01T00:00:00Z", endTime: "2024-01-03T01:00:00Z" }));
+    const res = await POST(postReq({ branchId: "550e8400-e29b-41d4-a716-446655440000", startTime: future(24), endTime: future(24 + 25) }));
     expect(res.status).toBe(400);
+  });
+
+  it("rejects a shift that starts in the past", async () => {
+    (getApiUser as any).mockResolvedValue(orgAdmin);
+    const res = await POST(postReq({ branchId: "550e8400-e29b-41d4-a716-446655440000", startTime: future(-24), endTime: future(-16) }));
+    expect(res.status).toBe(409);
   });
 
   it("404s when the branch isn't in the caller's org", async () => {
     (getApiUser as any).mockResolvedValue(orgAdmin);
     (db.select as any).mockReturnValue(chain([]));
-    const res = await POST(postReq({ branchId: "550e8400-e29b-41d4-a716-446655440000", startTime: "2024-01-01T09:00:00Z", endTime: "2024-01-01T17:00:00Z" }));
+    const res = await POST(postReq({ branchId: "550e8400-e29b-41d4-a716-446655440000", startTime: future(24), endTime: future(32) }));
     expect(res.status).toBe(404);
   });
 
@@ -77,7 +89,7 @@ describe("POST /api/shifts", () => {
     (db.select as any)
       .mockReturnValueOnce(chain([{ id: "b1" }]))
       .mockReturnValueOnce(chain([{ id: "existing-shift" }]));
-    const res = await POST(postReq({ branchId: "550e8400-e29b-41d4-a716-446655440000", startTime: "2024-01-01T09:00:00Z", endTime: "2024-01-01T17:00:00Z" }));
+    const res = await POST(postReq({ branchId: "550e8400-e29b-41d4-a716-446655440000", startTime: future(24), endTime: future(32) }));
     expect(res.status).toBe(409);
   });
 
@@ -88,7 +100,7 @@ describe("POST /api/shifts", () => {
       .mockReturnValueOnce(chain([]));
     const created = { id: "s1" };
     (db.insert as any).mockReturnValue(chain([created]));
-    const res = await POST(postReq({ branchId: "550e8400-e29b-41d4-a716-446655440000", startTime: "2024-01-01T09:00:00Z", endTime: "2024-01-01T17:00:00Z" }));
+    const res = await POST(postReq({ branchId: "550e8400-e29b-41d4-a716-446655440000", startTime: future(24), endTime: future(32) }));
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual(created);
   });
