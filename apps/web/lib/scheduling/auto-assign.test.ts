@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { autoAssignShifts, buildTimeOffMap, isOnTimeOff } from "./auto-assign";
 import { db } from "@/lib/db";
+import { employees } from "@scheduler/database/schema";
+import { and, eq, ne } from "drizzle-orm";
 import { chain } from "@/test/db-mock";
 
 // Mock database calls
@@ -155,6 +157,42 @@ describe("autoAssignShifts", () => {
 
     const result = await autoAssignShifts(testOrgId, testBranchId, fromDate, toDate);
     expect(result).toEqual([]);
+  });
+
+  it("scopes the candidate query to employees at the shift's own branch", async () => {
+    // Regression: findBestCandidate has no branch check of its own — it trusts
+    // the candidate list handed to it. Without this filter on the employees
+    // query, someone from a different branch could be auto-assigned here,
+    // with their availability then evaluated against the wrong branch's
+    // timezone (see REGR-03 investigation).
+    let employeesWhereArg: unknown;
+    (db.select as any)
+      .mockReturnValueOnce(chain([openShift])) // candidateShifts
+      .mockReturnValueOnce(chain([{ timezone: "UTC" }])) // branch
+      .mockReturnValueOnce(chain([])) // existingByShift
+      .mockReturnValueOnce({
+        from: () => ({
+          where: (arg: unknown) => {
+            employeesWhereArg = arg;
+            return chain([availableEmployee]);
+          },
+        }),
+      }) // allEmployees — the query under test
+      .mockReturnValueOnce(chain([])) // timeOff
+      .mockReturnValueOnce(chain([])) // hoursAssignments
+      .mockReturnValueOnce(chain([])); // roleRequirements
+
+    const result = await autoAssignShifts(testOrgId, testBranchId, fromDate, toDate);
+
+    expect(result).toEqual([{ shiftId: "shift-1", employeeId: "emp-1", jobRoleId: null }]);
+    expect(employeesWhereArg).toEqual(
+      and(
+        eq(employees.organizationId, testOrgId),
+        eq(employees.branchId, testBranchId),
+        eq(employees.isActive, true),
+        ne(employees.role, "org_admin")
+      )
+    );
   });
 
   it("prefers the job-role match over lower hours when both are candidates", async () => {

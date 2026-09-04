@@ -80,13 +80,18 @@ export async function autoAssignShifts(
   // unassignedShifts: shifts that still need bodies (no assignments, or under headcount per role).
   const unassignedShifts = candidateShifts;
 
-  // Get all active employees in this organization
+  // Get all active employees at this branch. Employees can only be assigned
+  // to shifts in their own branch (POST /api/shifts/[id]/assign enforces the
+  // same rule for manual assignment) — without this filter, an employee from
+  // a different branch could be auto-assigned here, with their availability
+  // then evaluated against this branch's timezone instead of their own.
   const allEmployees = await db
     .select()
     .from(employees)
     .where(
       and(
         eq(employees.organizationId, organizationId),
+        eq(employees.branchId, branchId),
         eq(employees.isActive, true),
         ne(employees.role, "org_admin")
       )
