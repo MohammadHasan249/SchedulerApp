@@ -55,6 +55,10 @@ export const GET = withAuth(async function GET(request: Request) {
     conditions.push(eq(shifts.isPublished, true));
   }
 
+  // Ordered explicitly — without this, row order is whatever Postgres's scan
+  // happens to return (not insertion order, not chronological), which is
+  // invisible with one shift a day but scrambles a busy day's list once a
+  // branch has several. Neither the web nor mobile client sorts client-side.
   const rows = await db
     .select({
       id: shifts.id,
@@ -64,7 +68,8 @@ export const GET = withAuth(async function GET(request: Request) {
       isPublished: shifts.isPublished,
     })
     .from(shifts)
-    .where(and(...conditions));
+    .where(and(...conditions))
+    .orderBy(shifts.startTime);
 
   if (rows.length === 0) {
     return NextResponse.json(rows);

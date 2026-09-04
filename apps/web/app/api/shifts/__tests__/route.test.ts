@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET, POST } from "../route";
 import { db } from "@/lib/db";
 import { getApiUser } from "@/lib/auth/getUser";
+import { shifts } from "@scheduler/database/schema";
 import { chain } from "@/test/db-mock";
 
 vi.mock("@/lib/db", () => ({ db: { select: vi.fn(), insert: vi.fn() } }));
@@ -41,6 +42,27 @@ describe("GET /api/shifts", () => {
     const res = await GET(getReq());
     const body = await res.json();
     expect(body[0].assignments).toHaveLength(1);
+  });
+
+  it("orders shifts chronologically — without this, row order is whatever Postgres's scan happens to return", async () => {
+    (getApiUser as any).mockResolvedValue(orgAdmin);
+    let orderByArg: unknown;
+    (db.select as any)
+      .mockReturnValueOnce(chain([{ id: "b1" }])) // org branch ids
+      .mockReturnValueOnce({
+        from: () => ({
+          where: () => ({
+            orderBy: (arg: unknown) => {
+              orderByArg = arg;
+              return chain([]);
+            },
+          }),
+        }),
+      });
+
+    await GET(getReq());
+
+    expect(orderByArg).toBe(shifts.startTime);
   });
 });
 
