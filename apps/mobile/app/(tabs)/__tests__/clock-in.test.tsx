@@ -37,6 +37,10 @@ function adminSession(): Session {
   return { user: { id: "auth-1", app_metadata: { role: "org_admin" } } } as unknown as Session;
 }
 
+function employeeSession(): Session {
+  return { user: { id: "auth-2", app_metadata: { role: "employee" } } } as unknown as Session;
+}
+
 async function enterPin(getByText: Awaited<ReturnType<typeof render>>["getByText"], pin: string) {
   for (const digit of pin) {
     await fireEvent.press(getByText(digit));
@@ -53,11 +57,22 @@ describe("ClockInScreen", () => {
   });
 
   it("redirects non-admins to the schedule screen", async () => {
-    useAuthStore.setState({ session: null, employeeName: null });
+    useAuthStore.setState({ session: employeeSession(), employeeName: null });
 
     await render(<ClockInScreen />);
 
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/(tabs)/schedule"));
+  });
+
+  it("does not redirect while signing out (no session yet)", async () => {
+    // A signed-out state also has `isAdmin === false` (role defaults to
+    // "employee" with no session), but this screen shouldn't race the root
+    // layout's own session->login redirect by firing its own here.
+    useAuthStore.setState({ session: null, employeeName: null });
+
+    await render(<ClockInScreen />);
+
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it("prompts for a PIN and shows the branch label", async () => {

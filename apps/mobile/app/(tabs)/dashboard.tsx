@@ -14,6 +14,7 @@ import { useRouter } from "expo-router";
 import { Users, CalendarCheck, Clock, Timer, ChevronRight } from "lucide-react-native";
 import { getDashboardStats, type DashboardStats } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
+import { useAuthStore } from "@/lib/authStore";
 import { useIsAdmin } from "@/lib/useRole";
 import { formatZonedTime } from "@/lib/utils/timezone";
 
@@ -58,6 +59,7 @@ export default function DashboardScreen() {
   const styles = makeStyles(theme);
   const router = useRouter();
   const isAdmin = useIsAdmin();
+  const { session } = useAuthStore();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -89,9 +91,12 @@ export default function DashboardScreen() {
   // removes the tab entry, it doesn't block navigation. A deep link
   // (`seaudecrabe://dashboard`) could still reach this screen directly. Same
   // effect-redirect + render-gate pattern as clock-in.tsx and (admin)/_layout.tsx.
+  // Guard only while a session exists — see employees.tsx for why signing
+  // out (which also flips `isAdmin` to false) must not race this redirect
+  // against the root layout's own session->login one.
   useEffect(() => {
-    if (!isAdmin) router.replace("/(tabs)/schedule");
-  }, [isAdmin, router]);
+    if (session && !isAdmin) router.replace("/(tabs)/schedule");
+  }, [session, isAdmin, router]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);

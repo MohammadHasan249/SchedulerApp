@@ -16,6 +16,7 @@ import { useNavigation, useRouter } from "expo-router";
 import { Lock, Unlock, Delete, ChevronLeft } from "lucide-react-native";
 import { clockPunch, verifyExitPin, getExitPinStatus, getBranches, type Branch } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
+import { useAuthStore } from "@/lib/authStore";
 import { useKioskStore } from "@/lib/kioskStore";
 import { useIsAdmin } from "@/lib/useRole";
 
@@ -33,14 +34,18 @@ export default function ClockInScreen() {
   const navigation = useNavigation();
   const router = useRouter();
   const isAdmin = useIsAdmin();
+  const { session } = useAuthStore();
   const { isLocked, branchSlug, setLocked, setBranchSlug, clearBranchSlug } =
     useKioskStore();
 
   // Kiosk mode is set up by an org admin or branch manager only — employees
   // clock in/out at the kiosk device itself, not from their own account.
+  // Guarded on `session` too — see employees.tsx for why signing out (which
+  // also flips `isAdmin` to false) must not race this against the root
+  // layout's own session->login redirect.
   useEffect(() => {
-    if (!isAdmin) router.replace("/(tabs)/schedule");
-  }, [isAdmin, router]);
+    if (session && !isAdmin) router.replace("/(tabs)/schedule");
+  }, [session, isAdmin, router]);
 
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);

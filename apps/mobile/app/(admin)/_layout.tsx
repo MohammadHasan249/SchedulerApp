@@ -3,12 +3,14 @@ import { TouchableOpacity } from "react-native";
 import { ChevronLeft } from "lucide-react-native";
 import { useEffect } from "react";
 import { useAppTheme } from "@/lib/useAppTheme";
+import { useAuthStore } from "@/lib/authStore";
 import { useIsAdmin } from "@/lib/useRole";
 
 export default function AdminLayout() {
   const theme = useAppTheme();
   const router = useRouter();
   const isAdmin = useIsAdmin();
+  const { session } = useAuthStore();
 
   // Every screen in this group (settings-*, reports, employees/[id], ...) is
   // admin/manager-only, but nothing here was actually enforcing that — no
@@ -22,9 +24,14 @@ export default function AdminLayout() {
   // can be silently swallowed before the navigator has settled). Returning
   // null here unmounts the whole nested Stack, so no child screen under this
   // group ever mounts for a non-admin, regardless of which one was targeted.
+  // Guarded on `session` too — on sign-out, `isAdmin` also flips to false
+  // (role defaults to "employee" with no session), and firing this redirect
+  // at the same time as the root layout's own session->login one races it,
+  // which can log a "REPLACE ... not handled" warning as the tab navigator
+  // is torn down and rebuilt for the new auth state.
   useEffect(() => {
-    if (!isAdmin) router.replace("/(tabs)/schedule");
-  }, [isAdmin, router]);
+    if (session && !isAdmin) router.replace("/(tabs)/schedule");
+  }, [session, isAdmin, router]);
 
   if (!isAdmin) return null;
 

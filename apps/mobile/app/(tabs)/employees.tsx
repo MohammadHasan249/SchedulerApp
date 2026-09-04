@@ -140,9 +140,14 @@ export default function EmployeesScreen() {
   // (`seaudecrabe://employees`) could still reach this screen directly. Same
   // effect-redirect + render-gate pattern as clock-in.tsx, dashboard.tsx, and
   // (admin)/_layout.tsx.
+  // Guard only while a session exists — on sign-out `isAdmin` also flips to
+  // false (role defaults to "employee" with no session), and firing this
+  // redirect at the same time as the root layout's own session->login
+  // redirect races it, which can log a "REPLACE ... not handled" warning
+  // against the tab navigator as it's torn down for the new auth state.
   useEffect(() => {
-    if (!isAdmin) router.replace("/(tabs)/schedule");
-  }, [isAdmin, router]);
+    if (session && !isAdmin) router.replace("/(tabs)/schedule");
+  }, [session, isAdmin, router]);
 
   // ── Invite ────────────────────────────────────────────────────
   function openInvite() {
