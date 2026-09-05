@@ -13,18 +13,13 @@ import {
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "expo-router";
 import { UserPlus, Pencil, X, Users, Eye, EyeOff } from "lucide-react-native";
-import {
-  getEmployees,
-  inviteEmployee,
-  updateEmployee,
-  getBranches,
-  getJobRoles,
-  type Branch,
-  type JobRole,
-} from "@/lib/api";
+import { type Branch, type JobRole } from "@/lib/api";
+import { useEmployeesQuery, useInviteEmployee, useUpdateEmployee } from "@/hooks/useEmployees";
+import { useBranchesQuery } from "@/hooks/useBranches";
+import { useJobRolesQuery } from "@/hooks/useJobRoles";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useAuthStore } from "@/lib/authStore";
 import { useRole, useIsAdmin } from "@/lib/useRole";
@@ -99,12 +94,17 @@ export default function EmployeesScreen() {
   const { session } = useAuthStore();
   const userBranchId = session?.user?.app_metadata?.branch_id as string | undefined;
 
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [jobRoles, setJobRoles] = useState<JobRole[]>([]);
-  const [loading, setLoading] = useState(true);
+  const employeesQuery = useEmployeesQuery();
+  const branchesQuery = useBranchesQuery();
+  const jobRolesQuery = useJobRolesQuery();
+  const employees = employeesQuery.data ?? [];
+  const branches: Branch[] = branchesQuery.data ?? [];
+  const jobRoles: JobRole[] = jobRolesQuery.data ?? [];
+  const loading = employeesQuery.isLoading || branchesQuery.isLoading || jobRolesQuery.isLoading;
   const [refreshing, setRefreshing] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
+  const inviteMutation = useInviteEmployee();
+  const updateMutation = useUpdateEmployee();
 
   // Invite modal
   const [inviteVisible, setInviteVisible] = useState(false);
@@ -118,21 +118,16 @@ export default function EmployeesScreen() {
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
 
-  const load = useCallback(async () => {
-    try {
-      const [emps, brs, jrs] = await Promise.all([getEmployees(), getBranches(), getJobRoles()]);
-      setEmployees(emps);
-      setBranches(brs);
-      setJobRoles(jrs);
-    } catch (e) {
-      Alert.alert("Couldn't load employees", e instanceof Error ? e.message : "Please try again.");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+  useEffect(() => {
+    const err = employeesQuery.error ?? branchesQuery.error ?? jobRolesQuery.error;
+    if (err) Alert.alert("Couldn't load employees", err instanceof Error ? err.message : "Please try again.");
+  }, [employeesQuery.error, branchesQuery.error, jobRolesQuery.error]);
 
-  useEffect(() => { load(); }, []);
+  async function refreshAll() {
+    setRefreshing(true);
+    await Promise.all([employeesQuery.refetch(), branchesQuery.refetch(), jobRolesQuery.refetch()]);
+    setRefreshing(false);
+  }
 
   // Employees is admin/manager-only — hidden from the employee tab bar
   // (`(tabs)/_layout.tsx` sets `href: null` for it), but `href: null` only
@@ -182,7 +177,7 @@ export default function EmployeesScreen() {
     setInviteSaving(true);
     setInviteError("");
     try {
-      const result = await inviteEmployee({
+      const result = await inviteMutation.mutateAsync({
         name: inviteForm.name.trim(),
         email: inviteForm.email.trim().toLowerCase(),
         role: inviteForm.role,
@@ -191,7 +186,6 @@ export default function EmployeesScreen() {
         ...(inviteForm.pin ? { pin: inviteForm.pin } : {}),
       });
       setInviteVisible(false);
-      load();
       Alert.alert(
         "Invited",
         result.emailSent
@@ -230,14 +224,16 @@ export default function EmployeesScreen() {
     setEditSaving(true);
     setEditError("");
     try {
-      await updateEmployee(editTarget.id, {
-        branchId: editTarget.role === "org_admin" ? null : editForm.branchId || null,
-        jobRoleId: editForm.jobRoleId || null,
-        maxHoursPerWeek: maxHours,
-        ...(editForm.pin ? { pin: editForm.pin } : {}),
+      await updateMutation.mutateAsync({
+        id: editTarget.id,
+        input: {
+          branchId: editTarget.role === "org_admin" ? null : editForm.branchId || null,
+          jobRoleId: editForm.jobRoleId || null,
+          maxHoursPerWeek: maxHours,
+          ...(editForm.pin ? { pin: editForm.pin } : {}),
+        },
       });
       setEditTarget(null);
-      load();
     } catch (e: unknown) {
       setEditError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
@@ -257,8 +253,7 @@ export default function EmployeesScreen() {
           style: emp.isActive ? "destructive" : "default",
           onPress: async () => {
             try {
-              await updateEmployee(emp.id, { isActive: !emp.isActive });
-              load();
+              await updateMutation.mutateAsync({ id: emp.id, input: { isActive: !emp.isActive } });
             } catch (e) {
               Alert.alert(
                 `Couldn't ${action.toLowerCase()} employee`,
@@ -324,7 +319,7 @@ export default function EmployeesScreen() {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => { setRefreshing(true); load(); }}
+              onRefresh={refreshAll}
               tintColor={theme.primary}
             />
           }

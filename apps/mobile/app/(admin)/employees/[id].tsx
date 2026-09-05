@@ -10,17 +10,10 @@ import {
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Mail, User, Briefcase, GitBranch, Clock, ShieldCheck, Power } from "lucide-react-native";
-import {
-  getEmployee,
-  getBranches,
-  getJobRoles,
-  updateEmployee,
-  deleteEmployee,
-  getMyPermissions,
-  type Branch,
-  type JobRole,
-} from "@/lib/api";
-import type { Employee } from "@scheduler/types";
+import { getMyPermissions, type Branch, type JobRole } from "@/lib/api";
+import { useEmployeeQuery, useUpdateEmployee, useDeleteEmployee } from "@/hooks/useEmployees";
+import { useBranchesQuery } from "@/hooks/useBranches";
+import { useJobRolesQuery } from "@/hooks/useJobRoles";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { EmployeeCompensation } from "@/components/EmployeeCompensation";
 
@@ -36,38 +29,36 @@ export default function EmployeeDetailScreen() {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
 
-  const [employee, setEmployee] = useState<Employee | null>(null);
-  const [branchMap, setBranchMap] = useState<Record<string, Branch>>({});
-  const [jobRoleMap, setJobRoleMap] = useState<Record<string, JobRole>>({});
-  const [loading, setLoading] = useState(true);
+  const employeeQuery = useEmployeeQuery(id);
+  const branchesQuery = useBranchesQuery();
+  const jobRolesQuery = useJobRolesQuery();
+  const employee = employeeQuery.data ?? null;
+  const branchMap: Record<string, Branch> = Object.fromEntries(
+    (branchesQuery.data ?? []).map((b) => [b.id, b])
+  );
+  const jobRoleMap: Record<string, JobRole> = Object.fromEntries(
+    (jobRolesQuery.data ?? []).map((j) => [j.id, j])
+  );
+  const loading = employeeQuery.isLoading || branchesQuery.isLoading || jobRolesQuery.isLoading;
   const [acting, setActing] = useState(false);
   const [canViewSalary, setCanViewSalary] = useState(false);
   const [canEditSalary, setCanEditSalary] = useState(false);
-
-  async function load() {
-    if (!id) return;
-    try {
-      const [emp, branches, jobRoles, permissions] = await Promise.all([
-        getEmployee(id),
-        getBranches(),
-        getJobRoles(),
-        getMyPermissions(),
-      ]);
-      setEmployee(emp);
-      setBranchMap(Object.fromEntries(branches.map((b) => [b.id, b])));
-      setJobRoleMap(Object.fromEntries(jobRoles.map((j) => [j.id, j])));
-      setCanViewSalary(permissions.includes("salaries:view"));
-      setCanEditSalary(permissions.includes("salaries:edit"));
-    } catch (e) {
-      Alert.alert("Couldn't load employee", e instanceof Error ? e.message : "Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const updateMutation = useUpdateEmployee();
+  const deleteMutation = useDeleteEmployee();
 
   useEffect(() => {
-    load();
-  }, [id]);
+    getMyPermissions()
+      .then((permissions) => {
+        setCanViewSalary(permissions.includes("salaries:view"));
+        setCanEditSalary(permissions.includes("salaries:edit"));
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const err = employeeQuery.error ?? branchesQuery.error ?? jobRolesQuery.error;
+    if (err) Alert.alert("Couldn't load employee", err instanceof Error ? err.message : "Please try again.");
+  }, [employeeQuery.error, branchesQuery.error, jobRolesQuery.error]);
 
   async function handleToggleActive() {
     if (!employee) return;
@@ -75,11 +66,9 @@ export default function EmployeeDetailScreen() {
     setActing(true);
     try {
       if (nextActive) {
-        const updated = await updateEmployee(employee.id, { isActive: true });
-        setEmployee({ ...employee, ...updated });
+        await updateMutation.mutateAsync({ id: employee.id, input: { isActive: true } });
       } else {
-        await deleteEmployee(employee.id);
-        setEmployee({ ...employee, isActive: false });
+        await deleteMutation.mutateAsync(employee.id);
       }
     } catch (e) {
       Alert.alert("Error", e instanceof Error ? e.message : "Couldn't update employee.");
