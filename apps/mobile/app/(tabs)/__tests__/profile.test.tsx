@@ -1,11 +1,10 @@
 import React from "react";
 import { Alert } from "react-native";
-import { render, fireEvent, waitFor, act } from "@testing-library/react-native";
+import { render, fireEvent, waitFor, act } from "@/test-utils";
 import ProfileScreen from "../profile";
 import { supabase } from "@/lib/supabase";
-import { getOrganizationHours, unregisterPushToken } from "@/lib/api";
+import { getOrganizationHours, unregisterPushToken, getEmployees } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
-import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
 import * as Notifications from "expo-notifications";
 import type { Session } from "@supabase/supabase-js";
 
@@ -16,6 +15,7 @@ jest.mock("@/lib/supabase", () => ({
 jest.mock("@/lib/api", () => ({
   getOrganizationHours: jest.fn(),
   unregisterPushToken: jest.fn(),
+  getEmployees: jest.fn(),
 }));
 
 jest.mock("expo-notifications", () => ({
@@ -44,8 +44,8 @@ describe("ProfileScreen", () => {
     jest.clearAllMocks();
     jest.spyOn(Alert, "alert").mockImplementation(() => {});
     useAuthStore.setState({ session: null, employeeName: null });
-    useMyEmployeeStore.getState().reset();
     (getOrganizationHours as jest.Mock).mockResolvedValue({});
+    (getEmployees as jest.Mock).mockResolvedValue([]);
     (Notifications.getExpoPushTokenAsync as jest.Mock).mockResolvedValue({ data: "expo-token-1" });
     (supabase.auth.signOut as jest.Mock).mockResolvedValue(undefined);
   });

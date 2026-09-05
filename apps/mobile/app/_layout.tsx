@@ -9,7 +9,7 @@ import { queryClient } from "@/lib/queryClient";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/lib/authStore";
 import { useThemeStore } from "@/lib/themeStore";
-import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
+import { employeesQueryKey } from "@/hooks/useEmployees";
 import { getOrganizationTheme, getOrganizationInfo } from "@/lib/api";
 import { consumeFreshInstall } from "@/lib/clearStaleKeychain";
 import { BRANCH_SLUG_KEY, LOCKED_KEY } from "@/lib/kioskStore";
@@ -71,7 +71,7 @@ function RootLayout() {
       // doesn't inherit the previous user's name/employee record.
       if (!session) {
         setEmployeeName(null);
-        useMyEmployeeStore.getState().reset();
+        queryClient.removeQueries({ queryKey: employeesQueryKey });
       }
     });
     return () => subscription.unsubscribe();

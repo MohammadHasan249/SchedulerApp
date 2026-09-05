@@ -1,6 +1,6 @@
 import React from "react";
 import { Alert } from "react-native";
-import { render, fireEvent, waitFor } from "@testing-library/react-native";
+import { render, fireEvent, waitFor } from "@/test-utils";
 import NotificationsScreen from "../notifications";
 import { getNotifications, markNotificationRead, getUnreadNotificationCount } from "@/lib/api";
 import type { Notification } from "@scheduler/types";

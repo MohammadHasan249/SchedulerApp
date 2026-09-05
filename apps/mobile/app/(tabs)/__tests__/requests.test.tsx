@@ -1,7 +1,7 @@
 import React from "react";
 import { Alert } from "react-native";
 import { format } from "date-fns";
-import { render, fireEvent, waitFor, act } from "@testing-library/react-native";
+import { render, fireEvent, waitFor, act } from "@/test-utils";
 import RequestsScreen from "../requests";
 import {
   getTimeOffRequests,
@@ -17,7 +17,6 @@ import {
   getEligibleCovers,
 } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
-import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
 import type { TimeOffRequest, ShiftSwapRequest, Shift, Employee } from "@scheduler/types";
 import type { Session } from "@supabase/supabase-js";
 
@@ -35,9 +34,24 @@ jest.mock("@/lib/api", () => ({
   getEligibleCovers: jest.fn(),
 }));
 
-jest.mock("@/lib/myEmployeeStore", () => ({
-  useMyEmployeeStore: jest.fn(),
-}));
+// The real native picker has no meaningful jest environment; stub it as a
+// pressable that fires onChange with whatever date the test stashed in
+// mockPickedDate, so tests can drive it like a user tapping a day without
+// depending on RTL APIs for querying by component type. (`mock`-prefixed
+// names are allowed inside jest.mock factories despite the hoisting.)
+let mockPickedDate: Date = new Date();
+
+jest.mock("@react-native-community/datetimepicker", () => {
+  const { TouchableOpacity, Text } = jest.requireActual("react-native");
+  return {
+    __esModule: true,
+    default: ({ onChange }: { onChange: (e: unknown, d: Date) => void }) => (
+      <TouchableOpacity testID="date-time-picker" onPress={() => onChange({ type: "set" }, mockPickedDate)}>
+        <Text>pick</Text>
+      </TouchableOpacity>
+    ),
+  };
+});
 
 function sessionWith(app_metadata: Record<string, unknown>): Session {
   return { user: { id: "auth-1", app_metadata } } as unknown as Session;
@@ -108,13 +122,9 @@ function alertButtons(): { text: string; onPress?: () => void }[] {
 }
 
 describe("RequestsScreen", () => {
-  const fetchMyEmployee = jest.fn();
-
   beforeEach(() => {
     jest.resetAllMocks();
     jest.spyOn(Alert, "alert").mockImplementation(() => {});
-    (useMyEmployeeStore as unknown as jest.Mock).mockReturnValue({ fetchMyEmployee });
-    fetchMyEmployee.mockResolvedValue(makeEmployee());
     (getShifts as jest.Mock).mockResolvedValue([]);
     (getShiftAssignments as jest.Mock).mockResolvedValue([]);
     (getEmployees as jest.Mock).mockResolvedValue([makeEmployee()]);
@@ -163,10 +173,7 @@ describe("RequestsScreen", () => {
       await fireEvent.press(getByText("+ Request"));
       await fireEvent.press(getByText("Submit Request"));
 
-      expect(Alert.alert).toHaveBeenCalledWith(
-        "Error",
-        "Please fill in start and end dates (YYYY-MM-DD)"
-      );
+      expect(Alert.alert).toHaveBeenCalledWith("Error", "Please select start and end dates");
       expect(createTimeOffRequest).not.toHaveBeenCalled();
     });
 
@@ -176,15 +183,21 @@ describe("RequestsScreen", () => {
         .mockResolvedValueOnce([makeTimeOff()]);
       (createTimeOffRequest as jest.Mock).mockResolvedValue(makeTimeOff());
 
-      const { findByText, getByText, getAllByPlaceholderText, queryByText } = await render(
+      const { findByText, getByText, getAllByText, getByTestId, queryByText } = await render(
         <RequestsScreen />
       );
       await findByText("No time-off requests");
 
       await fireEvent.press(getByText("+ Request"));
-      const [startInput, endInput] = getAllByPlaceholderText("YYYY-MM-DD");
-      await fireEvent.changeText(startInput, "2026-02-01");
-      await fireEvent.changeText(endInput, "2026-02-05");
+
+      mockPickedDate = new Date(2026, 1, 1);
+      await fireEvent.press(getAllByText("Select date")[0]);
+      await fireEvent.press(getByTestId("date-time-picker"));
+
+      mockPickedDate = new Date(2026, 1, 5);
+      await fireEvent.press(getByText("Select date"));
+      await fireEvent.press(getByTestId("date-time-picker"));
+
       await fireEvent.press(getByText("Submit Request"));
 
       await waitFor(() =>

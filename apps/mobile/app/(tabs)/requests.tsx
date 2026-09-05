@@ -12,11 +12,10 @@ import {
 } from "@/hooks/useTimeOff";
 import { useShiftSwapsQuery, useCreateShiftSwap, useUpdateShiftSwap } from "@/hooks/useShiftSwaps";
 import { useShiftsQuery } from "@/hooks/useShifts";
-import { useEmployeesQuery } from "@/hooks/useEmployees";
+import { useEmployeesQuery, useMyEmployeeQuery } from "@/hooks/useEmployees";
 import { useBranchesQuery } from "@/hooks/useBranches";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useAuthStore } from "@/lib/authStore";
-import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
 import { useIsAdmin } from "@/lib/useRole";
 import { formatZonedTime } from "@/lib/utils/timezone";
 import type { TimeOffRequest, ShiftSwapRequest, Shift, Employee } from "@scheduler/types";
@@ -381,9 +380,9 @@ function SwapSection() {
   const styles = makeStyles(theme);
   const isAdmin = useIsAdmin();
   const { session } = useAuthStore();
-  const { fetchMyEmployee } = useMyEmployeeStore();
-  const [employeeId, setEmployeeId] = useState<string | undefined>(undefined);
-  const [myEmployeeChecked, setMyEmployeeChecked] = useState(false);
+  const myEmployeeQuery = useMyEmployeeQuery(session?.user?.id);
+  const employeeId = myEmployeeQuery.data?.id;
+  const myEmployeeChecked = !myEmployeeQuery.isLoading;
 
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const shiftSwapsQuery = useShiftSwapsQuery();
@@ -414,12 +413,6 @@ function SwapSection() {
   const createSwapMutation = useCreateShiftSwap();
   const updateSwapMutation = useUpdateShiftSwap();
   const submitting = createSwapMutation.isPending;
-
-  useEffect(() => {
-    (session?.user?.id ? fetchMyEmployee(session.user.id) : Promise.resolve(null))
-      .then((me) => setEmployeeId(me?.id))
-      .finally(() => setMyEmployeeChecked(true));
-  }, [session]);
 
   // The shifts list for employees carries no assignment info, so each
   // upcoming shift is checked individually — otherwise the picker offers

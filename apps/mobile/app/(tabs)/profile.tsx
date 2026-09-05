@@ -26,7 +26,7 @@ import {
 import { useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/lib/authStore";
-import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
+import { useMyEmployeeQuery } from "@/hooks/useEmployees";
 import { unregisterPushToken } from "@/lib/api";
 import { useOrganizationHoursQuery } from "@/hooks/useOrganization";
 import { useAppTheme } from "@/lib/useAppTheme";
@@ -50,7 +50,6 @@ export default function ProfileScreen() {
   const styles = makeStyles(theme);
   const router = useRouter();
   const { session, employeeName, setEmployeeName } = useAuthStore();
-  const { fetchMyEmployee } = useMyEmployeeStore();
   const isAdmin = useIsAdmin();
   const role = useRole();
   const user = session?.user;
@@ -58,18 +57,18 @@ export default function ProfileScreen() {
   const orgHours = orgHoursQuery.data ?? null;
   const loadingHours = orgHoursQuery.isLoading;
   const [hoursExpanded, setHoursExpanded] = useState(false);
+  const needsEmployeeName = !!session && !employeeName && !session.user?.user_metadata?.full_name;
+  const myEmployee = useMyEmployeeQuery(needsEmployeeName ? session?.user?.id : undefined).data;
 
   useEffect(() => {
     if (!session || employeeName || !session.user?.id) return;
     const fullName = session.user.user_metadata?.full_name as string | undefined;
     if (fullName) {
       setEmployeeName(fullName);
-    } else {
-      fetchMyEmployee(session.user.id).then((me) => {
-        if (me?.name) setEmployeeName(me.name);
-      });
+    } else if (myEmployee?.name) {
+      setEmployeeName(myEmployee.name);
     }
-  }, [session]);
+  }, [session, employeeName, myEmployee]);
 
   async function handleSignOut() {
     Alert.alert("Sign out", "Are you sure you want to sign out?", [

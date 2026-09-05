@@ -1,6 +1,6 @@
 import React from "react";
 import { Alert } from "react-native";
-import { render, fireEvent, waitFor, act } from "@testing-library/react-native";
+import { render, fireEvent, waitFor, act } from "@/test-utils";
 import SettingsJobRolesScreen from "../settings-job-roles";
 import { getJobRoles, createJobRole, updateJobRole, deleteJobRole } from "@/lib/api";
 import type { JobRole } from "@/lib/api";

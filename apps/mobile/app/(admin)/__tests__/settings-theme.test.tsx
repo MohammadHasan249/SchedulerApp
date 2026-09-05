@@ -1,6 +1,6 @@
 import React from "react";
 import { Alert } from "react-native";
-import { render, fireEvent, waitFor } from "@testing-library/react-native";
+import { render, fireEvent, waitFor } from "@/test-utils";
 import SettingsThemeScreen from "../settings-theme";
 import { getOrganizationTheme, updateOrganizationTheme } from "@/lib/api";
 import { useThemeStore } from "@/lib/themeStore";

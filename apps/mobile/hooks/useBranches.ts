@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getBranches, createBranch, updateBranch, deleteBranch } from "@/lib/api";
+import { getBranches, createBranch, updateBranch, deleteBranch, type Branch } from "@/lib/api";
 
 export const branchesQueryKey = ["branches"] as const;
 
@@ -10,32 +10,35 @@ export function useBranchesQuery() {
   });
 }
 
-function useInvalidateBranches() {
-  const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: branchesQueryKey });
-}
-
 export function useCreateBranch() {
-  const invalidateBranches = useInvalidateBranches();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: Parameters<typeof createBranch>[0]) => createBranch(input),
-    onSuccess: invalidateBranches,
+    onSuccess: (created) => {
+      queryClient.setQueryData<Branch[]>(branchesQueryKey, (old) => (old ? [...old, created] : [created]));
+    },
   });
 }
 
 export function useUpdateBranch() {
-  const invalidateBranches = useInvalidateBranches();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: Parameters<typeof updateBranch>[1] }) =>
       updateBranch(id, input),
-    onSuccess: invalidateBranches,
+    onSuccess: (updated) => {
+      queryClient.setQueryData<Branch[]>(branchesQueryKey, (old) =>
+        old?.map((b) => (b.id === updated.id ? updated : b))
+      );
+    },
   });
 }
 
 export function useDeleteBranch() {
-  const invalidateBranches = useInvalidateBranches();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => deleteBranch(id),
-    onSuccess: invalidateBranches,
+    onSuccess: (_data, id) => {
+      queryClient.setQueryData<Branch[]>(branchesQueryKey, (old) => old?.filter((b) => b.id !== id));
+    },
   });
 }

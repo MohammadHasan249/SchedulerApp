@@ -25,6 +25,17 @@ export function useEmployeeQuery(id: string | undefined) {
   });
 }
 
+// The server never writes employee_id into Supabase user metadata, so the
+// only reliable way to find "my" employee record is matching authUserId
+// against the roster `useEmployeesQuery` already fetches (the API scopes
+// that list to just the caller's own record for non-admins), so this shares
+// its cache/dedup rather than firing a second request.
+export function useMyEmployeeQuery(authUserId: string | undefined) {
+  const query = useEmployeesQuery(!!authUserId);
+  const employee = query.data?.find((e) => e.authUserId === authUserId) ?? null;
+  return { ...query, data: employee };
+}
+
 function useInvalidateEmployees() {
   const queryClient = useQueryClient();
   return () => queryClient.invalidateQueries({ queryKey: employeesQueryKey });
@@ -45,24 +56,48 @@ export function useUpdateEmployee() {
       updateEmployee(id, input),
     onMutate: async ({ id, input }) => {
       await queryClient.cancelQueries({ queryKey: employeesQueryKey });
-      const previous = queryClient.getQueryData<Employee[]>(employeesQueryKey);
+      const previousList = queryClient.getQueryData<Employee[]>(employeesQueryKey);
+      const previousDetail = queryClient.getQueryData<Employee>(employeeQueryKey(id));
       queryClient.setQueryData<Employee[]>(employeesQueryKey, (old) =>
         old?.map((e) => (e.id === id ? { ...e, ...input } : e))
       );
-      return { previous };
+      queryClient.setQueryData<Employee>(employeeQueryKey(id), (old) => (old ? { ...old, ...input } : old));
+      return { previousList, previousDetail, id };
+    },
+    onSuccess: (updated, { id, input }) => {
+      // The API's response shape isn't reliable everywhere it's mocked/used,
+      // so merge input+response over the existing record rather than
+      // replacing it outright (spreading a possibly-undefined `updated` is a
+      // safe no-op).
+      queryClient.setQueryData<Employee[]>(employeesQueryKey, (old) =>
+        old?.map((e) => (e.id === id ? { ...e, ...input, ...updated } : e))
+      );
+      queryClient.setQueryData<Employee>(employeeQueryKey(id), (old) =>
+        old ? { ...old, ...input, ...updated } : old
+      );
     },
     onError: (_err, _vars, context) => {
-      if (context?.previous) queryClient.setQueryData(employeesQueryKey, context.previous);
+      if (context?.previousList) queryClient.setQueryData(employeesQueryKey, context.previousList);
+      if (context?.previousDetail) queryClient.setQueryData(employeeQueryKey(context.id), context.previousDetail);
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: employeesQueryKey }),
   });
 }
 
+// deleteEmployee is a soft-delete (isActive: false) but its response isn't
+// reliable enough to trust as the new cache value, so patch that flag
+// directly rather than replacing the cached record with the response.
 export function useDeleteEmployee() {
-  const invalidateEmployees = useInvalidateEmployees();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => deleteEmployee(id),
-    onSuccess: invalidateEmployees,
+    onSuccess: (_data, id) => {
+      queryClient.setQueryData<Employee[]>(employeesQueryKey, (old) =>
+        old?.map((e) => (e.id === id ? { ...e, isActive: false } : e))
+      );
+      queryClient.setQueryData<Employee>(employeeQueryKey(id), (old) =>
+        old ? { ...old, isActive: false } : old
+      );
+    },
   });
 }
 

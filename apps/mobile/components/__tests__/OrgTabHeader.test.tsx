@@ -1,8 +1,7 @@
 import React from "react";
-import { render } from "@testing-library/react-native";
+import { render } from "@/test-utils";
 import { OrgTabHeader } from "@/components/OrgTabHeader";
-import { useOrgStore } from "@/lib/orgStore";
-import { useNotificationsStore } from "@/lib/notificationsStore";
+import { getOrganizationInfo, getUnreadNotificationCount } from "@/lib/api";
 
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
@@ -12,16 +11,16 @@ jest.mock("expo-router", () => ({
   useRouter: () => ({ push: jest.fn() }),
 }));
 
-// orgStore imports lib/api -> lib/supabase, which requires env vars at import time.
 jest.mock("@/lib/api", () => ({
   getOrganizationInfo: jest.fn(),
-  getUnreadNotificationCount: jest.fn().mockResolvedValue({ count: 0 }),
+  getUnreadNotificationCount: jest.fn(),
 }));
 
 describe("OrgTabHeader", () => {
   beforeEach(() => {
-    useOrgStore.setState({ orgName: null });
-    useNotificationsStore.setState({ unreadCount: 0 });
+    jest.clearAllMocks();
+    (getOrganizationInfo as jest.Mock).mockResolvedValue({ name: null, slug: null });
+    (getUnreadNotificationCount as jest.Mock).mockResolvedValue({ count: 0 });
   });
 
   it("renders the title", async () => {
@@ -30,9 +29,9 @@ describe("OrgTabHeader", () => {
   });
 
   it("renders the org name when set", async () => {
-    useOrgStore.setState({ orgName: "Acme Co" });
-    const { getByText } = await render(<OrgTabHeader title="Schedule" />);
-    expect(getByText("Acme Co")).toBeTruthy();
+    (getOrganizationInfo as jest.Mock).mockResolvedValue({ name: "Acme Co", slug: "acme" });
+    const { findByText } = await render(<OrgTabHeader title="Schedule" />);
+    expect(await findByText("Acme Co")).toBeTruthy();
   });
 
   it("omits the org name row when unset", async () => {
@@ -41,9 +40,9 @@ describe("OrgTabHeader", () => {
   });
 
   it("shows an unread badge when there are unread notifications", async () => {
-    useNotificationsStore.setState({ unreadCount: 3 });
-    const { getByText } = await render(<OrgTabHeader title="Schedule" />);
-    expect(getByText("3")).toBeTruthy();
+    (getUnreadNotificationCount as jest.Mock).mockResolvedValue({ count: 3 });
+    const { findByText } = await render(<OrgTabHeader title="Schedule" />);
+    expect(await findByText("3")).toBeTruthy();
   });
 
   it("omits the badge when there are no unread notifications", async () => {

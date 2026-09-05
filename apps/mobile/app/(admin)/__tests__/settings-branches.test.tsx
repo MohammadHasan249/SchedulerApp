@@ -1,6 +1,6 @@
 import React from "react";
 import { Alert } from "react-native";
-import { render, fireEvent, waitFor, act } from "@testing-library/react-native";
+import { render, fireEvent, waitFor, act } from "@/test-utils";
 import SettingsBranchesScreen from "../settings-branches";
 import { getBranches, createBranch, updateBranch, deleteBranch } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";

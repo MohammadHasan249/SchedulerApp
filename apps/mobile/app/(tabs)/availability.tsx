@@ -7,7 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useOrganizationHoursQuery } from "@/hooks/useOrganization";
 import { useAvailabilityQuery, useSaveAvailability } from "@/hooks/useAvailability";
 import { useAuthStore } from "@/lib/authStore";
-import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
+import { useMyEmployeeQuery } from "@/hooks/useEmployees";
 import { useAppTheme } from "@/lib/useAppTheme";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -26,11 +26,11 @@ export default function AvailabilityScreen() {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
   const { session } = useAuthStore();
-  const { fetchMyEmployee } = useMyEmployeeStore();
+  const myEmployeeQuery = useMyEmployeeQuery(session?.user?.id);
+  const employeeId = myEmployeeQuery.data?.id ?? null;
+  const noEmployee = !myEmployeeQuery.isLoading && !!session?.user?.id && !myEmployeeQuery.data;
   const [slots, setSlots] = useState<DaySlot[] | null>(null);
   const [saving, setSaving] = useState(false);
-  const [employeeId, setEmployeeId] = useState<string | null>(null);
-  const [noEmployee, setNoEmployee] = useState(false);
 
   const hoursQuery = useOrganizationHoursQuery();
   const availabilityQuery = useAvailabilityQuery(employeeId ?? undefined);
@@ -38,19 +38,13 @@ export default function AvailabilityScreen() {
   const loading = !noEmployee && (employeeId === null || hoursQuery.isLoading || availabilityQuery.isLoading || !slots);
 
   useEffect(() => {
-    if (!session?.user?.id) return;
-    fetchMyEmployee(session.user.id).then((me) => {
-      if (!me) {
-        Alert.alert(
-          "No employee profile",
-          "Your account isn't linked to an employee record. Ask your manager to re-invite you."
-        );
-        setNoEmployee(true);
-        return;
-      }
-      setEmployeeId(me.id);
-    });
-  }, [session]);
+    if (!noEmployee) return;
+    Alert.alert(
+      "No employee profile",
+      "Your account isn't linked to an employee record. Ask your manager to re-invite you."
+    );
+    setSlots(DAYS.map(() => ({ enabled: true, startTime: DEFAULT_START, endTime: DEFAULT_END })));
+  }, [noEmployee]);
 
   useEffect(() => {
     if (!hoursQuery.data || !availabilityQuery.data) return;

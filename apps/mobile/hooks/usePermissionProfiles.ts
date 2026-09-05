@@ -18,7 +18,11 @@ export function useCreatePermissionProfile() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: Parameters<typeof createPermissionProfile>[0]) => createPermissionProfile(input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: permissionProfilesQueryKey }),
+    onSuccess: (created) => {
+      queryClient.setQueryData<PermissionProfile[]>(permissionProfilesQueryKey, (old) =>
+        old ? [...old, created] : [created]
+      );
+    },
   });
 }
 
@@ -38,7 +42,6 @@ export function useUpdatePermissionProfile() {
     onError: (_err, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(permissionProfilesQueryKey, context.previous);
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: permissionProfilesQueryKey }),
   });
 }
 
@@ -62,10 +65,6 @@ export function useDeletePermissionProfile() {
     onError: (_err, _id, context) => {
       if (context?.previousProfiles) queryClient.setQueryData(permissionProfilesQueryKey, context.previousProfiles);
       if (context?.previousEmployees) queryClient.setQueryData(employeesQueryKey, context.previousEmployees);
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: permissionProfilesQueryKey });
-      queryClient.invalidateQueries({ queryKey: employeesQueryKey });
     },
   });
 }

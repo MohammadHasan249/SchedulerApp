@@ -65,8 +65,12 @@ export default function SettingsHoursScreen() {
   const saving = updateMutation.isPending;
 
   useEffect(() => {
-    if (hoursQuery.data) setDays(fromSchedule(hoursQuery.data));
-  }, [hoursQuery.data]);
+    if (hoursQuery.data) {
+      setDays(fromSchedule(hoursQuery.data));
+    } else if (hoursQuery.isError) {
+      setDays(DAYS.map(() => ({ enabled: true, startTime: "09:00", endTime: "17:00" })));
+    }
+  }, [hoursQuery.data, hoursQuery.isError]);
 
   function updateDay(i: number, patch: Partial<DayState>) {
     setDays((prev) => prev?.map((d, idx) => (idx === i ? { ...d, ...patch } : d)) ?? prev);

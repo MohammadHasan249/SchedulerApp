@@ -1,10 +1,9 @@
 import React from "react";
 import { Alert } from "react-native";
-import { render, fireEvent, waitFor } from "@testing-library/react-native";
+import { render, fireEvent, waitFor } from "@/test-utils";
 import ScheduleScreen from "../schedule";
 import { getShifts, getEmployees, getJobRoles, assignEmployee, unassignEmployee } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
-import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
 import type { Employee, Shift } from "@scheduler/types";
 import type { Session } from "@supabase/supabase-js";
 
@@ -68,7 +67,6 @@ describe("ScheduleScreen", () => {
     jest.clearAllMocks();
     jest.spyOn(Alert, "alert").mockImplementation(() => {});
     useAuthStore.setState({ session: null, employeeName: null });
-    useMyEmployeeStore.getState().reset();
     (getJobRoles as jest.Mock).mockResolvedValue([]);
   });
 

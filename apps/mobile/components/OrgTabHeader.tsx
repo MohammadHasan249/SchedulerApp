@@ -3,14 +3,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Bell } from "lucide-react-native";
 import { useAppTheme } from "@/lib/useAppTheme";
-import { useOrgStore } from "@/lib/orgStore";
-import { useNotificationsStore } from "@/lib/notificationsStore";
+import { useOrganizationInfoQuery } from "@/hooks/useOrganization";
+import { useUnreadNotificationCountQuery } from "@/hooks/useNotifications";
 
 export function OrgTabHeader({ title }: { title: string }) {
   const theme = useAppTheme();
   const insets = useSafeAreaInsets();
-  const { orgName } = useOrgStore();
-  const { unreadCount } = useNotificationsStore();
+  const orgName = useOrganizationInfoQuery().data?.name ?? null;
+  const unreadCount = useUnreadNotificationCountQuery().data?.count ?? 0;
   const router = useRouter();
 
   return (

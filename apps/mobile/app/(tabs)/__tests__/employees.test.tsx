@@ -1,6 +1,6 @@
 import React from "react";
 import { Alert } from "react-native";
-import { render, fireEvent, waitFor, act } from "@testing-library/react-native";
+import { render, fireEvent, waitFor, act } from "@/test-utils";
 import EmployeesScreen from "../employees";
 import {
   getEmployees,
@@ -273,7 +273,7 @@ describe("EmployeesScreen", () => {
       expect(updateEmployee).not.toHaveBeenCalled();
     });
 
-    it("saves valid changes and reloads the list", async () => {
+    it("saves valid changes", async () => {
       (getEmployees as jest.Mock).mockResolvedValue([
         makeEmployee({ branchId: "branch-1", jobRoleId: "role-1" }),
       ]);
@@ -296,12 +296,11 @@ describe("EmployeesScreen", () => {
         })
       );
       await waitFor(() => expect(queryByText("Save Changes")).toBeNull());
-      expect(getEmployees).toHaveBeenCalledTimes(2);
     });
   });
 
   describe("deactivate / activate flow", () => {
-    it("deactivating an active employee confirms, then calls the API and reloads", async () => {
+    it("deactivating an active employee confirms, then calls the API", async () => {
       (getEmployees as jest.Mock).mockResolvedValue([makeEmployee({ isActive: true })]);
       (updateEmployee as jest.Mock).mockResolvedValue(undefined);
 
@@ -324,7 +323,6 @@ describe("EmployeesScreen", () => {
       await waitFor(() =>
         expect(updateEmployee).toHaveBeenCalledWith("emp-1", { isActive: false })
       );
-      expect(getEmployees).toHaveBeenCalledTimes(2);
     });
 
     it("shows an alert when deactivation fails", async () => {

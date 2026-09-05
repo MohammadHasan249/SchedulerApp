@@ -1,10 +1,9 @@
 import React from "react";
 import { Alert } from "react-native";
-import { render, fireEvent, waitFor } from "@testing-library/react-native";
+import { render, fireEvent, waitFor } from "@/test-utils";
 import AvailabilityScreen from "../availability";
-import { getAvailability, saveAvailability, getOrganizationHours } from "@/lib/api";
+import { getAvailability, saveAvailability, getOrganizationHours, getEmployees } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
-import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
 import type { Employee } from "@scheduler/types";
 import type { Session } from "@supabase/supabase-js";
 
@@ -12,10 +11,7 @@ jest.mock("@/lib/api", () => ({
   getAvailability: jest.fn(),
   saveAvailability: jest.fn(),
   getOrganizationHours: jest.fn(),
-}));
-
-jest.mock("@/lib/myEmployeeStore", () => ({
-  useMyEmployeeStore: jest.fn(),
+  getEmployees: jest.fn(),
 }));
 
 function sessionWith(userId = "auth-1"): Session {
@@ -39,18 +35,15 @@ function makeEmployee(overrides: Partial<Employee> = {}): Employee {
 }
 
 describe("AvailabilityScreen", () => {
-  const fetchMyEmployee = jest.fn();
-
   beforeEach(() => {
     jest.clearAllMocks();
     jest.spyOn(Alert, "alert").mockImplementation(() => {});
     useAuthStore.setState({ session: sessionWith() });
-    (useMyEmployeeStore as unknown as jest.Mock).mockReturnValue({ fetchMyEmployee });
     (getOrganizationHours as jest.Mock).mockResolvedValue({});
   });
 
   it("shows an alert and stops loading when the account has no linked employee", async () => {
-    fetchMyEmployee.mockResolvedValue(null);
+    (getEmployees as jest.Mock).mockResolvedValue([]);
 
     const { findByText } = await render(<AvailabilityScreen />);
 
@@ -64,7 +57,7 @@ describe("AvailabilityScreen", () => {
   });
 
   it("defaults each day to the org's hours when nothing is saved yet", async () => {
-    fetchMyEmployee.mockResolvedValue(makeEmployee());
+    (getEmployees as jest.Mock).mockResolvedValue([makeEmployee()]);
     (getOrganizationHours as jest.Mock).mockResolvedValue({
       "1": { startTime: "09:00", endTime: "17:00" },
     });
@@ -77,7 +70,7 @@ describe("AvailabilityScreen", () => {
   });
 
   it("marks a day unavailable when the org is closed and nothing is saved", async () => {
-    fetchMyEmployee.mockResolvedValue(makeEmployee());
+    (getEmployees as jest.Mock).mockResolvedValue([makeEmployee()]);
     (getOrganizationHours as jest.Mock).mockResolvedValue({});
     (getAvailability as jest.Mock).mockResolvedValue({});
 
@@ -87,7 +80,7 @@ describe("AvailabilityScreen", () => {
   });
 
   it("uses the employee's saved availability over the org default", async () => {
-    fetchMyEmployee.mockResolvedValue(makeEmployee());
+    (getEmployees as jest.Mock).mockResolvedValue([makeEmployee()]);
     (getOrganizationHours as jest.Mock).mockResolvedValue({
       "1": { startTime: "09:00", endTime: "17:00" },
     });
@@ -102,7 +95,7 @@ describe("AvailabilityScreen", () => {
   });
 
   it("toggling a day off shows one more 'Unavailable' day", async () => {
-    fetchMyEmployee.mockResolvedValue(makeEmployee());
+    (getEmployees as jest.Mock).mockResolvedValue([makeEmployee()]);
     (getAvailability as jest.Mock).mockResolvedValue({
       1: { startTime: "09:00:00", endTime: "17:00:00" },
     });
@@ -119,7 +112,7 @@ describe("AvailabilityScreen", () => {
   });
 
   it("rejects a start time that isn't before the end time", async () => {
-    fetchMyEmployee.mockResolvedValue(makeEmployee());
+    (getEmployees as jest.Mock).mockResolvedValue([makeEmployee()]);
     (getAvailability as jest.Mock).mockResolvedValue({
       1: { startTime: "18:00:00", endTime: "17:00:00" },
     });
@@ -139,7 +132,7 @@ describe("AvailabilityScreen", () => {
   });
 
   it("saves enabled days and shows a confirmation", async () => {
-    fetchMyEmployee.mockResolvedValue(makeEmployee());
+    (getEmployees as jest.Mock).mockResolvedValue([makeEmployee()]);
     (getAvailability as jest.Mock).mockResolvedValue({
       1: { startTime: "09:00:00", endTime: "17:00:00" },
     });
@@ -160,7 +153,7 @@ describe("AvailabilityScreen", () => {
   });
 
   it("shows an error alert when saving fails", async () => {
-    fetchMyEmployee.mockResolvedValue(makeEmployee());
+    (getEmployees as jest.Mock).mockResolvedValue([makeEmployee()]);
     (getAvailability as jest.Mock).mockResolvedValue({
       1: { startTime: "09:00:00", endTime: "17:00:00" },
     });

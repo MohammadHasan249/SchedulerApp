@@ -1,6 +1,7 @@
 import { Tabs, useRouter } from "expo-router";
 import { useEffect } from "react";
 import { AppState } from "react-native";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Calendar,
   Clock,
@@ -12,28 +13,24 @@ import {
 } from "lucide-react-native";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useAuthStore } from "@/lib/authStore";
-import { useOrgStore } from "@/lib/orgStore";
+import { unreadNotificationCountQueryKey } from "@/hooks/useNotifications";
 import { OrgTabHeader } from "@/components/OrgTabHeader";
 import { useIsAdmin } from "@/lib/useRole";
 import { useKioskStore } from "@/lib/kioskStore";
 import { registerForPushNotificationsAsync } from "@/lib/pushNotifications";
 import { registerPushToken } from "@/lib/api";
-import { useNotificationsStore } from "@/lib/notificationsStore";
 
 export default function TabLayout() {
   const theme = useAppTheme();
   const { session, employeeName } = useAuthStore();
-  const { fetchOrgInfo } = useOrgStore();
   const isAdmin = useIsAdmin();
   const { isLocked, hydrate: hydrateKiosk } = useKioskStore();
-  const { refreshUnreadCount } = useNotificationsStore();
+  const queryClient = useQueryClient();
   const router = useRouter();
 
   useEffect(() => {
     if (session) {
-      fetchOrgInfo();
       hydrateKiosk();
-      refreshUnreadCount();
       registerForPushNotificationsAsync()
         .then((token) => {
           if (token) return registerPushToken(token);
@@ -45,7 +42,7 @@ export default function TabLayout() {
   useEffect(() => {
     if (!session) return;
     const sub = AppState.addEventListener("change", (state) => {
-      if (state === "active") refreshUnreadCount();
+      if (state === "active") queryClient.invalidateQueries({ queryKey: unreadNotificationCountQueryKey });
     });
     return () => sub.remove();
   }, [session]);

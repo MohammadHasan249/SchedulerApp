@@ -1,5 +1,5 @@
 import React from "react";
-import { render, fireEvent, waitFor, act } from "@testing-library/react-native";
+import { render, fireEvent, waitFor, act } from "@/test-utils";
 import { EmployeeCompensation } from "@/components/EmployeeCompensation";
 import { getPayRates, createPayRate } from "@/lib/api";
 import type { PayRate } from "@scheduler/types";

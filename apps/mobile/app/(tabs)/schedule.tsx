@@ -16,7 +16,7 @@ import {
 } from "@/hooks/useShifts";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useAuthStore } from "@/lib/authStore";
-import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
+import { useMyEmployeeQuery } from "@/hooks/useEmployees";
 import { useIsAdmin, useBranchId } from "@/lib/useRole";
 import { BranchSelector } from "@/components/BranchSelector";
 import { formatZonedTime } from "@/lib/utils/timezone";
@@ -34,8 +34,7 @@ export default function ScheduleScreen() {
   const myBranchId = useBranchId();
   const router = useRouter();
   const { session } = useAuthStore();
-  const { fetchMyEmployee } = useMyEmployeeStore();
-  const [myEmployeeId, setMyEmployeeId] = useState<string | null>(null);
+  const myEmployeeId = useMyEmployeeQuery(!isAdmin ? session?.user?.id : undefined).data?.id ?? null;
 
   const [view, setView] = useState<"shifts" | "availability">("shifts");
   const [weekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -116,13 +115,6 @@ export default function ScheduleScreen() {
       })
       .catch(() => {});
   }, [isAdmin, myBranchId]);
-
-  // Employees: resolve own record so their shifts can be highlighted.
-  useEffect(() => {
-    if (!isAdmin && session?.user?.id) {
-      fetchMyEmployee(session.user.id).then((me) => setMyEmployeeId(me?.id ?? null));
-    }
-  }, [session, isAdmin]);
 
   // Silently refresh when the screen regains focus (e.g. returning from the
   // AI assign screen) so new assignments show up without a manual pull.
