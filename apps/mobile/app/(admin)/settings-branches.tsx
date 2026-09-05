@@ -11,15 +11,10 @@ import {
   FlatList,
 } from "react-native";
 import { Stack } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus, Pencil, Trash2, X, GitBranch, Check } from "lucide-react-native";
-import {
-  getBranches,
-  createBranch,
-  updateBranch,
-  deleteBranch,
-  type Branch,
-} from "@/lib/api";
+import { type Branch } from "@/lib/api";
+import { useBranchesQuery, useCreateBranch, useUpdateBranch, useDeleteBranch } from "@/hooks/useBranches";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useRole, useBranchId } from "@/lib/useRole";
 import { getTimezoneOptions } from "@scheduler/types";
@@ -42,8 +37,13 @@ export default function SettingsBranchesScreen() {
   const myBranchId = useBranchId();
   const canCreateOrDelete = role === "org_admin";
 
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [loading, setLoading] = useState(true);
+  const branchesQuery = useBranchesQuery();
+  const allBranches = branchesQuery.data ?? [];
+  const branches = canCreateOrDelete ? allBranches : allBranches.filter((b) => b.id === myBranchId);
+  const loading = branchesQuery.isLoading;
+  const createMutation = useCreateBranch();
+  const updateMutation = useUpdateBranch();
+  const deleteMutation = useDeleteBranch();
   const [modalVisible, setModalVisible] = useState(false);
   const [editing, setEditing] = useState<Branch | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -56,20 +56,6 @@ export default function SettingsBranchesScreen() {
     const list = q ? TIMEZONE_OPTIONS.filter((tz) => tz.label.toLowerCase().includes(q)) : TIMEZONE_OPTIONS;
     return list.slice(0, 100);
   }, [tzSearch]);
-
-  async function load() {
-    try {
-      const data = await getBranches();
-      setBranches(canCreateOrDelete ? data : data.filter((b) => b.id === myBranchId));
-    } catch {
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    load();
-  }, []);
 
   function openCreate() {
     setEditing(null);
@@ -107,11 +93,9 @@ export default function SettingsBranchesScreen() {
         timezone: form.timezone.trim() || "America/New_York",
       };
       if (editing) {
-        const updated = await updateBranch(editing.id, payload);
-        setBranches((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
+        await updateMutation.mutateAsync({ id: editing.id, input: payload });
       } else {
-        const created = await createBranch(payload);
-        setBranches((prev) => [...prev, created]);
+        await createMutation.mutateAsync(payload);
       }
       setModalVisible(false);
     } catch (e: unknown) {
@@ -133,8 +117,7 @@ export default function SettingsBranchesScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              await deleteBranch(branch.id);
-              setBranches((prev) => prev.filter((b) => b.id !== branch.id));
+              await deleteMutation.mutateAsync(branch.id);
             } catch {
               Alert.alert("Error", "Failed to delete branch.");
             }

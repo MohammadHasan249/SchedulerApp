@@ -9,71 +9,57 @@ import {
   Alert,
 } from "react-native";
 import { Stack } from "expo-router";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react-native";
-import {
-  getPermissionProfiles,
-  createPermissionProfile,
-  updatePermissionProfile,
-  deletePermissionProfile,
-  getEmployees,
-  updateEmployee,
-} from "@/lib/api";
 import {
   PERMISSION_KEYS,
   PERMISSION_LABELS,
   type PermissionKey,
   type PermissionProfile,
-  type Employee,
 } from "@scheduler/types";
 import { useAppTheme } from "@/lib/useAppTheme";
+import {
+  usePermissionProfilesQuery, useCreatePermissionProfile, useUpdatePermissionProfile,
+  useDeletePermissionProfile,
+} from "@/hooks/usePermissionProfiles";
+import { useEmployeesQuery, useUpdateEmployee } from "@/hooks/useEmployees";
 
 export default function SettingsPermissionsScreen() {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
 
-  const [profiles, setProfiles] = useState<PermissionProfile[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [loading, setLoading] = useState(true);
+  const profilesQuery = usePermissionProfilesQuery();
+  const employeesQuery = useEmployeesQuery();
+  const profiles = [...(profilesQuery.data ?? [])].sort((a, b) => a.name.localeCompare(b.name));
+  const employees = (employeesQuery.data ?? []).filter((e) => e.role !== "org_admin" && e.isActive);
+  const loading = profilesQuery.isLoading || employeesQuery.isLoading;
   const [error, setError] = useState<string | null>(null);
 
   const [newName, setNewName] = useState("");
   const [newPerms, setNewPerms] = useState<PermissionKey[]>([]);
-  const [creating, setCreating] = useState(false);
-
-  const load = useCallback(async () => {
-    setError(null);
-    try {
-      const [profs, emps] = await Promise.all([getPermissionProfiles(), getEmployees()]);
-      setProfiles(profs);
-      setEmployees(emps.filter((e) => e.role !== "org_admin" && e.isActive));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't load permissions.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const createProfileMutation = useCreatePermissionProfile();
+  const updateProfileMutation = useUpdatePermissionProfile();
+  const deleteProfileMutation = useDeletePermissionProfile();
+  const updateEmployeeMutation = useUpdateEmployee();
+  const creating = createProfileMutation.isPending;
 
   useEffect(() => {
-    load();
-  }, [load]);
+    const err = profilesQuery.error ?? employeesQuery.error;
+    if (err) setError(err instanceof Error ? err.message : "Couldn't load permissions.");
+  }, [profilesQuery.error, employeesQuery.error]);
 
   async function handleCreate() {
     if (!newName.trim()) {
       setError("Give the profile a name.");
       return;
     }
-    setCreating(true);
     setError(null);
     try {
-      const created = await createPermissionProfile({ name: newName.trim(), permissions: newPerms });
-      setProfiles((p) => [...p, created].sort((a, b) => a.name.localeCompare(b.name)));
+      await createProfileMutation.mutateAsync({ name: newName.trim(), permissions: newPerms });
       setNewName("");
       setNewPerms([]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't create the profile.");
-    } finally {
-      setCreating(false);
     }
   }
 
@@ -81,12 +67,10 @@ export default function SettingsPermissionsScreen() {
     const next = profile.permissions.includes(key)
       ? profile.permissions.filter((k) => k !== key)
       : [...profile.permissions, key];
-    setProfiles((ps) => ps.map((p) => (p.id === profile.id ? { ...p, permissions: next } : p)));
     try {
-      await updatePermissionProfile(profile.id, { permissions: next });
+      await updateProfileMutation.mutateAsync({ id: profile.id, input: { permissions: next } });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't update permissions.");
-      setProfiles((ps) => ps.map((p) => (p.id === profile.id ? profile : p)));
     }
   }
 
@@ -97,20 +81,10 @@ export default function SettingsPermissionsScreen() {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
-          const prevProfiles = profiles;
-          const prevEmployees = employees;
-          setProfiles((ps) => ps.filter((p) => p.id !== profile.id));
-          setEmployees((es) =>
-            es.map((e) =>
-              e.permissionProfileId === profile.id ? { ...e, permissionProfileId: null } : e
-            )
-          );
           try {
-            await deletePermissionProfile(profile.id);
+            await deleteProfileMutation.mutateAsync(profile.id);
           } catch (e) {
             setError(e instanceof Error ? e.message : "Couldn't delete the profile.");
-            setProfiles(prevProfiles);
-            setEmployees(prevEmployees);
           }
         },
       },
@@ -118,15 +92,10 @@ export default function SettingsPermissionsScreen() {
   }
 
   async function assign(employeeId: string, profileId: string | null) {
-    const prev = employees;
-    setEmployees((es) =>
-      es.map((e) => (e.id === employeeId ? { ...e, permissionProfileId: profileId } : e))
-    );
     try {
-      await updateEmployee(employeeId, { permissionProfileId: profileId });
+      await updateEmployeeMutation.mutateAsync({ id: employeeId, input: { permissionProfileId: profileId } });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't assign the profile.");
-      setEmployees(prev);
     }
   }
 

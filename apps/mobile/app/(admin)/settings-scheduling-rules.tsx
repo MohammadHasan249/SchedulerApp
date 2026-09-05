@@ -10,17 +10,13 @@ import {
   Switch,
 } from "react-native";
 import { Stack } from "expo-router";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Trash2, ListChecks } from "lucide-react-native";
+import { type Branch, type SchedulingRule } from "@/lib/api";
+import { useBranchesQuery } from "@/hooks/useBranches";
 import {
-  getBranches,
-  getSchedulingRules,
-  createSchedulingRule,
-  updateSchedulingRule,
-  deleteSchedulingRule,
-  type Branch,
-  type SchedulingRule,
-} from "@/lib/api";
+  useSchedulingRulesQuery, useCreateSchedulingRule, useUpdateSchedulingRule, useDeleteSchedulingRule,
+} from "@/hooks/useSchedulingRules";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useRole, useBranchId } from "@/lib/useRole";
 import { BranchSelector } from "@/components/BranchSelector";
@@ -32,64 +28,46 @@ export default function SettingsSchedulingRulesScreen() {
   const ownBranchId = useBranchId();
   const isBranchManager = role === "branch_manager";
 
-  const [branches, setBranches] = useState<Branch[]>([]);
+  const branchesQuery = useBranchesQuery();
+  const branches: Branch[] = branchesQuery.data ?? [];
   const [branchId, setBranchId] = useState<string | null>(isBranchManager ? ownBranchId : null);
-  const [rules, setRules] = useState<SchedulingRule[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [ruleText, setRuleText] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState("");
 
   useEffect(() => {
-    (async () => {
-      try {
-        const data = await getBranches();
-        setBranches(data);
-        if (!isBranchManager && data.length > 0) {
-          setBranchId((prev) => prev ?? data[0].id);
-        }
-      } catch (e) {
-        Alert.alert("Couldn't load branches", e instanceof Error ? e.message : "Please try again.");
-        setLoading(false);
-      }
-    })();
-  }, [isBranchManager]);
-
-  const load = useCallback(async () => {
-    if (!branchId) return;
-    setLoading(true);
-    try {
-      setRules(await getSchedulingRules(branchId));
-    } catch (e) {
-      Alert.alert("Couldn't load scheduling rules", e instanceof Error ? e.message : "Please try again.");
-    } finally {
-      setLoading(false);
+    if (!isBranchManager && !branchId && branches.length > 0) {
+      setBranchId(branches[0].id);
     }
-  }, [branchId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isBranchManager, branches.length]);
+
+  const rulesQuery = useSchedulingRulesQuery(branchId);
+  const rules = rulesQuery.data ?? [];
+  const loading = branchesQuery.isLoading || rulesQuery.isLoading;
+  const [ruleText, setRuleText] = useState("");
+  const [formError, setFormError] = useState("");
+  const createMutation = useCreateSchedulingRule();
+  const updateMutation = useUpdateSchedulingRule();
+  const deleteMutation = useDeleteSchedulingRule();
+  const saving = createMutation.isPending;
 
   useEffect(() => {
-    load();
-  }, [load]);
+    const err = branchesQuery.error ?? rulesQuery.error;
+    if (err) Alert.alert("Couldn't load scheduling rules", err instanceof Error ? err.message : "Please try again.");
+  }, [branchesQuery.error, rulesQuery.error]);
 
   async function handleAdd() {
     if (!branchId || !ruleText.trim()) return;
-    setSaving(true);
     setFormError("");
     try {
-      await createSchedulingRule(branchId, ruleText.trim());
+      await createMutation.mutateAsync({ branchId, ruleText: ruleText.trim() });
       setRuleText("");
-      await load();
     } catch (e) {
       setFormError(e instanceof Error ? e.message : "Failed to save.");
-    } finally {
-      setSaving(false);
     }
   }
 
   async function handleToggle(rule: SchedulingRule) {
     try {
-      await updateSchedulingRule(rule.id, { isActive: !rule.isActive });
-      setRules((prev) => prev.map((r) => (r.id === rule.id ? { ...r, isActive: !r.isActive } : r)));
+      await updateMutation.mutateAsync({ id: rule.id, updates: { isActive: !rule.isActive } });
     } catch (e) {
       Alert.alert("Error", e instanceof Error ? e.message : "Failed to update.");
     }
@@ -103,8 +81,7 @@ export default function SettingsSchedulingRulesScreen() {
         style: "destructive",
         onPress: async () => {
           try {
-            await deleteSchedulingRule(rule.id);
-            setRules((prev) => prev.filter((r) => r.id !== rule.id));
+            await deleteMutation.mutateAsync(rule.id);
           } catch (e) {
             Alert.alert("Error", e instanceof Error ? e.message : "Failed to delete.");
           }

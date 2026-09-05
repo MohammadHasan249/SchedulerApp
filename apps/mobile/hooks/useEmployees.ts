@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getEmployees, getEmployee, inviteEmployee, updateEmployee, deleteEmployee, updateEmployeePin,
 } from "@/lib/api";
+import type { Employee } from "@scheduler/types";
 
 export const employeesQueryKey = ["employees"] as const;
 export function employeeQueryKey(id: string) {
@@ -38,11 +39,22 @@ export function useInviteEmployee() {
 }
 
 export function useUpdateEmployee() {
-  const invalidateEmployees = useInvalidateEmployees();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: Parameters<typeof updateEmployee>[1] }) =>
       updateEmployee(id, input),
-    onSuccess: invalidateEmployees,
+    onMutate: async ({ id, input }) => {
+      await queryClient.cancelQueries({ queryKey: employeesQueryKey });
+      const previous = queryClient.getQueryData<Employee[]>(employeesQueryKey);
+      queryClient.setQueryData<Employee[]>(employeesQueryKey, (old) =>
+        old?.map((e) => (e.id === id ? { ...e, ...input } : e))
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(employeesQueryKey, context.previous);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: employeesQueryKey }),
   });
 }
 

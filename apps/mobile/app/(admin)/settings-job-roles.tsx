@@ -12,40 +12,31 @@ import {
 import { Stack } from "expo-router";
 import { useEffect, useState } from "react";
 import { Plus, Pencil, Trash2, X, Briefcase } from "lucide-react-native";
-import {
-  getJobRoles,
-  createJobRole,
-  updateJobRole,
-  deleteJobRole,
-  type JobRole,
-} from "@/lib/api";
+import { type JobRole } from "@/lib/api";
+import { useJobRolesQuery, useCreateJobRole, useUpdateJobRole, useDeleteJobRole } from "@/hooks/useJobRoles";
 import { useAppTheme } from "@/lib/useAppTheme";
 
 export default function SettingsJobRolesScreen() {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
 
-  const [roles, setRoles] = useState<JobRole[]>([]);
-  const [loading, setLoading] = useState(true);
+  const jobRolesQuery = useJobRolesQuery();
+  const roles = jobRolesQuery.data ?? [];
+  const loading = jobRolesQuery.isLoading;
+  const createMutation = useCreateJobRole();
+  const updateMutation = useUpdateJobRole();
+  const deleteMutation = useDeleteJobRole();
   const [modalVisible, setModalVisible] = useState(false);
   const [editing, setEditing] = useState<JobRole | null>(null);
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
 
-  async function load() {
-    try {
-      setRoles(await getJobRoles());
-    } catch (e) {
-      Alert.alert("Couldn't load job roles", e instanceof Error ? e.message : "Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
-    load();
-  }, []);
+    if (jobRolesQuery.error) {
+      Alert.alert("Couldn't load job roles", jobRolesQuery.error instanceof Error ? jobRolesQuery.error.message : "Please try again.");
+    }
+  }, [jobRolesQuery.error]);
 
   function openCreate() {
     setEditing(null);
@@ -70,12 +61,11 @@ export default function SettingsJobRolesScreen() {
     setFormError("");
     try {
       if (editing) {
-        await updateJobRole(editing.id, name.trim());
+        await updateMutation.mutateAsync({ id: editing.id, name: name.trim() });
       } else {
-        await createJobRole(name.trim());
+        await createMutation.mutateAsync(name.trim());
       }
       setModalVisible(false);
-      await load();
     } catch (e) {
       setFormError(e instanceof Error ? e.message : "Failed to save.");
     } finally {
@@ -94,8 +84,7 @@ export default function SettingsJobRolesScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              await deleteJobRole(role.id);
-              await load();
+              await deleteMutation.mutateAsync(role.id);
             } catch (e) {
               Alert.alert("Error", e instanceof Error ? e.message : "Failed to delete.");
             }
