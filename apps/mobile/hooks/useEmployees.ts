@@ -8,10 +8,11 @@ export function employeeQueryKey(id: string) {
   return ["employees", id] as const;
 }
 
-export function useEmployeesQuery() {
+export function useEmployeesQuery(enabled = true) {
   return useQuery({
     queryKey: employeesQueryKey,
     queryFn: getEmployees,
+    enabled,
   });
 }
 

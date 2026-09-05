@@ -6,11 +6,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { format, startOfWeek, addDays } from "date-fns";
+import { getShiftAssignments, getEligibleCovers } from "@/lib/api";
 import {
-  getTimeOffRequests, createTimeOffRequest, updateTimeOffRequest, cancelTimeOffRequest,
-  getShiftSwaps, createShiftSwap, updateShiftSwap,
-  getShifts, getShiftAssignments, getEmployees, getBranches, getEligibleCovers,
-} from "@/lib/api";
+  useTimeOffRequestsQuery, useCreateTimeOffRequest, useUpdateTimeOffRequest, useCancelTimeOffRequest,
+} from "@/hooks/useTimeOff";
+import { useShiftSwapsQuery, useCreateShiftSwap, useUpdateShiftSwap } from "@/hooks/useShiftSwaps";
+import { useShiftsQuery } from "@/hooks/useShifts";
+import { useEmployeesQuery } from "@/hooks/useEmployees";
+import { useBranchesQuery } from "@/hooks/useBranches";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useAuthStore } from "@/lib/authStore";
 import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
@@ -82,64 +85,58 @@ function TimeOffSection() {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
   const isAdmin = useIsAdmin();
-  const [requests, setRequests] = useState<TimeOffRequest[]>([]);
-  const [employeeMap, setEmployeeMap] = useState<Record<string, Employee>>({});
-  const [loading, setLoading] = useState(true);
+  const timeOffQuery = useTimeOffRequestsQuery();
+  const employeesQuery = useEmployeesQuery(isAdmin);
+  const requests = timeOffQuery.data ?? [];
+  const employeeMap: Record<string, Employee> = Object.fromEntries(
+    (employeesQuery.data ?? []).map((e) => [e.id, e])
+  );
+  const loading = timeOffQuery.isLoading || (isAdmin && employeesQuery.isLoading);
   const [refreshing, setRefreshing] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [openPicker, setOpenPicker] = useState<"start" | "end" | null>(null);
   const [reason, setReason] = useState("");
-  const [submitting, setSubmitting] = useState(false);
   const [actioning, setActioning] = useState<string | null>(null);
+  const createMutation = useCreateTimeOffRequest();
+  const updateMutation = useUpdateTimeOffRequest();
+  const cancelMutation = useCancelTimeOffRequest();
+  const submitting = createMutation.isPending;
 
-  async function load() {
-    try {
-      const reqs = await getTimeOffRequests();
-      setRequests(reqs);
-      if (isAdmin) {
-        const emps = await getEmployees();
-        setEmployeeMap(Object.fromEntries(emps.map((e) => [e.id, e])));
-      }
-    } catch (e) {
-      Alert.alert("Couldn't load time-off requests", e instanceof Error ? e.message : "Please try again.");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+  useEffect(() => {
+    const err = timeOffQuery.error ?? employeesQuery.error;
+    if (err) Alert.alert("Couldn't load time-off requests", err instanceof Error ? err.message : "Please try again.");
+  }, [timeOffQuery.error, employeesQuery.error]);
+
+  async function refreshAll() {
+    setRefreshing(true);
+    await Promise.all([timeOffQuery.refetch(), isAdmin ? employeesQuery.refetch() : Promise.resolve()]);
+    setRefreshing(false);
   }
-
-  useEffect(() => { load(); }, []);
 
   async function handleSubmit() {
     if (!startDate || !endDate) {
       Alert.alert("Error", "Please select start and end dates");
       return;
     }
-    if (submitting) return;
-    setSubmitting(true);
     try {
-      await createTimeOffRequest({
+      await createMutation.mutateAsync({
         startDate: format(startDate, "yyyy-MM-dd"),
         endDate: format(endDate, "yyyy-MM-dd"),
         reason: reason || undefined,
       });
       setShowForm(false);
       setStartDate(null); setEndDate(null); setReason("");
-      await load();
     } catch (e) {
       Alert.alert("Error", e instanceof Error ? e.message : "Failed to submit request");
-    } finally {
-      setSubmitting(false);
     }
   }
 
   async function handleDecision(id: string, status: "approved" | "denied") {
     setActioning(id);
     try {
-      await updateTimeOffRequest(id, { status });
-      await load();
+      await updateMutation.mutateAsync({ id, status });
     } catch (e) {
       Alert.alert("Error", e instanceof Error ? e.message : `Failed to ${status === "approved" ? "approve" : "deny"} request`);
     } finally {
@@ -151,8 +148,7 @@ function TimeOffSection() {
     const doCancel = async () => {
       setActioning(id);
       try {
-        await cancelTimeOffRequest(id);
-        await load();
+        await cancelMutation.mutateAsync(id);
       } catch (e) {
         Alert.alert("Error", e instanceof Error ? e.message : "Failed to cancel request");
       } finally {
@@ -262,7 +258,7 @@ function TimeOffSection() {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => { setRefreshing(true); load(); }}
+              onRefresh={refreshAll}
               tintColor={theme.primary}
             />
           }
@@ -387,76 +383,82 @@ function SwapSection() {
   const { session } = useAuthStore();
   const { fetchMyEmployee } = useMyEmployeeStore();
   const [employeeId, setEmployeeId] = useState<string | undefined>(undefined);
+  const [myEmployeeChecked, setMyEmployeeChecked] = useState(false);
 
-  const [swaps, setSwaps] = useState<ShiftSwapRequest[]>([]);
-  const [shiftMap, setShiftMap] = useState<Record<string, Shift>>({});
-  const [employeeMap, setEmployeeMap] = useState<Record<string, Employee>>({});
-  const [upcomingShifts, setUpcomingShifts] = useState<Shift[]>([]);
-  const [branchTimezones, setBranchTimezones] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
+  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const shiftSwapsQuery = useShiftSwapsQuery();
+  const currentWeekQuery = useShiftsQuery(weekStart.toISOString());
+  const nextWeekQuery = useShiftsQuery(addDays(weekStart, 7).toISOString());
+  const employeesQuery = useEmployeesQuery();
+  const branchesQuery = useBranchesQuery();
+
+  const swaps = shiftSwapsQuery.data ?? [];
+  const allShifts = [...(currentWeekQuery.data ?? []), ...(nextWeekQuery.data ?? [])];
+  const shiftMap: Record<string, Shift> = Object.fromEntries(allShifts.map((s) => [s.id, s]));
+  const employeeMap: Record<string, Employee> = Object.fromEntries(
+    (employeesQuery.data ?? []).map((e) => [e.id, e])
+  );
+  const branchTimezones: Record<string, string> = Object.fromEntries(
+    (branchesQuery.data ?? []).map((b) => [b.id, b.timezone])
+  );
+  const loading =
+    shiftSwapsQuery.isLoading || currentWeekQuery.isLoading || nextWeekQuery.isLoading ||
+    employeesQuery.isLoading || branchesQuery.isLoading || !myEmployeeChecked;
   const [refreshing, setRefreshing] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [swapShift, setSwapShift] = useState<Shift | null>(null);
+  const [upcomingShifts, setUpcomingShifts] = useState<Shift[]>([]);
   const [eligibleCovers, setEligibleCovers] = useState<{ id: string; name: string }[]>([]);
   const [loadingCovers, setLoadingCovers] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [actioning, setActioning] = useState<string | null>(null);
+  const createSwapMutation = useCreateShiftSwap();
+  const updateSwapMutation = useUpdateShiftSwap();
+  const submitting = createSwapMutation.isPending;
 
-  async function load() {
-    try {
-      const me = session?.user?.id ? await fetchMyEmployee(session.user.id) : null;
-      setEmployeeId(me?.id);
+  useEffect(() => {
+    (session?.user?.id ? fetchMyEmployee(session.user.id) : Promise.resolve(null))
+      .then((me) => setEmployeeId(me?.id))
+      .finally(() => setMyEmployeeChecked(true));
+  }, [session]);
 
-      const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-      const [swapData, shiftsNow, shiftsNext] = await Promise.all([
-        getShiftSwaps(),
-        getShifts(weekStart.toISOString()),
-        getShifts(addDays(weekStart, 7).toISOString()),
-      ]);
-      const allShifts = [...shiftsNow, ...shiftsNext];
-      const map: Record<string, Shift> = {};
-      allShifts.forEach((s) => { map[s.id] = s; });
-      const now = new Date();
-      setSwaps(swapData);
-      setShiftMap(map);
-
-      const upcoming = allShifts.filter((s) => new Date(s.startTime) > now);
-      if (isAdmin || !me) {
-        setUpcomingShifts(upcoming);
-      } else {
-        // The shifts list for employees carries no assignment info, so check
-        // each upcoming shift — otherwise the picker offers shifts the server
-        // will reject with "You are not assigned to this shift".
-        const assignmentLists = await Promise.all(
-          upcoming.map((s) =>
-            s.assignments
-              ? Promise.resolve(s.assignments)
-              : getShiftAssignments(s.id).catch(() => [])
-          )
-        );
-        setUpcomingShifts(
-          upcoming.filter((_, i) => assignmentLists[i].some((a) => a.employeeId === me.id))
-        );
-      }
-
-      // Needed to label swap cards with names. For admins this is the full
-      // org roster; for employees the API only ever returns their own
-      // record (see GET /api/employees), which is fine here since employees
-      // don't need it for anything but their own name.
-      const emps = await getEmployees();
-      setEmployeeMap(Object.fromEntries(emps.map((e) => [e.id, e])));
-
-      const brs = await getBranches();
-      setBranchTimezones(Object.fromEntries(brs.map((b) => [b.id, b.timezone])));
-    } catch (e) {
-      Alert.alert("Couldn't load swap requests", e instanceof Error ? e.message : "Please try again.");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+  // The shifts list for employees carries no assignment info, so each
+  // upcoming shift is checked individually — otherwise the picker offers
+  // shifts the server will reject with "You are not assigned to this shift".
+  useEffect(() => {
+    if (!myEmployeeChecked) return;
+    const now = new Date();
+    const upcoming = allShifts.filter((s) => new Date(s.startTime) > now);
+    if (isAdmin || !employeeId) {
+      setUpcomingShifts(upcoming);
+      return;
     }
-  }
+    let cancelled = false;
+    Promise.all(
+      upcoming.map((s) =>
+        s.assignments ? Promise.resolve(s.assignments) : getShiftAssignments(s.id).catch(() => [])
+      )
+    ).then((assignmentLists) => {
+      if (cancelled) return;
+      setUpcomingShifts(upcoming.filter((_, i) => assignmentLists[i].some((a) => a.employeeId === employeeId)));
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myEmployeeChecked, employeeId, isAdmin, currentWeekQuery.data, nextWeekQuery.data]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    const err = shiftSwapsQuery.error ?? currentWeekQuery.error ?? nextWeekQuery.error
+      ?? employeesQuery.error ?? branchesQuery.error;
+    if (err) Alert.alert("Couldn't load swap requests", err instanceof Error ? err.message : "Please try again.");
+  }, [shiftSwapsQuery.error, currentWeekQuery.error, nextWeekQuery.error, employeesQuery.error, branchesQuery.error]);
+
+  async function refreshAll() {
+    setRefreshing(true);
+    await Promise.all([
+      shiftSwapsQuery.refetch(), currentWeekQuery.refetch(), nextWeekQuery.refetch(),
+      employeesQuery.refetch(), branchesQuery.refetch(),
+    ]);
+    setRefreshing(false);
+  }
 
   async function selectSwapShift(shift: Shift) {
     setSwapShift(shift);
@@ -472,25 +474,19 @@ function SwapSection() {
   }
 
   async function handleCreateSwap(shiftId: string, coverId: string) {
-    if (submitting) return;
-    setSubmitting(true);
     try {
-      await createShiftSwap({ shiftId, coverId });
+      await createSwapMutation.mutateAsync({ shiftId, coverId });
       setShowPicker(false);
       setSwapShift(null);
-      await load();
     } catch (e) {
       Alert.alert("Error", e instanceof Error ? e.message : "Failed to create swap request");
-    } finally {
-      setSubmitting(false);
     }
   }
 
   async function handleAccept(swapId: string) {
     setActioning(swapId);
     try {
-      await updateShiftSwap(swapId, "accept_cover");
-      await load();
+      await updateSwapMutation.mutateAsync({ id: swapId, action: "accept_cover" });
     } catch (e) {
       Alert.alert("Error", e instanceof Error ? e.message : "Failed to accept swap");
     } finally {
@@ -501,8 +497,7 @@ function SwapSection() {
   async function handleManagerDecision(swapId: string, action: "manager_approve" | "deny") {
     setActioning(swapId);
     try {
-      await updateShiftSwap(swapId, action);
-      await load();
+      await updateSwapMutation.mutateAsync({ id: swapId, action });
     } catch (e) {
       Alert.alert("Error", e instanceof Error ? e.message : "Failed to update swap");
     } finally {
@@ -599,7 +594,7 @@ function SwapSection() {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => { setRefreshing(true); load(); }}
+              onRefresh={refreshAll}
               tintColor={theme.primary}
             />
           }
