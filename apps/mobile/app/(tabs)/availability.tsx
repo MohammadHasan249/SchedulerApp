@@ -4,7 +4,8 @@ import {
   ActivityIndicator, Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getAvailability, saveAvailability, getOrganizationHours } from "@/lib/api";
+import { useOrganizationHoursQuery } from "@/hooks/useOrganization";
+import { useAvailabilityQuery, useSaveAvailability } from "@/hooks/useAvailability";
 import { useAuthStore } from "@/lib/authStore";
 import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
 import { useAppTheme } from "@/lib/useAppTheme";
@@ -26,78 +27,74 @@ export default function AvailabilityScreen() {
   const styles = makeStyles(theme);
   const { session } = useAuthStore();
   const { fetchMyEmployee } = useMyEmployeeStore();
-  const [slots, setSlots] = useState<DaySlot[]>(
-    DAYS.map(() => ({ enabled: true, startTime: DEFAULT_START, endTime: DEFAULT_END }))
-  );
-  const [loading, setLoading] = useState(true);
+  const [slots, setSlots] = useState<DaySlot[] | null>(null);
   const [saving, setSaving] = useState(false);
   const [employeeId, setEmployeeId] = useState<string | null>(null);
+  const [noEmployee, setNoEmployee] = useState(false);
+
+  const hoursQuery = useOrganizationHoursQuery();
+  const availabilityQuery = useAvailabilityQuery(employeeId ?? undefined);
+  const saveMutation = useSaveAvailability();
+  const loading = !noEmployee && (employeeId === null || hoursQuery.isLoading || availabilityQuery.isLoading || !slots);
 
   useEffect(() => {
-    async function load() {
-      if (!session?.user?.id) return;
-      try {
-        const [hours, me] = await Promise.all([
-          getOrganizationHours(),
-          fetchMyEmployee(session.user.id),
-        ]);
-
-        if (!me) {
-          Alert.alert(
-            "No employee profile",
-            "Your account isn't linked to an employee record. Ask your manager to re-invite you."
-          );
-          setLoading(false);
-          return;
-        }
-        setEmployeeId(me.id);
-
-        const schedule = await getAvailability(me.id);
-
-        setSlots(
-          DAYS.map((_, i) => {
-            const saved = schedule[i];
-            if (saved) {
-              return {
-                enabled: true,
-                startTime: saved.startTime.slice(0, 5),
-                endTime: saved.endTime.slice(0, 5),
-              };
-            }
-            const orgSlot = hours[i.toString()];
-            return {
-              enabled: !!orgSlot,
-              startTime: orgSlot?.startTime ?? DEFAULT_START,
-              endTime: orgSlot?.endTime ?? DEFAULT_END,
-            };
-          })
-        );
-      } catch (err) {
+    if (!session?.user?.id) return;
+    fetchMyEmployee(session.user.id).then((me) => {
+      if (!me) {
         Alert.alert(
-          "Couldn't load availability",
-          err instanceof Error ? err.message : "Please try again."
+          "No employee profile",
+          "Your account isn't linked to an employee record. Ask your manager to re-invite you."
         );
-      } finally {
-        setLoading(false);
+        setNoEmployee(true);
+        return;
       }
-    }
-    load();
+      setEmployeeId(me.id);
+    });
   }, [session]);
+
+  useEffect(() => {
+    if (!hoursQuery.data || !availabilityQuery.data) return;
+    const hours = hoursQuery.data;
+    const schedule = availabilityQuery.data;
+    setSlots(
+      DAYS.map((_, i) => {
+        const saved = schedule[i];
+        if (saved) {
+          return {
+            enabled: true,
+            startTime: saved.startTime.slice(0, 5),
+            endTime: saved.endTime.slice(0, 5),
+          };
+        }
+        const orgSlot = hours[i.toString()];
+        return {
+          enabled: !!orgSlot,
+          startTime: orgSlot?.startTime ?? DEFAULT_START,
+          endTime: orgSlot?.endTime ?? DEFAULT_END,
+        };
+      })
+    );
+  }, [hoursQuery.data, availabilityQuery.data]);
+
+  useEffect(() => {
+    const err = hoursQuery.error ?? availabilityQuery.error;
+    if (err) Alert.alert("Couldn't load availability", err instanceof Error ? err.message : "Please try again.");
+  }, [hoursQuery.error, availabilityQuery.error]);
 
   function toggle(i: number) {
     setSlots((prev) =>
-      prev.map((s, idx) => (idx === i ? { ...s, enabled: !s.enabled } : s))
+      prev?.map((s, idx) => (idx === i ? { ...s, enabled: !s.enabled } : s)) ?? prev
     );
   }
 
   function setTime(i: number, key: "startTime" | "endTime", value: string) {
     setSlots((prev) =>
-      prev.map((s, idx) => (idx === i ? { ...s, [key]: value } : s))
+      prev?.map((s, idx) => (idx === i ? { ...s, [key]: value } : s)) ?? prev
     );
   }
 
   async function handleSave() {
-    if (!employeeId) {
+    if (!employeeId || !slots) {
       Alert.alert("Error", "No employee profile linked to this account.");
       return;
     }
@@ -112,7 +109,7 @@ export default function AvailabilityScreen() {
       slots.forEach((s, i) => {
         if (s.enabled) payload[i] = { startTime: s.startTime, endTime: s.endTime };
       });
-      await saveAvailability(employeeId, payload);
+      await saveMutation.mutateAsync({ employeeId, schedule: payload });
       Alert.alert("Saved", "Your availability has been updated.");
     } catch (e) {
       Alert.alert("Error", e instanceof Error ? e.message : "Failed to save availability.");
@@ -121,7 +118,7 @@ export default function AvailabilityScreen() {
     }
   }
 
-  if (loading) return (
+  if (loading || !slots) return (
     <SafeAreaView style={styles.container} edges={[]}>
       <ActivityIndicator color={theme.primary} style={{ marginTop: 40 }} />
     </SafeAreaView>

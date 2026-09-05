@@ -6,10 +6,10 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from "react-native";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { format } from "date-fns";
-import { getPayRates, createPayRate } from "@/lib/api";
-import type { PayRate, PayType } from "@scheduler/types";
+import { usePayRatesQuery, useCreatePayRate } from "@/hooks/usePayRates";
+import type { PayType } from "@scheduler/types";
 import { useAppTheme } from "@/lib/useAppTheme";
 
 function formatAmount(cents: number, currency: string, payType: PayType): string {
@@ -37,7 +37,9 @@ export function EmployeeCompensation({
   const theme = useAppTheme();
   const styles = makeStyles(theme);
 
-  const [rates, setRates] = useState<PayRate[] | null>(null);
+  const ratesQuery = usePayRatesQuery(employeeId);
+  const createMutation = useCreatePayRate();
+  const rates = ratesQuery.data ?? null;
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
 
@@ -45,20 +47,13 @@ export function EmployeeCompensation({
   const [amount, setAmount] = useState("");
   const [effectiveDate, setEffectiveDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [note, setNote] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  const load = useCallback(async () => {
-    setError(null);
-    try {
-      setRates(await getPayRates(employeeId));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't load compensation.");
-    }
-  }, [employeeId]);
+  const submitting = createMutation.isPending;
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (ratesQuery.error) {
+      setError(ratesQuery.error instanceof Error ? ratesQuery.error.message : "Couldn't load compensation.");
+    }
+  }, [ratesQuery.error]);
 
   async function handleSubmit() {
     setError(null);
@@ -71,22 +66,21 @@ export function EmployeeCompensation({
       setError("Effective date must be YYYY-MM-DD.");
       return;
     }
-    setSubmitting(true);
     try {
-      await createPayRate(employeeId, {
-        payType,
-        amountCents: Math.round(dollars * 100),
-        effectiveDate,
-        note: note.trim() || null,
+      await createMutation.mutateAsync({
+        employeeId,
+        payload: {
+          payType,
+          amountCents: Math.round(dollars * 100),
+          effectiveDate,
+          note: note.trim() || null,
+        },
       });
       setAmount("");
       setNote("");
       setShowForm(false);
-      await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't save the rate.");
-    } finally {
-      setSubmitting(false);
     }
   }
 

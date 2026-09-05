@@ -11,11 +11,8 @@ import {
 } from "react-native";
 import { Stack } from "expo-router";
 import { useEffect, useState } from "react";
-import {
-  getOrganizationHours,
-  updateOrganizationHours,
-  type HoursSchedule,
-} from "@/lib/api";
+import { type HoursSchedule } from "@/lib/api";
+import { useOrganizationHoursQuery, useUpdateOrganizationHours } from "@/hooks/useOrganization";
 import { useAppTheme } from "@/lib/useAppTheme";
 
 const DAYS = [
@@ -61,36 +58,31 @@ function fromSchedule(schedule: HoursSchedule): DayState[] {
 export default function SettingsHoursScreen() {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
-  const [days, setDays] = useState<DayState[]>(
-    DAYS.map(() => ({ enabled: true, startTime: "09:00", endTime: "17:00" }))
-  );
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const hoursQuery = useOrganizationHoursQuery();
+  const updateMutation = useUpdateOrganizationHours();
+  const [days, setDays] = useState<DayState[] | null>(null);
+  const loading = hoursQuery.isLoading || (!days && !hoursQuery.isError);
+  const saving = updateMutation.isPending;
 
   useEffect(() => {
-    getOrganizationHours()
-      .then((s) => setDays(fromSchedule(s)))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+    if (hoursQuery.data) setDays(fromSchedule(hoursQuery.data));
+  }, [hoursQuery.data]);
 
   function updateDay(i: number, patch: Partial<DayState>) {
-    setDays((prev) => prev.map((d, idx) => (idx === i ? { ...d, ...patch } : d)));
+    setDays((prev) => prev?.map((d, idx) => (idx === i ? { ...d, ...patch } : d)) ?? prev);
   }
 
   async function handleSave() {
-    setSaving(true);
+    if (!days) return;
     try {
-      await updateOrganizationHours(toSchedule(days));
+      await updateMutation.mutateAsync(toSchedule(days));
       Alert.alert("Saved", "Organization hours updated.");
     } catch {
       Alert.alert("Error", "Failed to save. Please try again.");
-    } finally {
-      setSaving(false);
     }
   }
 
-  if (loading) {
+  if (loading || !days) {
     return (
       <View style={[styles.container, { justifyContent: "center" }]}>
         <ActivityIndicator color={theme.primary} />

@@ -10,7 +10,7 @@ import {
 import { Stack } from "expo-router";
 import { useEffect, useState } from "react";
 import { Check } from "lucide-react-native";
-import { getOrganizationTheme, updateOrganizationTheme } from "@/lib/api";
+import { useOrganizationThemeQuery, useUpdateOrganizationTheme } from "@/hooks/useOrganization";
 import { useThemeStore } from "@/lib/themeStore";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { THEME_PRESETS } from "@scheduler/types";
@@ -27,34 +27,28 @@ export default function SettingsThemeScreen() {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
   const { setTheme } = useThemeStore();
+  const themeQuery = useOrganizationThemeQuery(!BRAND.lockedThemeKey);
+  const updateMutation = useUpdateOrganizationTheme();
   const [selected, setSelected] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const loading = themeQuery.isLoading;
+  const saving = updateMutation.isPending;
 
   useEffect(() => {
-    getOrganizationTheme()
-      .then((t) => {
-        if (t) {
-          const match = THEME_PRESETS.find((p) => p.primary === t.primary);
-          setSelected(match?.key ?? null);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+    if (themeQuery.data) {
+      const match = THEME_PRESETS.find((p) => p.primary === themeQuery.data!.primary);
+      setSelected(match?.key ?? null);
+    }
+  }, [themeQuery.data]);
 
   async function handleSave() {
     const preset = THEME_PRESETS.find((p) => p.key === selected);
     if (!preset) return;
-    setSaving(true);
     try {
-      const updated = await updateOrganizationTheme({ primary: preset.primary, ...FIXED_THEME });
+      const updated = await updateMutation.mutateAsync({ primary: preset.primary, ...FIXED_THEME });
       setTheme(updated);
       Alert.alert("Saved", "Theme updated.");
     } catch {
       Alert.alert("Error", "Failed to save. Please try again.");
-    } finally {
-      setSaving(false);
     }
   }
 

@@ -1,17 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   ActivityIndicator, Alert, RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
-import { getNotifications, markNotificationRead } from "@/lib/api";
 import { useAppTheme } from "@/lib/useAppTheme";
-import { useNotificationsStore } from "@/lib/notificationsStore";
+import { useNotificationsInfiniteQuery, useMarkNotificationRead } from "@/hooks/useNotifications";
 import { formatZonedDateTime } from "@/lib/utils/timezone";
 import type { Notification } from "@scheduler/types";
 
-const PAGE_SIZE = 5;
 // Notifications don't carry a branch id, so there's no reliable branch
 // timezone to convert into — fall back to the device's own timezone.
 const DEVICE_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -19,44 +17,20 @@ const DEVICE_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 export default function NotificationsScreen() {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
-  const { refreshUnreadCount } = useNotificationsStore();
-  const [notifs, setNotifs] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-
-  async function load() {
-    try {
-      const rows = await getNotifications({ limit: PAGE_SIZE, offset: 0 });
-      setNotifs(rows);
-      setHasMore(rows.length === PAGE_SIZE);
-    } catch (e) {
-      Alert.alert("Couldn't load notifications", e instanceof Error ? e.message : "Please try again.");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }
-
-  async function loadMore() {
-    setLoadingMore(true);
-    try {
-      const rows = await getNotifications({ limit: PAGE_SIZE, offset: notifs.length });
-      setNotifs((prev) => [...prev, ...rows]);
-      setHasMore(rows.length === PAGE_SIZE);
-    } catch (e) {
-      Alert.alert("Couldn't load more notifications", e instanceof Error ? e.message : "Please try again.");
-    } finally {
-      setLoadingMore(false);
-    }
-  }
+  const query = useNotificationsInfiniteQuery();
+  const markReadMutation = useMarkNotificationRead();
+  const notifs = query.data?.pages.flat() ?? [];
+  const loading = query.isLoading;
+  const loadingMore = query.isFetchingNextPage;
+  const refreshing = query.isRefetching && !query.isFetchingNextPage;
+  const hasMore = query.hasNextPage;
 
   useEffect(() => {
-    load();
-    refreshUnreadCount();
+    if (query.error) {
+      Alert.alert("Couldn't load notifications", query.error instanceof Error ? query.error.message : "Please try again.");
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [query.error]);
 
   // Silently refresh on subsequent focuses (e.g. returning after a manager
   // approves a request) so the list doesn't go stale while the tab stays mounted.
@@ -67,21 +41,14 @@ export default function NotificationsScreen() {
         firstFocusRef.current = false;
         return;
       }
-      load();
-      refreshUnreadCount();
+      query.refetch();
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
   );
 
-  async function handlePress(n: Notification) {
+  function handlePress(n: Notification) {
     if (n.isRead) return;
-    setNotifs((prev) => prev.map((x) => (x.id === n.id ? { ...x, isRead: true } : x)));
-    refreshUnreadCount();
-    try {
-      await markNotificationRead(n.id);
-    } catch {
-      // best-effort — leave optimistic state; next refresh reconciles
-    }
+    markReadMutation.mutate(n.id);
   }
 
   return (
@@ -95,7 +62,7 @@ export default function NotificationsScreen() {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => { setRefreshing(true); load(); }}
+              onRefresh={() => query.refetch()}
               tintColor={theme.primary}
             />
           }
@@ -120,7 +87,7 @@ export default function NotificationsScreen() {
               {hasMore && (
                 <TouchableOpacity
                   style={styles.seeMore}
-                  onPress={loadMore}
+                  onPress={() => query.fetchNextPage()}
                   disabled={loadingMore}
                 >
                   {loadingMore ? (

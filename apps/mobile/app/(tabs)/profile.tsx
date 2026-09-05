@@ -27,7 +27,8 @@ import { useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/lib/authStore";
 import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
-import { getOrganizationHours, unregisterPushToken, type HoursSchedule } from "@/lib/api";
+import { unregisterPushToken } from "@/lib/api";
+import { useOrganizationHoursQuery } from "@/hooks/useOrganization";
 import { useAppTheme } from "@/lib/useAppTheme";
 import * as Notifications from "expo-notifications";
 import { useIsAdmin, useRole } from "@/lib/useRole";
@@ -53,34 +54,20 @@ export default function ProfileScreen() {
   const isAdmin = useIsAdmin();
   const role = useRole();
   const user = session?.user;
-  const [orgHours, setOrgHours] = useState<HoursSchedule | null>(null);
-  const [loadingHours, setLoadingHours] = useState(true);
+  const orgHoursQuery = useOrganizationHoursQuery();
+  const orgHours = orgHoursQuery.data ?? null;
+  const loadingHours = orgHoursQuery.isLoading;
   const [hoursExpanded, setHoursExpanded] = useState(false);
 
   useEffect(() => {
-    async function loadData() {
-      try {
-        const hours = await getOrganizationHours();
-        setOrgHours(hours);
-      } catch {
-      } finally {
-        setLoadingHours(false);
-      }
-
-      if (!employeeName && session?.user?.id) {
-        const fullName = session.user.user_metadata?.full_name as string | undefined;
-        if (fullName) {
-          setEmployeeName(fullName);
-        } else {
-          const me = await fetchMyEmployee(session.user.id);
-          if (me?.name) setEmployeeName(me.name);
-        }
-      }
-    }
-    if (session) {
-      loadData();
+    if (!session || employeeName || !session.user?.id) return;
+    const fullName = session.user.user_metadata?.full_name as string | undefined;
+    if (fullName) {
+      setEmployeeName(fullName);
     } else {
-      setLoadingHours(false);
+      fetchMyEmployee(session.user.id).then((me) => {
+        if (me?.name) setEmployeeName(me.name);
+      });
     }
   }, [session]);
 

@@ -9,10 +9,10 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "expo-router";
 import { Users, CalendarCheck, Clock, Timer, ChevronRight } from "lucide-react-native";
-import { getDashboardStats, type DashboardStats } from "@/lib/api";
+import { useDashboardStatsQuery } from "@/hooks/useDashboard";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useAuthStore } from "@/lib/authStore";
 import { useIsAdmin } from "@/lib/useRole";
@@ -60,31 +60,18 @@ export default function DashboardScreen() {
   const router = useRouter();
   const isAdmin = useIsAdmin();
   const { session } = useAuthStore();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-
-  async function load(opts: { silent?: boolean } = {}) {
-    try {
-      const data = await getDashboardStats();
-      setStats(data);
-      setLoadError(null);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Please try again.";
-      setLoadError(msg);
-      if (!opts.silent) {
-        Alert.alert("Couldn't load dashboard", msg);
-      }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }
+  const statsQuery = useDashboardStatsQuery();
+  const stats = statsQuery.data ?? null;
+  const loading = statsQuery.isLoading;
+  const refreshing = statsQuery.isRefetching;
+  const loadError = statsQuery.error instanceof Error ? statsQuery.error.message : null;
 
   useEffect(() => {
-    load();
-  }, []);
+    if (statsQuery.error) {
+      Alert.alert("Couldn't load dashboard", statsQuery.error instanceof Error ? statsQuery.error.message : "Please try again.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statsQuery.error]);
 
   // Dashboard is admin/manager-only — hidden from the employee tab bar
   // (`(tabs)/_layout.tsx` sets `href: null` for it), but `href: null` only
@@ -98,11 +85,6 @@ export default function DashboardScreen() {
     if (session && !isAdmin) router.replace("/(tabs)/schedule");
   }, [session, isAdmin, router]);
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    load();
-  }, []);
-
   if (!isAdmin) return null;
 
   return (
@@ -111,7 +93,7 @@ export default function DashboardScreen() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={() => statsQuery.refetch()}
             tintColor={theme.primary}
           />
         }
