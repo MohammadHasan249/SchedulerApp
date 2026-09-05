@@ -4,20 +4,23 @@ import {
   ActivityIndicator, RefreshControl, Modal, FlatList, Pressable, Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ChevronLeft, ChevronRight, Bot, X, Plus, UserMinus, Trash2, Send } from "lucide-react-native";
+import { ChevronLeft, ChevronRight, Bot, X, Plus, UserMinus, Trash2, Send, Pencil } from "lucide-react-native";
 import { format, addDays, startOfWeek, isSameDay, getDay } from "date-fns";
 import { useRouter, useFocusEffect } from "expo-router";
 import {
-  getShifts, getEmployees, assignEmployee, unassignEmployee, getJobRoles,
-  createShift, getBranches, deleteShift, publishShifts, type Branch,
+  getEmployees, getJobRoles, getBranches, type Branch,
 } from "@/lib/api";
+import {
+  useShiftsQuery, useAssignEmployee, useUnassignEmployee, useCreateShift,
+  useUpdateShift, useDeleteShift, usePublishShifts,
+} from "@/hooks/useShifts";
 import { useAppTheme } from "@/lib/useAppTheme";
 import { useAuthStore } from "@/lib/authStore";
 import { useMyEmployeeStore } from "@/lib/myEmployeeStore";
 import { useIsAdmin, useBranchId } from "@/lib/useRole";
 import { BranchSelector } from "@/components/BranchSelector";
 import { formatZonedTime } from "@/lib/utils/timezone";
-import { fromZonedTime } from "date-fns-tz";
+import { fromZonedTime, formatInTimeZone } from "date-fns-tz";
 import type { Shift, Employee, ShiftAssignmentDetail } from "@scheduler/types";
 
 const DEFAULT_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -37,10 +40,19 @@ export default function ScheduleScreen() {
   const [view, setView] = useState<"shifts" | "availability">("shifts");
   const [weekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [selectedDay, setSelectedDay] = useState(new Date());
-  const [shifts, setShifts] = useState<Shift[]>([]);
+  const weekStartISO = weekStart.toISOString();
+  const shiftsQuery = useShiftsQuery(weekStartISO);
+  const shifts = shiftsQuery.data ?? [];
+  const assignMutation = useAssignEmployee();
+  const unassignMutation = useUnassignEmployee();
+  const createShiftMutation = useCreateShift();
+  const updateShiftMutation = useUpdateShift();
+  const deleteShiftMutation = useDeleteShift();
+  const publishMutation = usePublishShifts();
   const [teamEmployees, setTeamEmployees] = useState<Employee[]>([]);
   const [roleMap, setRoleMap] = useState<Map<string, string>>(new Map());
-  const [loading, setLoading] = useState(true);
+  const [employeesLoading, setEmployeesLoading] = useState(true);
+  const loading = shiftsQuery.isLoading || (isAdmin && employeesLoading);
   const [refreshing, setRefreshing] = useState(false);
 
   // Assignment modal
@@ -61,31 +73,37 @@ export default function ScheduleScreen() {
   const [createError, setCreateError] = useState("");
   const [timePickerFor, setTimePickerFor] = useState<"start" | "end" | null>(null);
 
-  const loadShifts = useCallback(async (start: Date) => {
-    try {
-      const data = await getShifts(start.toISOString());
-      setShifts(data);
-    } catch (e) {
-      Alert.alert("Couldn't load shifts", e instanceof Error ? e.message : "Please try again.");
-    }
-  }, []);
+  // Edit-time (for an existing shift, opened from the assignment modal)
+  const [editingTime, setEditingTime] = useState(false);
+  const [editStart, setEditStart] = useState("09:00");
+  const [editEnd, setEditEnd] = useState("17:00");
+  const [savingTime, setSavingTime] = useState(false);
+  const [editTimeError, setEditTimeError] = useState("");
+  const [editTimePickerFor, setEditTimePickerFor] = useState<"start" | "end" | null>(null);
 
   const loadEmployees = useCallback(async () => {
+    setEmployeesLoading(true);
     try {
       const [data, roles] = await Promise.all([getEmployees(), getJobRoles()]);
       setTeamEmployees(data);
       setRoleMap(new Map(roles.map((r) => [r.id, r.name])));
     } catch (e) {
       Alert.alert("Couldn't load team", e instanceof Error ? e.message : "Please try again.");
+    } finally {
+      setEmployeesLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    setLoading(true);
-    const tasks: Promise<unknown>[] = [loadShifts(weekStart)];
-    if (isAdmin) tasks.push(loadEmployees());
-    Promise.all(tasks).finally(() => setLoading(false));
-  }, [weekStart]);
+    if (isAdmin) loadEmployees();
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (shiftsQuery.error) {
+      const e = shiftsQuery.error;
+      Alert.alert("Couldn't load shifts", e instanceof Error ? e.message : "Please try again.");
+    }
+  }, [shiftsQuery.error]);
 
   // Org admins oversee multiple branches — load the list once and default
   // the selection to the admin's own branch, or the first branch otherwise.
@@ -115,8 +133,8 @@ export default function ScheduleScreen() {
         firstFocusRef.current = false;
         return;
       }
-      loadShifts(weekStart);
-    }, [weekStart, loadShifts])
+      shiftsQuery.refetch();
+    }, [shiftsQuery.refetch])
   );
 
   // Reload employees once when switching to availability
@@ -152,17 +170,22 @@ export default function ScheduleScreen() {
   }
   async function onRefresh() {
     setRefreshing(true);
-    await Promise.all([loadShifts(weekStart), isAdmin ? loadEmployees() : Promise.resolve()]);
+    await Promise.all([shiftsQuery.refetch(), isAdmin ? loadEmployees() : Promise.resolve()]);
     setRefreshing(false);
   }
+
+  // Keep the open assignment modal's shift in sync with the latest shifts
+  // list once a mutation invalidates and refetches it.
+  useEffect(() => {
+    if (!selectedShift) return;
+    const updated = shifts.find((s) => s.id === selectedShift.id);
+    if (updated) setSelectedShift(updated);
+  }, [shifts]);
 
   async function handleAssign(shift: Shift, employeeId: string) {
     setModalAssigning(true);
     try {
-      await assignEmployee(shift.id, employeeId);
-      const updated = await getShifts(weekStart.toISOString());
-      setShifts(updated);
-      setSelectedShift(updated.find((s) => s.id === shift.id) ?? null);
+      await assignMutation.mutateAsync({ shiftId: shift.id, employeeId });
     } catch (e) {
       Alert.alert("Couldn't assign", e instanceof Error ? e.message : "Please try again.");
     } finally {
@@ -173,14 +196,40 @@ export default function ScheduleScreen() {
   async function handleUnassign(shift: Shift, assignmentId: string) {
     setModalAssigning(true);
     try {
-      await unassignEmployee(shift.id, assignmentId);
-      const updated = await getShifts(weekStart.toISOString());
-      setShifts(updated);
-      setSelectedShift(updated.find((s) => s.id === shift.id) ?? null);
+      await unassignMutation.mutateAsync({ shiftId: shift.id, assignmentId });
     } catch (e) {
       Alert.alert("Couldn't unassign", e instanceof Error ? e.message : "Please try again.");
     } finally {
       setModalAssigning(false);
+    }
+  }
+
+  function openEditTime(shift: Shift) {
+    const tz = tzForBranch(shift.branchId);
+    setEditStart(formatInTimeZone(new Date(shift.startTime), tz, "HH:mm"));
+    setEditEnd(formatInTimeZone(new Date(shift.endTime), tz, "HH:mm"));
+    setEditTimeError("");
+    setEditingTime(true);
+  }
+
+  async function handleSaveTime(shift: Shift) {
+    if (editStart >= editEnd) {
+      setEditTimeError("End time must be after start time");
+      return;
+    }
+    setSavingTime(true);
+    setEditTimeError("");
+    try {
+      const tz = tzForBranch(shift.branchId);
+      const dateStr = formatInTimeZone(new Date(shift.startTime), tz, "yyyy-MM-dd");
+      const startISO = fromZonedTime(`${dateStr}T${editStart}:00`, tz).toISOString();
+      const endISO = fromZonedTime(`${dateStr}T${editEnd}:00`, tz).toISOString();
+      await updateShiftMutation.mutateAsync({ shiftId: shift.id, input: { startTime: startISO, endTime: endISO } });
+      setEditingTime(false);
+    } catch (e) {
+      setEditTimeError(e instanceof Error ? e.message : "Please try again.");
+    } finally {
+      setSavingTime(false);
     }
   }
 
@@ -195,10 +244,8 @@ export default function ScheduleScreen() {
         onPress: async () => {
           setModalAssigning(true);
           try {
-            await deleteShift(shift.id);
+            await deleteShiftMutation.mutateAsync(shift.id);
             setSelectedShift(null);
-            const updated = await getShifts(weekStart.toISOString());
-            setShifts(updated);
           } catch (e) {
             Alert.alert("Couldn't delete shift", e instanceof Error ? e.message : "Please try again.");
           } finally {
@@ -213,9 +260,7 @@ export default function ScheduleScreen() {
     if (!selectedBranchId || publishing) return;
     setPublishing(true);
     try {
-      await publishShifts(selectedBranchId, weekStart.toISOString());
-      const updated = await getShifts(weekStart.toISOString());
-      setShifts(updated);
+      await publishMutation.mutateAsync({ branchId: selectedBranchId, weekStartISO });
     } catch (e) {
       Alert.alert("Couldn't publish shifts", e instanceof Error ? e.message : "Please try again.");
     } finally {
@@ -260,12 +305,10 @@ export default function ScheduleScreen() {
       const branchTz = tzForBranch(createBranchId);
       const startISO = fromZonedTime(`${dateStr}T${createStart}:00`, branchTz).toISOString();
       const endISO = fromZonedTime(`${dateStr}T${createEnd}:00`, branchTz).toISOString();
-      const newShift = await createShift({ branchId: createBranchId, startTime: startISO, endTime: endISO });
+      const newShift = await createShiftMutation.mutateAsync({ branchId: createBranchId, startTime: startISO, endTime: endISO });
       for (const empId of createAssignedIds) {
-        await assignEmployee(newShift.id, empId);
+        await assignMutation.mutateAsync({ shiftId: newShift.id, employeeId: empId });
       }
-      const updated = await getShifts(weekStart.toISOString());
-      setShifts(updated);
       setCreateOpen(false);
     } catch (e) {
       setCreateError(e instanceof Error ? e.message : "Please try again.");
@@ -434,8 +477,9 @@ export default function ScheduleScreen() {
         transparent
         onRequestClose={() => setSelectedShift(null)}
       >
-        <Pressable style={styles.modalBackdrop} onPress={() => setSelectedShift(null)}>
-          <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
+        <View style={styles.modalBackdrop}>
+          <Pressable style={styles.backdropFill} onPress={() => setSelectedShift(null)} />
+          <View style={styles.modalSheet}>
             {selectedShift && (
               <>
                 <View style={styles.modalHeader}>
@@ -448,6 +492,13 @@ export default function ScheduleScreen() {
                     </Text>
                   </View>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+                    <TouchableOpacity
+                      onPress={() => openEditTime(selectedShift)}
+                      disabled={modalAssigning}
+                      accessibilityLabel="Edit shift time"
+                    >
+                      <Pencil size={19} color={theme.primary} />
+                    </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => confirmDeleteShift(selectedShift)}
                       disabled={modalAssigning}
@@ -512,8 +563,8 @@ export default function ScheduleScreen() {
                 )}
               </>
             )}
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
 
       {/* Create shift modal */}
@@ -523,8 +574,9 @@ export default function ScheduleScreen() {
         transparent
         onRequestClose={() => setCreateOpen(false)}
       >
-        <Pressable style={styles.modalBackdrop} onPress={() => setCreateOpen(false)}>
-          <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
+        <View style={styles.modalBackdrop}>
+          <Pressable style={styles.backdropFill} onPress={() => setCreateOpen(false)} />
+          <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
               <View>
                 <Text style={styles.modalTitle}>Add Shift</Text>
@@ -600,8 +652,93 @@ export default function ScheduleScreen() {
                 <Text style={styles.createBtnText}>Create Shift</Text>
               )}
             </TouchableOpacity>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit shift time modal */}
+      <Modal
+        visible={editingTime}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setEditingTime(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <Pressable style={styles.backdropFill} onPress={() => setEditingTime(false)} />
+          <View style={styles.modalSheet}>
+            {selectedShift && (
+              <>
+                <View style={styles.modalHeader}>
+                  <View>
+                    <Text style={styles.modalTitle}>Edit Shift Time</Text>
+                    <Text style={styles.modalSub}>{format(new Date(selectedShift.startTime), "EEE, MMM d")}</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setEditingTime(false)}>
+                    <X size={22} color={theme.muted} />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.timeRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sectionLabel}>Start</Text>
+                    <TouchableOpacity style={styles.timeInput} onPress={() => setEditTimePickerFor("start")}>
+                      <Text style={{ fontSize: 15, color: theme.text }}>{editStart}</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sectionLabel}>End</Text>
+                    <TouchableOpacity style={styles.timeInput} onPress={() => setEditTimePickerFor("end")}>
+                      <Text style={{ fontSize: 15, color: theme.text }}>{editEnd}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {editTimeError !== "" && <Text style={styles.errorText}>{editTimeError}</Text>}
+
+                <TouchableOpacity
+                  style={[styles.createBtn, savingTime && { opacity: 0.6 }]}
+                  onPress={() => handleSaveTime(selectedShift)}
+                  disabled={savingTime}
+                >
+                  {savingTime ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.createBtnText}>Save</Text>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit-time wheel picker */}
+      <Modal
+        visible={editTimePickerFor !== null}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setEditTimePickerFor(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <Pressable style={styles.backdropFill} onPress={() => setEditTimePickerFor(null)} />
+          <View style={styles.timePickerSheet}>
+            <Text style={styles.modalTitle}>{editTimePickerFor === "start" ? "Start Time" : "End Time"}</Text>
+            <TimeWheelPicker
+              theme={theme}
+              value={editTimePickerFor === "start" ? editStart : editEnd}
+              onChange={(v) => {
+                if (editTimePickerFor === "start") setEditStart(v);
+                else setEditEnd(v);
+              }}
+            />
+            <TouchableOpacity
+              style={[styles.createBtn, { alignSelf: "stretch" }]}
+              onPress={() => setEditTimePickerFor(null)}
+            >
+              <Text style={styles.createBtnText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
 
       {/* Time picker (wheel-based, no keyboard) */}
@@ -611,8 +748,9 @@ export default function ScheduleScreen() {
         transparent
         onRequestClose={() => setTimePickerFor(null)}
       >
-        <Pressable style={styles.modalBackdrop} onPress={() => setTimePickerFor(null)}>
-          <Pressable style={styles.timePickerSheet} onPress={(e) => e.stopPropagation()}>
+        <View style={styles.modalBackdrop}>
+          <Pressable style={styles.backdropFill} onPress={() => setTimePickerFor(null)} />
+          <View style={styles.timePickerSheet}>
             <Text style={styles.modalTitle}>{timePickerFor === "start" ? "Start Time" : "End Time"}</Text>
             <TimeWheelPicker
               theme={theme}
@@ -628,8 +766,8 @@ export default function ScheduleScreen() {
             >
               <Text style={styles.createBtnText}>Done</Text>
             </TouchableOpacity>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -858,6 +996,12 @@ function makeStyles(theme: ReturnType<typeof useAppTheme>) {
     modalBackdrop: {
       flex: 1, backgroundColor: theme.overlay,
       justifyContent: "flex-end",
+    },
+    // Sits above the sheet as a sibling (not a wrapping parent) so taps on
+    // the sheet's plain content can never reach this close handler — nested
+    // Pressable.stopPropagation() doesn't reliably block bubbling here.
+    backdropFill: {
+      ...StyleSheet.absoluteFillObject,
     },
     modalSheet: {
       backgroundColor: theme.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20,
