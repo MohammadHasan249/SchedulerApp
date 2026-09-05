@@ -5,6 +5,7 @@ import {
 } from "react-native";
 import { Link } from "expo-router";
 import { supabase } from "@/lib/supabase";
+import { mobileLogin } from "@/lib/api";
 import { BRAND } from "@/lib/brand";
 
 export default function LoginScreen() {
@@ -18,9 +19,20 @@ export default function LoginScreen() {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) Alert.alert("Login failed", error.message);
+    try {
+      const { access_token, refresh_token } = await mobileLogin(email, password, BRAND.key);
+      const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+      if (error) Alert.alert("Login failed", "Invalid email or password");
+    } catch (e) {
+      // The route deliberately gives bad-credentials and brand-mismatch the
+      // same generic message (see mobile-login route), but other failures —
+      // rate limiting, network errors — still carry a useful message worth
+      // surfacing rather than papering over.
+      const message = e instanceof Error ? e.message : "Invalid email or password";
+      Alert.alert("Login failed", message);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (

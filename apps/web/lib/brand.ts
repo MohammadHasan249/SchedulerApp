@@ -64,6 +64,50 @@ export function getBrandForHost(host: string | null | undefined): BrandConfig {
 }
 
 /**
+ * True when `orgSlug` belongs to an organization that shouldn't be reachable
+ * on `hostBrand`'s domain — a locked-brand domain (e.g.
+ * seaudecrabe.workplix.app) only admits its own org, and the unlocked domain
+ * (workplix.app) in turn excludes orgs locked to a *different* brand, so a
+ * Seau de Crabe admin with a valid session can't fall through to the plain
+ * Workplix dashboard just because that host has no lock of its own. Mirrors
+ * apps/mobile/lib/brand.ts isWrongBrandOrg and isWrongBrandOrgForVariant
+ * above, but keyed off the resolved host brand rather than a variant string.
+ */
+export function isWrongBrandOrgForHost(
+  hostBrand: BrandConfig,
+  orgSlug: string | null | undefined
+): boolean {
+  if (!orgSlug) return false;
+  if (hostBrand.lockedOrgSlug) {
+    return orgSlug !== hostBrand.lockedOrgSlug;
+  }
+  return Object.values(BRANDS).some((b) => b.key !== hostBrand.key && b.lockedOrgSlug === orgSlug);
+}
+
+/**
+ * True when `orgSlug` belongs to an organization the given mobile app
+ * variant shouldn't grant access to — mirrors
+ * apps/mobile/lib/brand.ts isWrongBrandOrg, but takes the variant as a
+ * parameter (rather than reading it off `Constants`) since this runs
+ * server-side for a client we don't have a build-time brand for. Used by
+ * the mobile login route to reject a brand mismatch before a session is
+ * ever issued to the device, instead of relying on the client to notice
+ * and sign itself back out.
+ */
+export function isWrongBrandOrgForVariant(
+  variant: BrandKey | null | undefined,
+  orgSlug: string | null | undefined
+): boolean {
+  if (!orgSlug || !variant) return false;
+  const brand = BRANDS[variant];
+  if (!brand) return false;
+  if (brand.lockedOrgSlug) {
+    return orgSlug !== brand.lockedOrgSlug;
+  }
+  return Object.values(BRANDS).some((b) => b.key !== brand.key && b.lockedOrgSlug === orgSlug);
+}
+
+/**
  * Brand for a given organization, based on its slug. Use this for anything
  * where the recipient's brand identity matters regardless of which client
  * (web domain or mobile app) made the request — e.g. transactional email

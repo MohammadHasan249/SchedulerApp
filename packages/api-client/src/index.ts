@@ -1,4 +1,5 @@
 export * from "./client";
+export * from "./auth";
 export * from "./shifts";
 export * from "./availability";
 export * from "./timeOff";

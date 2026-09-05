@@ -7,7 +7,7 @@ import { DashboardShell } from "@/components/layout/DashboardShell";
 import { db } from "@/lib/db";
 import { employees, organizations } from "@scheduler/database/schema";
 import { eq, and } from "drizzle-orm";
-import { getBrandForHost, WRONG_BRAND_REASON } from "@/lib/brand";
+import { getBrandForHost, isWrongBrandOrgForHost, WRONG_BRAND_REASON } from "@/lib/brand";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getUser();
@@ -30,12 +30,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
       .limit(1),
   ]);
 
-  // Authoritative org-slug gate for locked-brand domains (e.g.
-  // seaudecrabe.workplix.app): even a valid session from another brand's org
-  // must not reach the dashboard here, since auth/backend are shared.
+  // Authoritative org-slug gate, both directions: a locked-brand domain (e.g.
+  // seaudecrabe.workplix.app) only admits its own org, AND the unlocked
+  // domain (workplix.app) in turn must not admit an org locked to a
+  // *different* brand — otherwise a Seau de Crabe admin with a valid session
+  // could just use the plain Workplix dashboard instead, since auth/backend
+  // are shared across brands. Mirrors the mobile app's isWrongBrandOrg gate.
   const headerStore = await headers();
   const hostBrand = getBrandForHost(headerStore.get("host"));
-  if (hostBrand.lockedOrgSlug && org?.slug !== hostBrand.lockedOrgSlug) {
+  if (isWrongBrandOrgForHost(hostBrand, org?.slug)) {
     // Redirect to the /login page itself, not a Route Handler — redirect()
     // from a Server Component during a soft (client-router) navigation can't
     // land on a non-page URL correctly. The login page signs the stale
