@@ -93,6 +93,13 @@ const config: ExpoConfig = {
         color: brand.backgroundColor,
       },
     ],
+    [
+      "@sentry/react-native/expo",
+      {
+        organization: "workplix-3d",
+        project: "sentry-workplix",
+      },
+    ],
   ],
   extra: {
     appVariant: variant,
@@ -100,7 +107,10 @@ const config: ExpoConfig = {
   },
   ...(brand.easProjectId
     ? {
-        updates: { url: `https://u.expo.dev/${brand.easProjectId}` },
+        updates: {
+          url: `https://u.expo.dev/${brand.easProjectId}`,
+          fallbackToCacheTimeout: 0,
+        },
         runtimeVersion: { policy: "appVersion" as const },
       }
     : {}),
