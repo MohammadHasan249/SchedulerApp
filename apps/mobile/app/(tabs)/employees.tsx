@@ -429,7 +429,7 @@ export default function EmployeesScreen() {
               <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.muted + "33" }]} placeholder="40" placeholderTextColor={theme.muted} value={inviteForm.maxHoursPerWeek} onChangeText={(v) => setInviteForm((f) => ({ ...f, maxHoursPerWeek: v }))} keyboardType="numeric" />
 
               <Text style={[styles.fieldLabel, { color: theme.muted }]}>Kiosk PIN (optional, 4–6 digits)</Text>
-              <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.muted + "33" }]} placeholder="Leave blank to skip" placeholderTextColor={theme.muted} value={inviteForm.pin} onChangeText={(v) => setInviteForm((f) => ({ ...f, pin: v }))} keyboardType="numeric" secureTextEntry maxLength={6} />
+              <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.muted + "33" }]} placeholder="Leave blank to skip" placeholderTextColor={theme.muted} value={inviteForm.pin} onChangeText={(v) => setInviteForm((f) => ({ ...f, pin: v }))} keyboardType="numeric" secureTextEntry textContentType="oneTimeCode" maxLength={6} />
 
               {inviteError ? <Text style={styles.errorText}>{inviteError}</Text> : null}
 
@@ -509,6 +509,7 @@ export default function EmployeesScreen() {
                 onChangeText={(v) => setEditForm((f) => ({ ...f, pin: v.replace(/\D/g, "").slice(0, 4) }))}
                 keyboardType="numeric"
                 secureTextEntry
+                textContentType="oneTimeCode"
                 maxLength={4}
               />
 

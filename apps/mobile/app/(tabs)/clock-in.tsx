@@ -381,6 +381,7 @@ export default function ClockInScreen() {
               keyboardType="number-pad"
               maxLength={6}
               secureTextEntry
+              textContentType="oneTimeCode"
               placeholder="••••"
               placeholderTextColor={theme.muted}
               autoFocus

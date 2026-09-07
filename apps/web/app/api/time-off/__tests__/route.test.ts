@@ -60,6 +60,13 @@ describe("POST /api/time-off", () => {
     expect(res.status).toBe(400);
   });
 
+  it("rejects a request more than 183 days in advance", async () => {
+    (getApiUser as any).mockResolvedValue(employeeUser);
+    (db.select as any).mockReturnValue(chain([{ id: "emp-1" }]));
+    const res = await POST(req({ startDate: future(184), endDate: future(185) }));
+    expect(res.status).toBe(400);
+  });
+
   it("rejects a request exceeding the max duration", async () => {
     (getApiUser as any).mockResolvedValue(employeeUser);
     (db.select as any).mockReturnValue(chain([{ id: "emp-1" }]));

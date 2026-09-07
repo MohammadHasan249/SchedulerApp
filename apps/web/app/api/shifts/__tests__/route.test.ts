@@ -99,6 +99,12 @@ describe("POST /api/shifts", () => {
     expect(res.status).toBe(409);
   });
 
+  it("rejects a shift more than 30 days in advance", async () => {
+    (getApiUser as any).mockResolvedValue(orgAdmin);
+    const res = await POST(postReq({ branchId: "550e8400-e29b-41d4-a716-446655440000", startTime: future(31 * 24), endTime: future(31 * 24 + 8) }));
+    expect(res.status).toBe(400);
+  });
+
   it("404s when the branch isn't in the caller's org", async () => {
     (getApiUser as any).mockResolvedValue(orgAdmin);
     (db.select as any).mockReturnValue(chain([]));

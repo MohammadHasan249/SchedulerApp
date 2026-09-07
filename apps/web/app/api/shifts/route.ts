@@ -9,6 +9,7 @@ import { eq, and, gte, lte, inArray } from "drizzle-orm";
 
 const MIN_SHIFT_DURATION_MINUTES = 15;
 const MAX_SHIFT_DURATION_HOURS = 24;
+const MAX_ADVANCE_DAYS = 30;
 
 const createSchema = z.object({
   branchId: z.string().uuid(),
@@ -134,6 +135,14 @@ export const POST = withAuth(async function POST(request: Request) {
   // leaving an orphaned, unassigned shift that can't be deleted either.
   if (start < new Date()) {
     return NextResponse.json({ error: "Past shifts are locked" }, { status: 409 });
+  }
+
+  const maxStart = new Date(Date.now() + MAX_ADVANCE_DAYS * 24 * 60 * 60 * 1000);
+  if (start > maxStart) {
+    return NextResponse.json(
+      { error: `Shifts cannot be scheduled more than ${MAX_ADVANCE_DAYS} days in advance` },
+      { status: 400 }
+    );
   }
 
   const durationMs = end.getTime() - start.getTime();

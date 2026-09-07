@@ -11,6 +11,7 @@ import { eq, and, inArray, gte, lte, ne } from "drizzle-orm";
 import { getZonedParts } from "@/lib/utils/timezone";
 
 const MAX_TIME_OFF_DAYS = 90;
+const MAX_ADVANCE_DAYS = 183;
 
 const createSchema = z.object({
   startDate: z.string().date(),
@@ -97,6 +98,17 @@ export const POST = withAuth(async function POST(request: Request) {
   const today = getZonedParts(new Date(), timezone).dateStr;
   if (startDate < today) {
     return NextResponse.json({ error: "Cannot request time off in the past" }, { status: 400 });
+  }
+
+  const maxStartDate = getZonedParts(
+    new Date(Date.now() + MAX_ADVANCE_DAYS * 24 * 60 * 60 * 1000),
+    timezone
+  ).dateStr;
+  if (startDate > maxStartDate) {
+    return NextResponse.json(
+      { error: `Time off cannot be requested more than ${MAX_ADVANCE_DAYS} days in advance` },
+      { status: 400 }
+    );
   }
 
   // Enforce a soft cap on duration.

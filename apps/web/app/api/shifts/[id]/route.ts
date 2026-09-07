@@ -7,6 +7,8 @@ import { getApiUser as getUser } from "@/lib/auth/getUser"
 import { withAuth } from "@/lib/auth/withAuth";
 import { eq, and } from "drizzle-orm";
 
+const MAX_ADVANCE_DAYS = 30;
+
 const patchSchema = z.object({
   startTime: z.string().datetime().optional(),
   endTime: z.string().datetime().optional(),
@@ -44,6 +46,16 @@ export const PATCH = withAuth(async function PATCH(request: Request, { params }:
   if (jsonErr) return jsonErr;
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+
+  if (parsed.data.startTime) {
+    const maxStart = new Date(Date.now() + MAX_ADVANCE_DAYS * 24 * 60 * 60 * 1000);
+    if (new Date(parsed.data.startTime) > maxStart) {
+      return NextResponse.json(
+        { error: `Shifts cannot be scheduled more than ${MAX_ADVANCE_DAYS} days in advance` },
+        { status: 400 }
+      );
+    }
+  }
 
   const updates: Partial<typeof shifts.$inferInsert> = {};
   if (parsed.data.startTime) updates.startTime = new Date(parsed.data.startTime);

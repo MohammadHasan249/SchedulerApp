@@ -61,6 +61,7 @@ export default function SettingsExitPinScreen() {
               onChangeText={setPin}
               keyboardType="number-pad"
               secureTextEntry
+              textContentType="oneTimeCode"
               maxLength={6}
               placeholder="••••"
               placeholderTextColor={theme.muted}
@@ -81,6 +82,7 @@ export default function SettingsExitPinScreen() {
               onChangeText={setConfirm}
               keyboardType="number-pad"
               secureTextEntry
+              textContentType="oneTimeCode"
               maxLength={6}
               placeholder="••••"
               placeholderTextColor={theme.muted}

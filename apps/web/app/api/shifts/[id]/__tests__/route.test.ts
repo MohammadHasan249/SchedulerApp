@@ -42,6 +42,16 @@ describe("PATCH /api/shifts/[id]", () => {
     const res = await PATCH(req("PATCH", { isPublished: true }), params("s1"));
     expect(res.status).toBe(200);
   });
+
+  it("rejects moving a shift more than 30 days in advance", async () => {
+    (getApiUser as any).mockResolvedValue(orgAdmin);
+    (db.select as any).mockReturnValue(
+      chain([{ shift: { id: "s1", startTime: new Date(Date.now() + 86400000) }, branch: { id: "b1" } }])
+    );
+    const farStart = new Date(Date.now() + 31 * 24 * 60 * 60 * 1000).toISOString();
+    const res = await PATCH(req("PATCH", { startTime: farStart }), params("s1"));
+    expect(res.status).toBe(400);
+  });
 });
 
 describe("DELETE /api/shifts/[id]", () => {
