@@ -105,19 +105,43 @@ const FALLBACK_TIMEZONES = [
   "Asia/Kolkata", "Europe/London", "Europe/Paris", "Australia/Sydney", "UTC",
 ];
 
-function formatTimezoneLabel(tz: string): string {
+function cityName(tz: string): string {
   if (tz === "UTC") return "UTC";
-  const parts = tz.split("/");
-  const city = parts[parts.length - 1].replace(/_/g, " ");
-  const region = parts.length > 1 ? parts.slice(0, -1).join("/").replace(/_/g, " ") : "";
-  return region ? `${city} (${region})` : city;
+  return tz.split("/").pop()!.replace(/_/g, " ");
+}
+
+// "America" as a region label reads as "United States" to most people, when
+// it's actually the continent (Toronto and Vancouver are both "America/...").
+// Standard timezone pickers instead lead with the UTC offset, which is
+// unambiguous and lets the list sort geographically west-to-east.
+function getOffsetMinutes(tz: string): number {
+  if (tz === "UTC") return 0;
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    timeZoneName: "longOffset",
+  }).formatToParts(new Date());
+  const offset = parts.find((p) => p.type === "timeZoneName")?.value ?? "GMT+00:00";
+  const match = offset.match(/GMT([+-])(\d{2}):(\d{2})/);
+  if (!match) return 0;
+  const [, sign, hh, mm] = match;
+  const minutes = Number(hh) * 60 + Number(mm);
+  return sign === "-" ? -minutes : minutes;
+}
+
+function formatOffset(minutes: number): string {
+  const sign = minutes < 0 ? "-" : "+";
+  const abs = Math.abs(minutes);
+  const hh = String(Math.floor(abs / 60)).padStart(2, "0");
+  const mm = String(abs % 60).padStart(2, "0");
+  return `UTC${sign}${hh}:${mm}`;
 }
 
 /**
- * Every IANA timezone the runtime knows about, labeled by city with its
- * region for disambiguation (e.g. "Toronto (America)"), sorted by label.
- * Falls back to a short curated list on engines without
- * Intl.supportedValuesOf.
+ * Every IANA timezone the runtime knows about, labeled by its UTC offset and
+ * city (e.g. "(UTC-04:00) Toronto"), sorted by offset then city name. A
+ * disambiguator (the region path, e.g. "America/Indiana") is appended only
+ * when two zones would otherwise share the same city name. Falls back to a
+ * short curated list on engines without Intl.supportedValuesOf.
  */
 export function getTimezoneOptions(): TimezoneOption[] {
   const zones =
@@ -125,9 +149,23 @@ export function getTimezoneOptions(): TimezoneOption[] {
       ? Intl.supportedValuesOf("timeZone")
       : FALLBACK_TIMEZONES;
 
+  const cityCounts = new Map<string, number>();
+  for (const tz of zones) {
+    const city = cityName(tz);
+    cityCounts.set(city, (cityCounts.get(city) ?? 0) + 1);
+  }
+
   return zones
-    .map((value) => ({ value, label: formatTimezoneLabel(value) }))
-    .sort((a, b) => a.label.localeCompare(b.label));
+    .map((value) => {
+      const offsetMinutes = getOffsetMinutes(value);
+      const city = cityName(value);
+      const parts = value.split("/");
+      const region = parts.length > 1 ? parts.slice(0, -1).join("/").replace(/_/g, " ") : "";
+      const name = region && (cityCounts.get(city) ?? 0) > 1 ? `${city} (${region})` : city;
+      return { value, label: `(${formatOffset(offsetMinutes)}) ${name}`, offsetMinutes, city };
+    })
+    .sort((a, b) => a.offsetMinutes - b.offsetMinutes || a.city.localeCompare(b.city))
+    .map(({ value, label }) => ({ value, label }));
 }
 
 export interface Branch {
