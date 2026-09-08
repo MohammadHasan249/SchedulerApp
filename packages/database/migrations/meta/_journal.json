@@ -50,6 +50,13 @@
       "when": 1788558579857,
       "tag": "0006_worried_mattie_franklin",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788769351502,
+      "tag": "0007_even_wiccan",
+      "breakpoints": true
     }
   ]
 }

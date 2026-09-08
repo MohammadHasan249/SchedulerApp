@@ -51,10 +51,7 @@ export function inviteEmployee(payload: InviteEmployeePayload): Promise<InviteEm
 export function updateEmployee(
   id: string,
   data: Partial<
-    Pick<
-      Employee,
-      "name" | "isActive" | "branchId" | "jobRoleId" | "maxHoursPerWeek" | "permissionProfileId"
-    >
+    Pick<Employee, "name" | "isActive" | "branchId" | "jobRoleId" | "maxHoursPerWeek">
   > & { pin?: string }
 ): Promise<Employee> {
   return apiFetch(`/api/employees/${id}`, {

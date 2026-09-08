@@ -20,7 +20,6 @@ import {
   GitBranch,
   Briefcase,
   BarChart2,
-  ShieldCheck,
   ListChecks,
 } from "lucide-react-native";
 import { useRouter } from "expo-router";
@@ -205,16 +204,6 @@ export default function ProfileScreen() {
               <Text style={styles.settingsRowText}>Scheduling Rules</Text>
               <ChevronRight size={16} color={theme.muted} />
             </TouchableOpacity>
-            {role === "org_admin" && (
-              <TouchableOpacity
-                style={styles.settingsRow}
-                onPress={() => router.push("/(admin)/settings-permissions")}
-              >
-                <ShieldCheck size={18} color={theme.secondary} />
-                <Text style={styles.settingsRowText}>Permissions</Text>
-                <ChevronRight size={16} color={theme.muted} />
-              </TouchableOpacity>
-            )}
             {!BRAND.lockedThemeKey && (
               <TouchableOpacity
                 style={[

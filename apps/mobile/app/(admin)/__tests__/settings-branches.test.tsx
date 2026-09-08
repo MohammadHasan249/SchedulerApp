@@ -202,12 +202,14 @@ describe("SettingsBranchesScreen", () => {
     await findByText("No branches yet");
 
     await fireEvent.press(getByLabelText("Add branch"));
-    // Opens the timezone picker (swaps the modal's content in place).
-    await fireEvent.press(getByText("New York (America)"));
+    // Opens the timezone picker (swaps the modal's content in place). Labels
+    // lead with a UTC offset (e.g. "(UTC-05:00) New York") which shifts with
+    // DST, so match on the city name rather than a hardcoded offset.
+    await fireEvent.press(getByText(/New York/));
     // Search narrows the (potentially hundreds-long) list down to one match.
     fireEvent.changeText(getByPlaceholderText("Search timezones…"), "Los Angeles");
-    await fireEvent.press(await findByText("Los Angeles (America)"));
+    await fireEvent.press(await findByText(/Los Angeles/));
 
-    expect(await findByText("Los Angeles (America)")).toBeTruthy();
+    expect(await findByText(/Los Angeles/)).toBeTruthy();
   });
 });

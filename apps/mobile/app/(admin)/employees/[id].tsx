@@ -10,7 +10,7 @@ import {
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Mail, User, Briefcase, GitBranch, Clock, ShieldCheck, Power } from "lucide-react-native";
-import { getMyPermissions, type Branch, type JobRole } from "@/lib/api";
+import type { Branch, JobRole } from "@/lib/api";
 import { useEmployeeQuery, useUpdateEmployee, useDeleteEmployee } from "@/hooks/useEmployees";
 import { useBranchesQuery } from "@/hooks/useBranches";
 import { useJobRolesQuery } from "@/hooks/useJobRoles";
@@ -41,19 +41,8 @@ export default function EmployeeDetailScreen() {
   );
   const loading = employeeQuery.isLoading || branchesQuery.isLoading || jobRolesQuery.isLoading;
   const [acting, setActing] = useState(false);
-  const [canViewSalary, setCanViewSalary] = useState(false);
-  const [canEditSalary, setCanEditSalary] = useState(false);
   const updateMutation = useUpdateEmployee();
   const deleteMutation = useDeleteEmployee();
-
-  useEffect(() => {
-    getMyPermissions()
-      .then((permissions) => {
-        setCanViewSalary(permissions.includes("salaries:view"));
-        setCanEditSalary(permissions.includes("salaries:edit"));
-      })
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     const err = employeeQuery.error ?? branchesQuery.error ?? jobRolesQuery.error;
@@ -156,9 +145,7 @@ export default function EmployeeDetailScreen() {
           />
         </View>
 
-        {canViewSalary && (
-          <EmployeeCompensation employeeId={employee.id} canEdit={canEditSalary} />
-        )}
+        <EmployeeCompensation employeeId={employee.id} canEdit={true} />
 
         <TouchableOpacity
           style={[

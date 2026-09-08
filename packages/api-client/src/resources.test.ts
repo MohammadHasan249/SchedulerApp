@@ -29,13 +29,6 @@ import {
   updateOrganizationTheme,
 } from "./organization";
 import { getPayRates, createPayRate } from "./payRates";
-import {
-  getPermissionProfiles,
-  createPermissionProfile,
-  updatePermissionProfile,
-  deletePermissionProfile,
-  getMyPermissions,
-} from "./permissionProfiles";
 import { getShiftSwaps, createShiftSwap, updateShiftSwap } from "./shiftSwaps";
 import {
   getShifts,
@@ -346,51 +339,6 @@ describe("payRates", () => {
       method: "POST",
       body: JSON.stringify({ payType: "hourly", amountCents: 2150, effectiveDate: "2026-01-01" }),
     });
-  });
-});
-
-describe("permissionProfiles", () => {
-  it("getPermissionProfiles", () => {
-    getPermissionProfiles();
-    expect(apiFetch).toHaveBeenCalledWith("/api/permission-profiles");
-  });
-
-  it("createPermissionProfile", () => {
-    createPermissionProfile({ name: "Shift Lead", permissions: ["salaries:view"] });
-    expect(apiFetch).toHaveBeenCalledWith("/api/permission-profiles", {
-      method: "POST",
-      body: JSON.stringify({ name: "Shift Lead", permissions: ["salaries:view"] }),
-    });
-  });
-
-  it("updatePermissionProfile", () => {
-    updatePermissionProfile("p1", { permissions: ["salaries:edit"] });
-    expect(apiFetch).toHaveBeenCalledWith("/api/permission-profiles/p1", {
-      method: "PATCH",
-      body: JSON.stringify({ permissions: ["salaries:edit"] }),
-    });
-  });
-
-  it("deletePermissionProfile", () => {
-    deletePermissionProfile("p1");
-    expect(apiFetch).toHaveBeenCalledWith("/api/permission-profiles/p1", { method: "DELETE" });
-  });
-
-  it("getMyPermissions unwraps the permissions array", async () => {
-    apiFetch.mockResolvedValueOnce({ permissions: ["salaries:view"] });
-
-    const result = await getMyPermissions();
-
-    expect(apiFetch).toHaveBeenCalledWith("/api/me/permissions");
-    expect(result).toEqual(["salaries:view"]);
-  });
-
-  it("getMyPermissions defaults to an empty array", async () => {
-    apiFetch.mockResolvedValueOnce({});
-
-    const result = await getMyPermissions();
-
-    expect(result).toEqual([]);
   });
 });
 

@@ -100,18 +100,8 @@ describe("ProfileScreen", () => {
     expect(await findByText("Attendance Reports")).toBeTruthy();
     expect(await findByText("Branches")).toBeTruthy();
     expect(await findByText("Job Roles")).toBeTruthy();
-    expect(await findByText("Permissions")).toBeTruthy();
     expect(await findByText("Theme Colors")).toBeTruthy();
     expect(await findByText("Kiosk Exit PIN")).toBeTruthy();
-  });
-
-  it("hides Permissions for branch managers", async () => {
-    useAuthStore.setState({ session: sessionWith({ role: "branch_manager" }) });
-
-    const { findByText, queryByText } = await render(<ProfileScreen />);
-    await findByText("Manage");
-
-    expect(queryByText("Permissions")).toBeNull();
   });
 
   it("navigates to a settings screen when a row is pressed", async () => {

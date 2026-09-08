@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { getUser } from "@/lib/auth/getUser";
 import { requireRole } from "@/lib/auth/requireRole";
-import { getEmployeePermissions } from "@/lib/auth/permissions";
 import { db } from "@/lib/db";
 import { employees, branches } from "@scheduler/database/schema";
 import { eq, and } from "drizzle-orm";
@@ -48,10 +47,6 @@ export default async function EmployeeDetailPage({
 
   const branchMap = Object.fromEntries(branchRows.map((b) => [b.id, b.name]));
 
-  const permissions = await getEmployeePermissions(user);
-  const canViewSalary = permissions.has("salaries:view");
-  const canEditSalary = permissions.has("salaries:edit");
-
   return (
     <div className="max-w-lg space-y-6">
       <div>
@@ -78,9 +73,7 @@ export default async function EmployeeDetailPage({
         </CardContent>
       </Card>
 
-      {canViewSalary && (
-        <CompensationCard employeeId={employee.id} canEdit={canEditSalary} />
-      )}
+      <CompensationCard employeeId={employee.id} canEdit={true} />
     </div>
   );
 }

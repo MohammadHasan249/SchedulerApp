@@ -167,7 +167,6 @@ export const POST = withAuth(async function POST(request: Request) {
     maxHoursPerWeek: employees.maxHoursPerWeek,
     isActive: employees.isActive,
     availabilitySchedule: employees.availabilitySchedule,
-    permissionProfileId: employees.permissionProfileId,
   } as const;
 
   // Locked so this generate-then-insert can't race another PIN write for

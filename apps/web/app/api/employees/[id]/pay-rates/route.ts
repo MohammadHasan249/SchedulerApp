@@ -5,7 +5,6 @@ import { db } from "@/lib/db";
 import { employees, payRates } from "@scheduler/database/schema";
 import { getApiUser as getUser } from "@/lib/auth/getUser";
 import { withAuth } from "@/lib/auth/withAuth";
-import { userHasPermission } from "@/lib/auth/permissions";
 import { eq, and, desc } from "drizzle-orm";
 
 // Resolve the target employee within the caller's org, enforcing branch scope
@@ -32,9 +31,6 @@ export const GET = withAuth(async function GET(
 ) {
   const user = await getUser();
   if (user.role === "employee") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  if (!(await userHasPermission(user, "salaries:view"))) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
 
   const { id } = await params;
   const employee = await getScopedEmployee(id, user);
@@ -63,9 +59,6 @@ export const POST = withAuth(async function POST(
 ) {
   const user = await getUser();
   if (user.role === "employee") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  if (!(await userHasPermission(user, "salaries:edit"))) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
 
   const { id } = await params;
   const employee = await getScopedEmployee(id, user);

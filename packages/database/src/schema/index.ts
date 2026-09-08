@@ -7,7 +7,6 @@ export * from "./timeOff";
 export * from "./shiftSwaps";
 export * from "./clockEvents";
 export * from "./notifications";
-export * from "./permissions";
 export * from "./pay-rates";
 export * from "./push-tokens";
 export * from "./scheduling-rules";

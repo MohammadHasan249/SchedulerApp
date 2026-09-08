@@ -24,7 +24,6 @@ export interface Employee {
   maxHoursPerWeek: number | null;
   isActive: boolean;
   availabilitySchedule?: Record<string, { startTime: string; endTime: string }> | null;
-  permissionProfileId?: string | null;
 }
 
 // ---- Compensation (effective-dated pay history; foundation for T4 generation) ----
@@ -43,24 +42,6 @@ export interface PayRate {
   note: string | null;
   createdAt: string;
   createdByEmployeeId: string | null;
-}
-
-// ---- Granular permissions ----
-
-export const PERMISSION_KEYS = ["salaries:view", "salaries:edit"] as const;
-export type PermissionKey = (typeof PERMISSION_KEYS)[number];
-
-export const PERMISSION_LABELS: Record<PermissionKey, string> = {
-  "salaries:view": "View salaries",
-  "salaries:edit": "Edit salaries",
-};
-
-export interface PermissionProfile {
-  id: string;
-  organizationId: string;
-  name: string;
-  permissions: PermissionKey[];
-  createdAt: string;
 }
 
 export interface ShiftAssignmentDetail {

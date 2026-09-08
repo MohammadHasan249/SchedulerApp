@@ -31,7 +31,6 @@ const TENANT_TABLES: Record<string, string[]> = {
   employees: ["organizationId"],
   jobRoles: ["organizationId"],
   notifications: ["organizationId"],
-  permissionProfiles: ["organizationId"],
   shifts: ["branchId"],
   clockEvents: ["branchId"],
   shiftAssignments: ["shiftId", "employeeId"],

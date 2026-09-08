@@ -8,7 +8,6 @@ import {
   getJobRoles,
   updateEmployee,
   deleteEmployee,
-  getMyPermissions,
   getPayRates,
 } from "@/lib/api";
 import type { Employee, Branch, JobRole } from "@scheduler/types";
@@ -19,7 +18,6 @@ jest.mock("@/lib/api", () => ({
   getJobRoles: jest.fn(),
   updateEmployee: jest.fn(),
   deleteEmployee: jest.fn(),
-  getMyPermissions: jest.fn(),
   getPayRates: jest.fn(),
   createPayRate: jest.fn(),
 }));
@@ -62,7 +60,6 @@ describe("EmployeeDetailScreen", () => {
     jest.spyOn(Alert, "alert").mockImplementation(() => {});
     (getBranches as jest.Mock).mockResolvedValue([makeBranch()]);
     (getJobRoles as jest.Mock).mockResolvedValue([makeJobRole()]);
-    (getMyPermissions as jest.Mock).mockResolvedValue([]);
     (getPayRates as jest.Mock).mockResolvedValue([]);
   });
 
@@ -100,32 +97,12 @@ describe("EmployeeDetailScreen", () => {
     expect(await findByText("Employee not found.")).toBeTruthy();
   });
 
-  it("hides compensation when the viewer lacks salaries:view", async () => {
+  it("shows editable compensation for the viewer (org_admin/branch_manager reach this screen)", async () => {
     (getEmployee as jest.Mock).mockResolvedValue(makeEmployee());
-    (getMyPermissions as jest.Mock).mockResolvedValue([]);
-
-    const { findByText, queryByText } = await render(<EmployeeDetailScreen />);
-    await findByText("Jane Doe");
-
-    expect(queryByText("Compensation")).toBeNull();
-  });
-
-  it("shows read-only compensation when the viewer has salaries:view but not salaries:edit", async () => {
-    (getEmployee as jest.Mock).mockResolvedValue(makeEmployee());
-    (getMyPermissions as jest.Mock).mockResolvedValue(["salaries:view"]);
-
-    const { findByText, queryByText } = await render(<EmployeeDetailScreen />);
-
-    expect(await findByText("Compensation")).toBeTruthy();
-    expect(queryByText("Add rate")).toBeNull();
-  });
-
-  it("shows editable compensation when the viewer has salaries:edit", async () => {
-    (getEmployee as jest.Mock).mockResolvedValue(makeEmployee());
-    (getMyPermissions as jest.Mock).mockResolvedValue(["salaries:view", "salaries:edit"]);
 
     const { findByText } = await render(<EmployeeDetailScreen />);
 
+    expect(await findByText("Compensation")).toBeTruthy();
     expect(await findByText("Add rate")).toBeTruthy();
   });
 
