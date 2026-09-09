@@ -561,7 +561,7 @@ export default function LandingPage() {
               Simple, per-location pricing
             </motion.h2>
             <motion.p variants={fadeUp} className="mt-4 text-lg text-muted-foreground">
-              Start free with one location. Upgrade when you add branches.
+              Try any plan free, no credit card required. Upgrade when you add branches.
             </motion.p>
           </motion.div>
 
@@ -573,17 +573,17 @@ export default function LandingPage() {
             className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-2"
           >
             {plans.map((plan) => (
-              <motion.div key={plan.name} variants={fadeUp} whileHover={{ y: -4 }}>
+              <motion.div key={plan.name} variants={fadeUp} whileHover={{ y: -4 }} className="relative">
+                {plan.featured && (
+                  <span className="absolute -top-3 left-8 z-10 rounded-full bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground">
+                    Most popular
+                  </span>
+                )}
                 <Card
-                  className={`relative h-full border p-8 shadow-sm transition-shadow hover:shadow-lg hover:shadow-primary/5 ${
+                  className={`h-full border p-8 shadow-sm transition-shadow hover:shadow-lg hover:shadow-primary/5 ${
                     plan.featured ? "border-primary/40 shadow-md shadow-primary/10" : "border-border"
                   }`}
                 >
-                  {plan.featured && (
-                    <span className="absolute -top-3 left-8 rounded-full bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground">
-                      Most popular
-                    </span>
-                  )}
                   <h3 className="text-lg font-semibold text-foreground">{plan.name}</h3>
                   <p className="mt-1 text-sm text-muted-foreground">{plan.description}</p>
                   <div className="mt-6 flex items-baseline gap-1.5">
