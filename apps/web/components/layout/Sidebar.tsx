@@ -15,6 +15,7 @@ import {
   X,
   Timer,
   ListChecks,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type AppUser } from "@/lib/auth/getUser";
@@ -40,6 +41,7 @@ const NAV: NavItem[] = [
   { label: "Branches", href: "/dashboard/settings/branches", icon: GitBranch, roles: ["org_admin", "branch_manager"], group: "settings" },
   { label: "Scheduling Rules", href: "/dashboard/settings/scheduling-rules", icon: ListChecks, roles: ["org_admin", "branch_manager"], group: "settings" },
   { label: "Settings", href: "/dashboard/settings/organization", icon: Settings, roles: ["org_admin", "branch_manager"], group: "settings" },
+  { label: "Billing", href: "/dashboard/settings/billing", icon: CreditCard, roles: ["org_admin"], group: "settings" },
 ];
 
 const GROUP_LABELS: Record<string, string> = {

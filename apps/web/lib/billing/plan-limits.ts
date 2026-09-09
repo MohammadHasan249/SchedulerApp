@@ -1,0 +1,23 @@
+import type { OrganizationPlan } from "@scheduler/database/schema";
+
+/**
+ * AI assistant turns included per organization per month, by plan. Pure
+ * numbers, no code changes needed to retune — bump these once real AI
+ * Gateway cost data comes in. `null` means unlimited.
+ */
+export const MONTHLY_AI_ALLOWANCE: Record<OrganizationPlan, number | null> = {
+  free: 50,
+  pro: 500,
+};
+
+export function getMonthlyAllowance(plan: OrganizationPlan): number | null {
+  return MONTHLY_AI_ALLOWANCE[plan];
+}
+
+/**
+ * Bounds on a single custom-quantity credit purchase. Also pure numbers to
+ * retune — the Stripe price itself is per-credit (see
+ * lib/billing/stripe.ts), so the org can buy any quantity in this range.
+ */
+export const MIN_CREDIT_PURCHASE = 10;
+export const MAX_CREDIT_PURCHASE = 10_000;

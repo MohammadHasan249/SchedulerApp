@@ -39,6 +39,8 @@ Credentials live in `apps/web/.env.local` (web) and `apps/mobile/.env.local` (mo
 - `SUPABASE_SERVICE_ROLE_KEY` (server-only, admin auth ops)
 - `DATABASE_URL` (Drizzle connection — reset DB password at Supabase → Settings → Database)
 - `NEXT_PUBLIC_APP_URL`
+- `AI_GATEWAY_API_KEY` (Vercel AI Gateway — powers the AI scheduling assistant)
+- `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID_PRO`, `STRIPE_PRICE_ID_CREDIT` (AI assistant billing — see [Billing](#billing) below; app runs fine without these, billing routes just 503)
 
 **Mobile (`apps/mobile/.env.local`):**
 - `EXPO_PUBLIC_SUPABASE_URL`
@@ -50,7 +52,10 @@ Ask a maintainer for current values.
 ## Deployment
 Deploy with `vercel --cwd apps/web` from the repo root after `vercel link`. Required env vars on Vercel: `DATABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_APP_URL`.
 
-Note: if the production Vercel has Deployment Protection enabled, mobile API calls will return 401. Either deploy to a separate non-protected project for mobile testing or disable protection in Vercel project settings.
+## Billing
+The AI scheduling assistant (`apps/web/app/api/ai/schedule/route.ts`) is metered per-organization: a monthly turn allowance by plan (`apps/web/lib/billing/plan-limits.ts` — tune the numbers there, no other code changes needed), then purchased top-up credits (never expire). Enforcement lives in `apps/web/lib/billing/ai-usage.ts`; org plan/credit state is in the `organization_billing` table with an append-only `credit_transactions` ledger (`packages/database/src/schema/billing.ts`).
+
+Upgrades/top-ups go through Stripe Checkout (`apps/web/app/api/billing/checkout/route.ts`) and a webhook (`apps/web/app/api/billing/webhook/route.ts`) that grants credits / activates the Pro plan on `checkout.session.completed` and syncs plan status on subscription changes. Prices/products are looked up by ID from env vars in `apps/web/lib/billing/stripe.ts` — create the Product/Price in the Stripe dashboard, then set `STRIPE_PRICE_ID_PRO` / `STRIPE_PRICE_ID_CREDIT`. Credits are sold at a custom quantity chosen by the org (bounded by `MIN_CREDIT_PURCHASE`/`MAX_CREDIT_PURCHASE` in `apps/web/lib/billing/plan-limits.ts`), not fixed packs — `STRIPE_PRICE_ID_CREDIT` must be a Stripe Price with a "per unit" billing scheme. Point a Stripe webhook endpoint at `/api/billing/webhook` and set `STRIPE_WEBHOOK_SECRET` to its signing secret. Admin-facing UI is `/dashboard/settings/billing` (org_admin only).
 
 ## Mobile App
 - Env file: `apps/mobile/.env.local`

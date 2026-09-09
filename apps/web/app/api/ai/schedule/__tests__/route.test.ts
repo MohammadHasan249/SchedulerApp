@@ -5,6 +5,7 @@ import { POST } from "../route";
 import { db } from "@/lib/db";
 import { getApiUser } from "@/lib/auth/getUser";
 import { checkRateLimit } from "@/lib/utils/rate-limit";
+import { recordAiUsage } from "@/lib/billing/ai-usage";
 import { validateAssignment } from "@/lib/scheduling/assignment-validator";
 import { createNotification } from "@/lib/notifications";
 import { chain } from "@/test/db-mock";
@@ -19,6 +20,9 @@ vi.mock("@/lib/auth/getUser", () => ({
 vi.mock("@/lib/utils/rate-limit", () => ({
   checkRateLimit: vi.fn(),
   getClientIp: vi.fn(() => "127.0.0.1"),
+}));
+vi.mock("@/lib/billing/ai-usage", () => ({
+  recordAiUsage: vi.fn(),
 }));
 vi.mock("@/lib/scheduling/assignment-validator", () => ({ validateAssignment: vi.fn() }));
 vi.mock("@/lib/notifications", () => ({ createNotification: vi.fn() }));
@@ -97,6 +101,7 @@ describe("POST /api/ai/schedule", () => {
     vi.resetAllMocks();
     process.env.AI_GATEWAY_API_KEY = "test-key";
     (checkRateLimit as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ allowed: true });
+    (recordAiUsage as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ allowed: true });
     // Default branch-scope select for anything that doesn't set up its own chain
     // (e.g. the "today" branch-timezone lookup in the system prompt).
     (db.select as unknown as ReturnType<typeof vi.fn>).mockReturnValue(chain([]));
@@ -126,10 +131,21 @@ describe("POST /api/ai/schedule", () => {
     expect(res.status).toBe(429);
   });
 
-  it("rejects a malformed payload", async () => {
+  it("returns 402 once the org's monthly allowance and credits are exhausted", async () => {
+    (getApiUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(orgAdmin);
+    (recordAiUsage as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      allowed: false,
+      reason: "monthly_limit_and_no_credits",
+    });
+    const res = await POST(req(validBody));
+    expect(res.status).toBe(402);
+  });
+
+  it("rejects a malformed payload without charging AI usage", async () => {
     (getApiUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(orgAdmin);
     const res = await POST(req({ messages: [] }));
     expect(res.status).toBe(400);
+    expect(recordAiUsage).not.toHaveBeenCalled();
   });
 
   it("streams the assistant's reply when no tool calls are made", async () => {

@@ -6,6 +6,7 @@ import { safeJson } from "@/lib/utils/safe-json";
 import { getApiUser as getUser } from "@/lib/auth/getUser";
 import { withAuth } from "@/lib/auth/withAuth";
 import { checkRateLimit } from "@/lib/utils/rate-limit";
+import { recordAiUsage } from "@/lib/billing/ai-usage";
 import { createScheduleAgent } from "@/lib/ai/schedule-agent";
 import { redactHandlesTransform } from "@/lib/ai/redact-handles-transform";
 
@@ -82,6 +83,24 @@ export const POST = withAuth(async function POST(request: Request) {
   if (!parsed.success) {
     logger.warn("Schedule AI request failed validation", parsed.error.flatten());
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+
+  // Monetization gate, separate from the abuse-guard rate limit above: caps
+  // free-tier usage at a monthly allowance, then draws down purchased
+  // credits. See lib/billing/plan-limits.ts to retune the allowance. Charged
+  // only after request validation — a malformed body should never cost a
+  // credit — but still before the (possibly failing) agent call: there's no
+  // refund path for a mid-stream Gateway failure, only for requests that
+  // never reach the model at all.
+  const usage = await recordAiUsage(user.organizationId);
+  if (!usage.allowed) {
+    logger.warn("Schedule AI request blocked: monthly allowance and credits exhausted", {
+      organizationId: user.organizationId,
+    });
+    return NextResponse.json(
+      { error: "AI credits exhausted for this month.", upgradeUrl: "/settings/billing" },
+      { status: 402 }
+    );
   }
 
   const uiMessages = parsed.data.messages.slice(-HISTORY_LIMIT);
