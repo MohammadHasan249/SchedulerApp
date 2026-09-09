@@ -157,6 +157,37 @@ const integrations = [
   { icon: MessageSquare, title: "Team Chat", description: "Send shift alerts to Slack & Teams" },
 ];
 
+const plans = [
+  {
+    name: "Starter",
+    price: "$49",
+    cadence: "/ location / month",
+    description: "For a single location getting a real team onto the schedule.",
+    cta: "Start Free Trial",
+    featured: false,
+    features: [
+      "Up to 2 branches, 25 employees",
+      "Scheduling, time clock & availability",
+      "Shift swaps & time-off approvals",
+      "50 AI assistant turns / month",
+    ],
+  },
+  {
+    name: "Growth",
+    price: "$74",
+    cadence: "/ location / month",
+    description: "For teams running multiple branches day to day.",
+    cta: "Start Free Trial",
+    featured: true,
+    features: [
+      "Unlimited branches & employees",
+      "Scheduling, time clock & availability",
+      "Shift swaps & time-off approvals",
+      "500 AI assistant turns / month + top-up credits that never expire",
+    ],
+  },
+];
+
 const faqs = [
   {
     question: "How long does it take to get set up?",
@@ -181,7 +212,7 @@ const faqs = [
   {
     question: "Is there a free plan?",
     answer:
-      "Yes — Workplix is free to get started for small teams, with plans that scale as your team and number of branches grow.",
+      "There's a free trial on every plan — no credit card required to start. Starter is $49 per location, per month for up to 2 branches and 25 employees; Growth is $74 per location, per month with unlimited branches and employees plus a larger AI assistant allowance.",
   },
   {
     question: "Can I import my existing schedules and employees?",
@@ -516,6 +547,86 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Pricing Section */}
+      <section id="pricing" className="border-t border-border bg-muted/40 py-24 sm:py-32">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, amount: 0.3 }}
+            variants={container()}
+            className="mx-auto mb-16 max-w-2xl text-center"
+          >
+            <motion.h2 variants={fadeUp} className="text-4xl font-bold text-foreground sm:text-5xl">
+              Simple, per-location pricing
+            </motion.h2>
+            <motion.p variants={fadeUp} className="mt-4 text-lg text-muted-foreground">
+              Start free with one location. Upgrade when you add branches.
+            </motion.p>
+          </motion.div>
+
+          <motion.div
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, amount: 0.2 }}
+            variants={container(0.1)}
+            className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-2"
+          >
+            {plans.map((plan) => (
+              <motion.div key={plan.name} variants={fadeUp} whileHover={{ y: -4 }}>
+                <Card
+                  className={`relative h-full border p-8 shadow-sm transition-shadow hover:shadow-lg hover:shadow-primary/5 ${
+                    plan.featured ? "border-primary/40 shadow-md shadow-primary/10" : "border-border"
+                  }`}
+                >
+                  {plan.featured && (
+                    <span className="absolute -top-3 left-8 rounded-full bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground">
+                      Most popular
+                    </span>
+                  )}
+                  <h3 className="text-lg font-semibold text-foreground">{plan.name}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">{plan.description}</p>
+                  <div className="mt-6 flex items-baseline gap-1.5">
+                    <span className="text-4xl font-bold text-foreground">{plan.price}</span>
+                    <span className="text-sm text-muted-foreground">{plan.cadence}</span>
+                  </div>
+                  <ul className="mt-6 space-y-3">
+                    {plan.features.map((feature) => (
+                      <li key={feature} className="flex items-start gap-2.5">
+                        <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-primary" />
+                        <span className="text-sm text-foreground/90">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <Link href="/signup" className="mt-8 block">
+                    <MotionButton
+                      size="lg"
+                      variant={plan.featured ? "default" : "outline"}
+                      className="h-11 w-full text-base"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      {plan.cta}
+                    </MotionButton>
+                  </Link>
+                </Card>
+              </motion.div>
+            ))}
+          </motion.div>
+
+          <motion.p
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, amount: 0.5 }}
+            variants={fadeUp}
+            className="mt-8 text-center text-sm text-muted-foreground"
+          >
+            Billed annually: Starter is $39 / location / month, Growth is $59 / location / month.
+            Need more AI assistant turns? Buy top-up credits anytime — they never expire.
+          </motion.p>
+        </div>
+      </section>
+
       {/* FAQ Section */}
       <section id="faq" className="border-t border-border py-24 sm:py-32">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
@@ -643,6 +754,11 @@ export default function LandingPage() {
                 <li>
                   <Link href="#integrations" className="hover:text-primary">
                     Integrations
+                  </Link>
+                </li>
+                <li>
+                  <Link href="#pricing" className="hover:text-primary">
+                    Pricing
                   </Link>
                 </li>
               </ul>
