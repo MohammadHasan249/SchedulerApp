@@ -204,6 +204,17 @@ export default function ScheduleScreen() {
     setEditingTime(true);
   }
 
+  function closeShiftModal() {
+    setSelectedShift(null);
+    setEditingTime(false);
+    setEditTimePickerFor(null);
+  }
+
+  function closeCreateModal() {
+    setCreateOpen(false);
+    setTimePickerFor(null);
+  }
+
   async function handleSaveTime(shift: Shift) {
     if (editStart >= editEnd) {
       setEditTimeError("End time must be after start time");
@@ -462,17 +473,17 @@ export default function ScheduleScreen() {
         </ScrollView>
       )}
 
-      {/* Assignment modal */}
+      {/* Shift detail modal (assignments, or edit-time / edit-time wheel picker overlays) */}
       <Modal
         visible={selectedShift !== null}
         animationType="slide"
         transparent
-        onRequestClose={() => setSelectedShift(null)}
+        onRequestClose={closeShiftModal}
       >
         <View style={styles.modalBackdrop}>
-          <Pressable style={styles.backdropFill} onPress={() => setSelectedShift(null)} />
+          <Pressable style={styles.backdropFill} onPress={closeShiftModal} />
           <View style={styles.modalSheet}>
-            {selectedShift && (
+            {selectedShift && !editingTime && (
               <>
                 <View style={styles.modalHeader}>
                   <View>
@@ -498,7 +509,7 @@ export default function ScheduleScreen() {
                     >
                       <Trash2 size={20} color="#e5484d" />
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setSelectedShift(null)}>
+                    <TouchableOpacity onPress={closeShiftModal}>
                       <X size={22} color={theme.muted} />
                     </TouchableOpacity>
                   </View>
@@ -555,7 +566,73 @@ export default function ScheduleScreen() {
                 )}
               </>
             )}
+
+            {selectedShift && editingTime && (
+              <>
+                <View style={styles.modalHeader}>
+                  <View>
+                    <Text style={styles.modalTitle}>Edit Shift Time</Text>
+                    <Text style={styles.modalSub}>{format(new Date(selectedShift.startTime), "EEE, MMM d")}</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setEditingTime(false)}>
+                    <X size={22} color={theme.muted} />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.timeRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sectionLabel}>Start</Text>
+                    <TouchableOpacity style={styles.timeInput} onPress={() => setEditTimePickerFor("start")}>
+                      <Text style={{ fontSize: 15, color: theme.text }}>{editStart}</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sectionLabel}>End</Text>
+                    <TouchableOpacity style={styles.timeInput} onPress={() => setEditTimePickerFor("end")}>
+                      <Text style={{ fontSize: 15, color: theme.text }}>{editEnd}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {editTimeError !== "" && <Text style={styles.errorText}>{editTimeError}</Text>}
+
+                <TouchableOpacity
+                  style={[styles.createBtn, savingTime && { opacity: 0.6 }]}
+                  onPress={() => handleSaveTime(selectedShift)}
+                  disabled={savingTime}
+                >
+                  {savingTime ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.createBtnText}>Save</Text>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
           </View>
+
+          {editTimePickerFor !== null && (
+            <>
+              <Pressable style={styles.backdropFill} onPress={() => setEditTimePickerFor(null)} />
+              <View style={styles.timePickerSheet}>
+                <Text style={styles.modalTitle}>{editTimePickerFor === "start" ? "Start Time" : "End Time"}</Text>
+                <TimeWheelPicker
+                  theme={theme}
+                  value={editTimePickerFor === "start" ? editStart : editEnd}
+                  onChange={(v) => {
+                    if (editTimePickerFor === "start") setEditStart(v);
+                    else setEditEnd(v);
+                  }}
+                />
+                <TouchableOpacity
+                  style={[styles.createBtn, { alignSelf: "stretch" }]}
+                  onPress={() => setEditTimePickerFor(null)}
+                >
+                  <Text style={styles.createBtnText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
         </View>
       </Modal>
 
@@ -564,17 +641,17 @@ export default function ScheduleScreen() {
         visible={createOpen}
         animationType="slide"
         transparent
-        onRequestClose={() => setCreateOpen(false)}
+        onRequestClose={closeCreateModal}
       >
         <View style={styles.modalBackdrop}>
-          <Pressable style={styles.backdropFill} onPress={() => setCreateOpen(false)} />
+          <Pressable style={styles.backdropFill} onPress={closeCreateModal} />
           <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
               <View>
                 <Text style={styles.modalTitle}>Add Shift</Text>
                 <Text style={styles.modalSub}>{format(selectedDay, "EEE, MMM d")}</Text>
               </View>
-              <TouchableOpacity onPress={() => setCreateOpen(false)}>
+              <TouchableOpacity onPress={closeCreateModal}>
                 <X size={22} color={theme.muted} />
               </TouchableOpacity>
             </View>
@@ -645,120 +722,29 @@ export default function ScheduleScreen() {
               )}
             </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
 
-      {/* Edit shift time modal */}
-      <Modal
-        visible={editingTime}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setEditingTime(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <Pressable style={styles.backdropFill} onPress={() => setEditingTime(false)} />
-          <View style={styles.modalSheet}>
-            {selectedShift && (
-              <>
-                <View style={styles.modalHeader}>
-                  <View>
-                    <Text style={styles.modalTitle}>Edit Shift Time</Text>
-                    <Text style={styles.modalSub}>{format(new Date(selectedShift.startTime), "EEE, MMM d")}</Text>
-                  </View>
-                  <TouchableOpacity onPress={() => setEditingTime(false)}>
-                    <X size={22} color={theme.muted} />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.timeRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.sectionLabel}>Start</Text>
-                    <TouchableOpacity style={styles.timeInput} onPress={() => setEditTimePickerFor("start")}>
-                      <Text style={{ fontSize: 15, color: theme.text }}>{editStart}</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.sectionLabel}>End</Text>
-                    <TouchableOpacity style={styles.timeInput} onPress={() => setEditTimePickerFor("end")}>
-                      <Text style={{ fontSize: 15, color: theme.text }}>{editEnd}</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {editTimeError !== "" && <Text style={styles.errorText}>{editTimeError}</Text>}
-
+          {timePickerFor !== null && (
+            <>
+              <Pressable style={styles.backdropFill} onPress={() => setTimePickerFor(null)} />
+              <View style={styles.timePickerSheet}>
+                <Text style={styles.modalTitle}>{timePickerFor === "start" ? "Start Time" : "End Time"}</Text>
+                <TimeWheelPicker
+                  theme={theme}
+                  value={timePickerFor === "start" ? createStart : createEnd}
+                  onChange={(v) => {
+                    if (timePickerFor === "start") setCreateStart(v);
+                    else setCreateEnd(v);
+                  }}
+                />
                 <TouchableOpacity
-                  style={[styles.createBtn, savingTime && { opacity: 0.6 }]}
-                  onPress={() => handleSaveTime(selectedShift)}
-                  disabled={savingTime}
+                  style={[styles.createBtn, { alignSelf: "stretch" }]}
+                  onPress={() => setTimePickerFor(null)}
                 >
-                  {savingTime ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={styles.createBtnText}>Save</Text>
-                  )}
+                  <Text style={styles.createBtnText}>Done</Text>
                 </TouchableOpacity>
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
-
-      {/* Edit-time wheel picker */}
-      <Modal
-        visible={editTimePickerFor !== null}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setEditTimePickerFor(null)}
-      >
-        <View style={styles.modalBackdrop}>
-          <Pressable style={styles.backdropFill} onPress={() => setEditTimePickerFor(null)} />
-          <View style={styles.timePickerSheet}>
-            <Text style={styles.modalTitle}>{editTimePickerFor === "start" ? "Start Time" : "End Time"}</Text>
-            <TimeWheelPicker
-              theme={theme}
-              value={editTimePickerFor === "start" ? editStart : editEnd}
-              onChange={(v) => {
-                if (editTimePickerFor === "start") setEditStart(v);
-                else setEditEnd(v);
-              }}
-            />
-            <TouchableOpacity
-              style={[styles.createBtn, { alignSelf: "stretch" }]}
-              onPress={() => setEditTimePickerFor(null)}
-            >
-              <Text style={styles.createBtnText}>Done</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Time picker (wheel-based, no keyboard) */}
-      <Modal
-        visible={timePickerFor !== null}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setTimePickerFor(null)}
-      >
-        <View style={styles.modalBackdrop}>
-          <Pressable style={styles.backdropFill} onPress={() => setTimePickerFor(null)} />
-          <View style={styles.timePickerSheet}>
-            <Text style={styles.modalTitle}>{timePickerFor === "start" ? "Start Time" : "End Time"}</Text>
-            <TimeWheelPicker
-              theme={theme}
-              value={timePickerFor === "start" ? createStart : createEnd}
-              onChange={(v) => {
-                if (timePickerFor === "start") setCreateStart(v);
-                else setCreateEnd(v);
-              }}
-            />
-            <TouchableOpacity
-              style={[styles.createBtn, { alignSelf: "stretch" }]}
-              onPress={() => setTimePickerFor(null)}
-            >
-              <Text style={styles.createBtnText}>Done</Text>
-            </TouchableOpacity>
-          </View>
+              </View>
+            </>
+          )}
         </View>
       </Modal>
     </SafeAreaView>
