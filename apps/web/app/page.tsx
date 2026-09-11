@@ -17,9 +17,7 @@ import {
   Clock,
   ArrowRight,
   CheckCircle2,
-  Zap,
   BarChart3,
-  Shield,
   Sparkles,
   ListPlus,
   Wand2,
@@ -28,6 +26,9 @@ import {
   Wallet,
   CalendarClock,
   MessageSquare,
+  Building2,
+  ShieldCheck,
+  Bot,
 } from "lucide-react";
 
 const MotionButton = motion.create(Button);
@@ -75,22 +76,34 @@ const features = [
       "Create and manage shift schedules effortlessly with drag-and-drop flexibility and automatic assignments.",
   },
   {
+    icon: Bot,
+    title: "AI Scheduling Assistant",
+    description:
+      "Tell it who to put where — it resolves the shift, checks every constraint, and assigns the right person in seconds.",
+  },
+  {
+    icon: Clock,
+    title: "Time Clock & Attendance",
+    description:
+      "PIN-based kiosk clock-in tied to each location keeps time tracking accurate and tamper-resistant.",
+  },
+  {
     icon: Users,
     title: "Team Management",
     description:
       "Organize employees by branches and job roles, manage availability windows, and track performance.",
   },
   {
-    icon: Clock,
-    title: "Time Off & Requests",
+    icon: ListPlus,
+    title: "Time Off & Shift Swaps",
     description:
-      "Handle vacation requests, sick leave, and shift swaps with streamlined approval workflows.",
+      "Handle vacation requests, sick leave, and peer-to-peer shift swaps with streamlined approval workflows.",
   },
   {
-    icon: Zap,
-    title: "Auto-Assignment",
+    icon: ShieldCheck,
+    title: "Scheduling Rules & Compliance",
     description:
-      "Let the system intelligently assign shifts based on availability, qualifications, and workload.",
+      "Availability windows, time-off conflicts, and max-hours limits are enforced automatically on every assignment.",
   },
   {
     icon: BarChart3,
@@ -99,11 +112,34 @@ const features = [
       "Track attendance, hours worked, and workforce metrics with comprehensive analytics dashboards.",
   },
   {
-    icon: Shield,
-    title: "Multi-tenant",
+    icon: BellRing,
+    title: "Notifications & Alerts",
+    description:
+      "Employees and managers get instant alerts for new shifts, approvals, swaps, and schedule changes.",
+  },
+  {
+    icon: Building2,
+    title: "Multi-Branch, Multi-Tenant",
     description:
       "Support multiple organizations and branches with complete data isolation and role-based access.",
   },
+];
+
+const aiCapabilities = [
+  "Create shifts and assign employees from a single sentence — no clicking through menus",
+  "Automatically enforces availability windows, time-off conflicts, and weekly hour limits",
+  "Remembers standing scheduling preferences, like \"always keep 2 cooks on Saturdays\"",
+  "Understands your branches, job roles, and timezones — no manual context needed",
+];
+
+const aiChat = [
+  { role: "user" as const, text: "Put Sarah on the Friday closing shift" },
+  {
+    role: "assistant" as const,
+    text: "Sarah K. is assigned to Friday, 4PM–12AM at Downtown. She's within her availability and under her weekly hour limit.",
+  },
+  { role: "user" as const, text: "Always keep 2 chefs on Saturdays" },
+  { role: "assistant" as const, text: "Got it — I'll save that as a standing rule for this branch." },
 ];
 
 const stats = [
@@ -160,8 +196,8 @@ const integrations = [
 const plans = [
   {
     name: "Starter",
-    price: "$49",
-    cadence: "/ location / month",
+    monthlyPrice: 49,
+    annualPrice: 39,
     description: "For a single location getting a real team onto the schedule.",
     cta: "Start Free Trial",
     featured: false,
@@ -169,13 +205,13 @@ const plans = [
       "Up to 2 branches, 25 employees",
       "Scheduling, time clock & availability",
       "Shift swaps & time-off approvals",
-      "50 AI assistant turns / month",
+      "50 AI assistant turns / month, plus top-up credits anytime",
     ],
   },
   {
     name: "Growth",
-    price: "$74",
-    cadence: "/ location / month",
+    monthlyPrice: 74,
+    annualPrice: 59,
     description: "For teams running multiple branches day to day.",
     cta: "Start Free Trial",
     featured: true,
@@ -183,7 +219,7 @@ const plans = [
       "Unlimited branches & employees",
       "Scheduling, time clock & availability",
       "Shift swaps & time-off approvals",
-      "500 AI assistant turns / month + top-up credits that never expire",
+      "500 AI assistant turns / month, plus top-up credits anytime",
     ],
   },
 ];
@@ -222,6 +258,8 @@ const faqs = [
 ];
 
 export default function LandingPage() {
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
@@ -233,7 +271,7 @@ export default function LandingPage() {
       >
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/workplix-lockup.svg" alt="Workplix" className="h-7 w-auto" />
+          <img src="/workplix-lockup.svg" alt="Workplix" className="h-9 w-auto sm:h-10" />
           <div className="flex items-center gap-3">
             <Link href="/login">
               <MotionButton
@@ -277,7 +315,7 @@ export default function LandingPage() {
               className="mb-6 inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm"
             >
               <Sparkles className="h-3.5 w-3.5 text-primary" />
-              Built for fast-moving teams
+              Now with an AI scheduling assistant
             </motion.div>
 
             <motion.h1
@@ -296,8 +334,8 @@ export default function LandingPage() {
               transition={{ duration: 0.5 }}
               className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground sm:text-xl"
             >
-              Streamline your team scheduling with intelligent shift management, real-time
-              analytics, and automated employee assignments.
+              Streamline your team scheduling with an AI assistant that builds and adjusts your
+              schedule in plain English, real-time analytics, and automated employee assignments.
             </motion.p>
 
             <motion.div
@@ -346,6 +384,79 @@ export default function LandingPage() {
               </motion.div>
             ))}
           </motion.div>
+        </div>
+      </section>
+
+      {/* AI Assistant Section */}
+      <section id="ai-assistant" className="border-t border-border bg-muted/40 py-24 sm:py-32">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="grid items-center gap-12 md:grid-cols-2">
+            <motion.div
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true, amount: 0.3 }}
+              variants={container(0.06)}
+              className="space-y-8"
+            >
+              <motion.div
+                variants={fadeUp}
+                className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+              >
+                <Bot className="h-3.5 w-3.5" />
+                AI Scheduling Assistant
+              </motion.div>
+              <motion.h2 variants={fadeUp} className="text-4xl font-bold text-foreground sm:text-5xl">
+                Schedule by just asking
+              </motion.h2>
+              <motion.p variants={fadeUp} className="text-lg text-muted-foreground">
+                Skip the manual drag-and-drop. Tell the assistant what you need in plain English and
+                it handles the rest — resolving shifts, checking constraints, and making the
+                assignment.
+              </motion.p>
+              <ul className="space-y-4">
+                {aiCapabilities.map((capability) => (
+                  <motion.li key={capability} variants={fadeUp} className="flex items-start gap-3">
+                    <CheckCircle2 className="mt-0.5 h-6 w-6 flex-shrink-0 text-primary" />
+                    <span className="text-base text-foreground/90">{capability}</span>
+                  </motion.li>
+                ))}
+              </ul>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 24, scale: 0.98 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              viewport={{ once: true, amount: 0.3 }}
+              transition={{ duration: 0.5 }}
+            >
+              <Card className="border border-border p-6 shadow-xl shadow-primary/5">
+                <div className="mb-4 flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary">
+                    <Bot className="h-4 w-4 text-primary-foreground" />
+                  </div>
+                  <span className="text-sm font-semibold text-foreground">Scheduling Assistant</span>
+                </div>
+                <div className="space-y-3">
+                  {aiChat.map((message, i) => (
+                    <div
+                      key={i}
+                      className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+                    >
+                      <div
+                        className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                          message.role === "user"
+                            ? "bg-primary text-primary-foreground"
+                            : "border border-border bg-background text-foreground"
+                        }`}
+                      >
+                        {message.text}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </motion.div>
+          </div>
         </div>
       </section>
 
@@ -563,6 +674,43 @@ export default function LandingPage() {
             <motion.p variants={fadeUp} className="mt-4 text-lg text-muted-foreground">
               Try any plan free, no credit card required. Upgrade when you add branches.
             </motion.p>
+
+            <motion.div
+              variants={fadeUp}
+              className="mx-auto mt-8 inline-flex items-center gap-1 rounded-full border border-border bg-card p-1 shadow-sm"
+            >
+              <button
+                type="button"
+                onClick={() => setBillingCycle("monthly")}
+                className={`cursor-pointer rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                  billingCycle === "monthly"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Monthly
+              </button>
+              <button
+                type="button"
+                onClick={() => setBillingCycle("annual")}
+                className={`flex cursor-pointer items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                  billingCycle === "annual"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Annual
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${
+                    billingCycle === "annual"
+                      ? "bg-primary-foreground/20 text-primary-foreground"
+                      : "bg-primary/10 text-primary"
+                  }`}
+                >
+                  Save 20%
+                </span>
+              </button>
+            </motion.div>
           </motion.div>
 
           <motion.div
@@ -572,46 +720,57 @@ export default function LandingPage() {
             variants={container(0.1)}
             className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-2"
           >
-            {plans.map((plan) => (
-              <motion.div key={plan.name} variants={fadeUp} whileHover={{ y: -4 }} className="relative">
-                {plan.featured && (
-                  <span className="absolute -top-3 left-8 z-10 rounded-full bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground">
-                    Most popular
-                  </span>
-                )}
-                <Card
-                  className={`h-full border p-8 shadow-sm transition-shadow hover:shadow-lg hover:shadow-primary/5 ${
-                    plan.featured ? "border-primary/40 shadow-md shadow-primary/10" : "border-border"
-                  }`}
+            {plans.map((plan) => {
+              const price = billingCycle === "monthly" ? plan.monthlyPrice : plan.annualPrice;
+              return (
+                <motion.div
+                  key={plan.name}
+                  variants={fadeUp}
+                  whileHover={{ y: -4 }}
+                  className="relative"
                 >
-                  <h3 className="text-lg font-semibold text-foreground">{plan.name}</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">{plan.description}</p>
-                  <div className="mt-6 flex items-baseline gap-1.5">
-                    <span className="text-4xl font-bold text-foreground">{plan.price}</span>
-                    <span className="text-sm text-muted-foreground">{plan.cadence}</span>
-                  </div>
-                  <ul className="mt-6 space-y-3">
-                    {plan.features.map((feature) => (
-                      <li key={feature} className="flex items-start gap-2.5">
-                        <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-primary" />
-                        <span className="text-sm text-foreground/90">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <Link href="/signup" className="mt-8 block">
-                    <MotionButton
-                      size="lg"
-                      variant={plan.featured ? "default" : "outline"}
-                      className="h-11 w-full text-base"
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      {plan.cta}
-                    </MotionButton>
-                  </Link>
-                </Card>
-              </motion.div>
-            ))}
+                  {plan.featured && (
+                    <span className="absolute -top-3 left-8 z-10 rounded-full bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground">
+                      Most popular
+                    </span>
+                  )}
+                  <Card
+                    className={`h-full border p-8 shadow-sm transition-shadow hover:shadow-lg hover:shadow-primary/5 ${
+                      plan.featured ? "border-primary/40 shadow-md shadow-primary/10" : "border-border"
+                    }`}
+                  >
+                    <h3 className="text-lg font-semibold text-foreground">{plan.name}</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">{plan.description}</p>
+                    <div className="mt-6 flex items-baseline gap-1.5">
+                      <span className="text-4xl font-bold text-foreground">${price}</span>
+                      <span className="text-sm text-muted-foreground">/ location / month</span>
+                    </div>
+                    {billingCycle === "annual" && (
+                      <p className="mt-1 text-xs text-muted-foreground">Billed annually</p>
+                    )}
+                    <ul className="mt-6 space-y-3">
+                      {plan.features.map((feature) => (
+                        <li key={feature} className="flex items-start gap-2.5">
+                          <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-primary" />
+                          <span className="text-sm text-foreground/90">{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <Link href="/signup" className="mt-8 block">
+                      <MotionButton
+                        size="lg"
+                        variant={plan.featured ? "default" : "outline"}
+                        className="h-11 w-full text-base"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        {plan.cta}
+                      </MotionButton>
+                    </Link>
+                  </Card>
+                </motion.div>
+              );
+            })}
           </motion.div>
 
           <motion.p
@@ -621,8 +780,8 @@ export default function LandingPage() {
             variants={fadeUp}
             className="mt-8 text-center text-sm text-muted-foreground"
           >
-            Billed annually: Starter is $39 / location / month, Growth is $59 / location / month.
-            Need more AI assistant turns? Buy top-up credits anytime — they never expire.
+            Need more AI assistant turns? Buy top-up credits on any plan, anytime — they never
+            expire.
           </motion.p>
         </div>
       </section>
@@ -744,6 +903,11 @@ export default function LandingPage() {
                 <li>
                   <Link href="#features" className="hover:text-primary">
                     Features
+                  </Link>
+                </li>
+                <li>
+                  <Link href="#ai-assistant" className="hover:text-primary">
+                    AI Assistant
                   </Link>
                 </li>
                 <li>

@@ -1,0 +1,26 @@
+# Workplix
+
+> Workplix is a multi-tenant workforce scheduling platform for businesses with hourly teams across one or more locations. It combines drag-and-drop shift scheduling, an AI scheduling assistant, time clock and attendance, time-off and shift-swap workflows, and real-time reporting.
+
+Workplix helps managers build and adjust employee schedules faster by enforcing availability, time-off, and max-hours constraints automatically, and by letting managers make scheduling changes in plain English through an AI assistant.
+
+## Product
+
+- [Homepage](https://workplix.app/): Overview of features, pricing, and how the product works.
+- [Sign up](https://workplix.app/signup): Start a free trial, no credit card required.
+- [Log in](https://workplix.app/login): Access the scheduling dashboard.
+
+## Key Features
+
+- Drag-and-drop shift scheduling with automatic assignment
+- AI scheduling assistant: create shifts and assign employees using natural language, with availability/time-off/max-hours constraints enforced automatically, and standing scheduling rules the assistant remembers
+- Team management by branch and job role, with employee availability windows
+- Time off requests and peer-to-peer shift swaps with approval workflows
+- PIN-based kiosk time clock for attendance tracking
+- Real-time reporting on hours worked and workforce metrics
+- Multi-branch, multi-tenant support with role-based access
+- Mobile app for employees to view schedules, request time off, and swap shifts
+
+## Pricing
+
+Two plans, billed per location: Starter and Growth, each with monthly and annual (20% discount) billing. Every plan includes a monthly allowance of AI assistant turns plus pay-as-you-go top-up credits that never expire. Free trial on every plan, no credit card required.
