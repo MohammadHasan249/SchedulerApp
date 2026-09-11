@@ -11,7 +11,7 @@ type Transaction = {
 };
 
 type Props = {
-  plan: "free" | "pro";
+  plan: "starter" | "growth";
   monthlyUsed: number;
   monthlyAllowance: number | null;
   creditsBalance: number;
@@ -39,12 +39,14 @@ export function BillingClient({
   const searchParams = useSearchParams();
   const checkoutResult = searchParams.get("checkout");
   const [quantity, setQuantity] = useState(minCredits);
-  const [loadingAction, setLoadingAction] = useState<"subscription" | "credits" | null>(null);
+  const [loadingAction, setLoadingAction] = useState<"starter" | "growth" | "credits" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function startCheckout(body: { type: "subscription" } | { type: "credits"; quantity: number }) {
+  async function startCheckout(
+    body: { type: "subscription"; plan: "starter" | "growth" } | { type: "credits"; quantity: number }
+  ) {
     setError(null);
-    setLoadingAction(body.type);
+    setLoadingAction(body.type === "subscription" ? body.plan : body.type);
     try {
       const res = await fetch("/api/billing/checkout", {
         method: "POST",
@@ -94,20 +96,20 @@ export function BillingClient({
         </p>
       </div>
 
-      {plan === "free" && (
+      {plan === "starter" && (
         <div className="rounded-lg border p-4 space-y-3">
           <div>
-            <h3 className="font-medium">Upgrade to Pro</h3>
+            <h3 className="font-medium">Upgrade to Growth</h3>
             <p className="text-sm text-muted-foreground">
-              A larger monthly AI assistant allowance for your organization.
+              Unlimited branches & employees, plus a larger monthly AI assistant allowance.
             </p>
           </div>
           <button
-            onClick={() => startCheckout({ type: "subscription" })}
+            onClick={() => startCheckout({ type: "subscription", plan: "growth" })}
             disabled={loadingAction !== null}
             className="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium disabled:opacity-60"
           >
-            {loadingAction === "subscription" ? "Redirecting…" : "Upgrade to Pro"}
+            {loadingAction === "growth" ? "Redirecting…" : "Upgrade to Growth"}
           </button>
         </div>
       )}

@@ -66,10 +66,18 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   }
 
   if (session.mode === "subscription") {
+    const plan = session.metadata?.plan;
+    if (plan !== "starter" && plan !== "growth") {
+      logger.error("Stripe checkout.session.completed: missing/invalid plan metadata", {
+        plan,
+        sessionId: session.id,
+      });
+      return;
+    }
     await db
       .update(organizationBilling)
       .set({
-        plan: "pro",
+        plan,
         stripeSubscriptionId: typeof session.subscription === "string" ? session.subscription : undefined,
         // A plan upgrade changes the allowance the low-balance threshold is
         // measured against — let a future shortage notify again.
@@ -140,10 +148,12 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription) {
   }
 
   const active = subscription.status === "active" || subscription.status === "trialing";
+  const metadataPlan = subscription.metadata?.plan;
+  const plan = active && (metadataPlan === "starter" || metadataPlan === "growth") ? metadataPlan : "starter";
   await db
     .update(organizationBilling)
     .set({
-      plan: active ? "pro" : "free",
+      plan,
       stripeSubscriptionId: active ? subscription.id : null,
       updatedAt: new Date(),
     })

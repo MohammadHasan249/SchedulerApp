@@ -12,7 +12,8 @@ vi.mock("@/lib/auth/getUser", () => ({
 }));
 vi.mock("@/lib/billing/stripe", () => ({
   getStripe: vi.fn(),
-  STRIPE_PRO_PRICE_ID: "price_pro",
+  STRIPE_STARTER_PRICE_ID: "price_starter",
+  STRIPE_GROWTH_PRICE_ID: "price_growth",
   STRIPE_CREDIT_PRICE_ID: "price_credit",
 }));
 
@@ -42,14 +43,14 @@ describe("POST /api/billing/checkout", () => {
 
   it("forbids non-admins", async () => {
     (getApiUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(manager);
-    const res = await POST(req({ type: "subscription" }));
+    const res = await POST(req({ type: "subscription", plan: "growth" }));
     expect(res.status).toBe(403);
   });
 
   it("returns 503 when Stripe isn't configured", async () => {
     (getApiUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(orgAdmin);
     (getStripe as unknown as ReturnType<typeof vi.fn>).mockReturnValue(null);
-    const res = await POST(req({ type: "subscription" }));
+    const res = await POST(req({ type: "subscription", plan: "growth" }));
     expect(res.status).toBe(503);
   });
 
@@ -88,7 +89,7 @@ describe("POST /api/billing/checkout", () => {
     (db.insert as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       values: () => ({
         onConflictDoNothing: () => ({
-          returning: () => Promise.resolve([{ organizationId: "org-1", plan: "free", creditsBalance: 0, monthlyUsed: 0, stripeCustomerId: null }]),
+          returning: () => Promise.resolve([{ organizationId: "org-1", plan: "starter", creditsBalance: 0, monthlyUsed: 0, stripeCustomerId: null }]),
         }),
       }),
     });
@@ -105,7 +106,7 @@ describe("POST /api/billing/checkout", () => {
       fn(tx)
     );
 
-    const res = await POST(req({ type: "subscription" }));
+    const res = await POST(req({ type: "subscription", plan: "growth" }));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ url: "https://checkout.stripe.com/session1" });
     expect(stripe.customers.create).toHaveBeenCalled();
@@ -119,7 +120,7 @@ describe("POST /api/billing/checkout", () => {
     (getApiUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(orgAdmin);
     const stripe = mockStripe();
     (db.select as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
-      chain([{ organizationId: "org-1", plan: "free", creditsBalance: 0, monthlyUsed: 0, stripeCustomerId: "cus_existing" }])
+      chain([{ organizationId: "org-1", plan: "starter", creditsBalance: 0, monthlyUsed: 0, stripeCustomerId: "cus_existing" }])
     );
 
     const res = await POST(req({ type: "credits", quantity: 250 }));

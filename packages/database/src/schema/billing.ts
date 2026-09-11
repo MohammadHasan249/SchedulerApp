@@ -1,7 +1,7 @@
 import { pgTable, uuid, integer, text, timestamp, pgEnum, index } from "drizzle-orm/pg-core";
 import { organizations } from "./organizations";
 
-export const organizationPlanEnum = pgEnum("organization_plan", ["free", "pro"]);
+export const organizationPlanEnum = pgEnum("organization_plan", ["starter", "growth"]);
 export type OrganizationPlan = (typeof organizationPlanEnum.enumValues)[number];
 
 export const creditTransactionTypeEnum = pgEnum("credit_transaction_type", [
@@ -22,7 +22,7 @@ export const organizationBilling = pgTable("organization_billing", {
   organizationId: uuid("organization_id")
     .primaryKey()
     .references(() => organizations.id, { onDelete: "cascade" }),
-  plan: organizationPlanEnum("plan").notNull().default("free"),
+  plan: organizationPlanEnum("plan").notNull().default("starter"),
   creditsBalance: integer("credits_balance").notNull().default(0),
   monthlyUsed: integer("monthly_used").notNull().default(0),
   periodStart: timestamp("period_start", { withTimezone: true }).notNull().defaultNow(),

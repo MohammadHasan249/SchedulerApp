@@ -22,7 +22,8 @@ export function getStripe(): Stripe | null {
  * dashboard) rather than being hardcoded, so switching between Stripe test
  * and live mode is just an env swap.
  */
-export const STRIPE_PRO_PRICE_ID = process.env.STRIPE_PRICE_ID_PRO;
+export const STRIPE_STARTER_PRICE_ID = process.env.STRIPE_PRICE_ID_STARTER;
+export const STRIPE_GROWTH_PRICE_ID = process.env.STRIPE_PRICE_ID_GROWTH;
 
 // A single per-unit price (quantity = however many credits the org wants to
 // buy), not a fixed pack — set this to a Stripe Price with billing scheme

@@ -6,8 +6,8 @@ import type { OrganizationPlan } from "@scheduler/database/schema";
  * Gateway cost data comes in. `null` means unlimited.
  */
 export const MONTHLY_AI_ALLOWANCE: Record<OrganizationPlan, number | null> = {
-  free: 50,
-  pro: 500,
+  starter: 50,
+  growth: 500,
 };
 
 export function getMonthlyAllowance(plan: OrganizationPlan): number | null {

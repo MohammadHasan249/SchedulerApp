@@ -57,7 +57,7 @@ describe("POST /api/billing/webhook", () => {
     expect(res.status).toBe(400);
   });
 
-  it("activates the pro plan on a completed subscription checkout", async () => {
+  it("activates the growth plan on a completed subscription checkout", async () => {
     mockStripe(() => ({
       type: "checkout.session.completed",
       data: {
@@ -65,7 +65,7 @@ describe("POST /api/billing/webhook", () => {
           id: "cs_1",
           mode: "subscription",
           subscription: "sub_1",
-          metadata: { organizationId: "org-1", type: "subscription" },
+          metadata: { organizationId: "org-1", type: "subscription", plan: "growth" },
         },
       },
     }));
@@ -74,7 +74,7 @@ describe("POST /api/billing/webhook", () => {
 
     const res = await POST(req("{}"));
     expect(res.status).toBe(200);
-    expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ plan: "pro", stripeSubscriptionId: "sub_1" }));
+    expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ plan: "growth", stripeSubscriptionId: "sub_1" }));
   });
 
   it("grants credits on a completed one-time credit purchase, idempotently", async () => {
@@ -152,11 +152,11 @@ describe("POST /api/billing/webhook", () => {
     expect(db.transaction).not.toHaveBeenCalled();
   });
 
-  it("reverts the org to the free plan when a subscription is deleted", async () => {
+  it("reverts the org to the starter plan when a subscription is deleted", async () => {
     mockStripe(() => ({
       type: "customer.subscription.deleted",
       data: {
-        object: { id: "sub_1", status: "canceled", metadata: { organizationId: "org-1" } },
+        object: { id: "sub_1", status: "canceled", metadata: { organizationId: "org-1", plan: "growth" } },
       },
     }));
     const updateSet = vi.fn().mockReturnValue(chain(undefined));
@@ -164,6 +164,6 @@ describe("POST /api/billing/webhook", () => {
 
     const res = await POST(req("{}"));
     expect(res.status).toBe(200);
-    expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ plan: "free", stripeSubscriptionId: null }));
+    expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ plan: "starter", stripeSubscriptionId: null }));
   });
 });

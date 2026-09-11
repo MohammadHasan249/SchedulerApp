@@ -7,18 +7,28 @@ import { getApiUser as getUser } from "@/lib/auth/getUser";
 import { withAuth } from "@/lib/auth/withAuth";
 import { db } from "@/lib/db";
 import { organizationBilling, organizations } from "@scheduler/database/schema";
-import { getStripe, STRIPE_PRO_PRICE_ID, STRIPE_CREDIT_PRICE_ID } from "@/lib/billing/stripe";
+import {
+  getStripe,
+  STRIPE_STARTER_PRICE_ID,
+  STRIPE_GROWTH_PRICE_ID,
+  STRIPE_CREDIT_PRICE_ID,
+} from "@/lib/billing/stripe";
 import { getOrCreateBilling } from "@/lib/billing/get-or-create-billing";
 import { MIN_CREDIT_PURCHASE, MAX_CREDIT_PURCHASE } from "@/lib/billing/plan-limits";
 import { getBrandForHost } from "@/lib/brand";
 
 const requestSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("subscription") }),
+  z.object({ type: z.literal("subscription"), plan: z.enum(["starter", "growth"]) }),
   z.object({
     type: z.literal("credits"),
     quantity: z.number().int().min(MIN_CREDIT_PURCHASE).max(MAX_CREDIT_PURCHASE),
   }),
 ]);
+
+const SUBSCRIPTION_PRICE_ID: Record<"starter" | "growth", string | undefined> = {
+  starter: STRIPE_STARTER_PRICE_ID,
+  growth: STRIPE_GROWTH_PRICE_ID,
+};
 
 /**
  * Creates a Stripe Checkout Session and returns its URL for the client to
@@ -49,9 +59,9 @@ export const POST = withAuth(async function POST(request: Request) {
   let metadata: Record<string, string>;
 
   if (parsed.data.type === "subscription") {
-    priceId = STRIPE_PRO_PRICE_ID;
+    priceId = SUBSCRIPTION_PRICE_ID[parsed.data.plan];
     mode = "subscription";
-    metadata = { organizationId: user.organizationId, type: "subscription" };
+    metadata = { organizationId: user.organizationId, type: "subscription", plan: parsed.data.plan };
   } else {
     priceId = STRIPE_CREDIT_PRICE_ID;
     mode = "payment";

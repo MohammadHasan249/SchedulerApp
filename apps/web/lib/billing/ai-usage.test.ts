@@ -28,7 +28,7 @@ function fakeTx(billingRow: Record<string, unknown> | undefined) {
 function billingRow(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     organizationId: "org-1",
-    plan: "free",
+    plan: "starter",
     creditsBalance: 0,
     monthlyUsed: 0,
     periodStart: new Date(),
