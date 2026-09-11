@@ -1,0 +1,96 @@
+default_platform(:ios)
+
+MOBILE_ROOT = File.expand_path("..", __dir__).freeze
+
+API_KEY_PARAMS = {
+  key_id: "G4MK9LWCTZ",
+  issuer_id: "38df7c34-a29b-4551-ad50-cc7a4691bc3d",
+  key_filepath: File.join(MOBILE_ROOT, "asc-api-key.p8"),
+}.freeze
+
+VARIANTS = {
+  "workplix" => { bundle_id: "com.workplix.mobile" },
+  "seaudecrabe" => { bundle_id: "com.seaudecrabe.mobile" },
+}.freeze
+
+platform :ios do
+  desc "Build and upload one variant to TestFlight — pass variant: 'workplix' or 'seaudecrabe'"
+  lane :upload do |options|
+    variant = options[:variant]
+    UI.user_error!("Pass variant: workplix or seaudecrabe") unless variant
+    config = VARIANTS[variant]
+    UI.user_error!("Unknown variant: #{variant}") unless config
+
+    api_key = app_store_connect_api_key(**API_KEY_PARAMS)
+
+    # Regenerate native code for this variant
+    Dir.chdir(MOBILE_ROOT) do
+      sh("APP_VARIANT=#{variant} npx expo prebuild --platform ios --clean")
+      sh("cd ios && pod install")
+    end
+
+    # Patch sentry.properties with auth token (wiped by --clean)
+    sentry_props = "#{MOBILE_ROOT}/ios/sentry.properties"
+    props = File.read(sentry_props)
+    unless props.include?("auth.token=")
+      File.write(sentry_props, props + "auth.token=#{ENV['SENTRY_AUTH_TOKEN']}\n")
+    end
+
+    # Find the generated project (exclude Pods.xcodeproj / Pods.xcworkspace)
+    xcodeproj  = Dir["#{MOBILE_ROOT}/ios/*.xcodeproj"].reject { |p| p.include?("Pods") }.first
+    xcworkspace = Dir["#{MOBILE_ROOT}/ios/*.xcworkspace"].reject { |p| p.include?("Pods") }.first
+    scheme = File.basename(xcodeproj, ".xcodeproj")
+
+    # Fetch latest TestFlight build number and increment
+    build_number = latest_testflight_build_number(
+      api_key: api_key,
+      app_identifier: config[:bundle_id],
+    ) + 1
+
+    # Set build number directly in Info.plist — expo prebuild hardcodes CFBundleVersion
+    # to "1" instead of referencing $(CURRENT_PROJECT_VERSION), so increment_build_number
+    # has no effect without this.
+    info_plist = "#{MOBILE_ROOT}/ios/#{scheme}/Info.plist"
+    set_info_plist_value(path: info_plist, key: "CFBundleVersion", value: build_number.to_s)
+
+    # Configure automatic signing (wiped by --clean)
+    update_code_signing_settings(
+      use_automatic_signing: true,
+      team_id: "7U9UCS34XM",
+      bundle_identifier: config[:bundle_id],
+      path: xcodeproj,
+    )
+
+    UI.message("Building #{variant} (#{config[:bundle_id]}) — build #{build_number}")
+
+    # Expose APP_VARIANT to all Xcode build phase scripts
+    ENV["APP_VARIANT"] = variant
+
+    # Archive
+    gym(
+      workspace: xcworkspace,
+      scheme: scheme,
+      configuration: "Release",
+      export_method: "app-store",
+      clean: true,
+      output_directory: "#{MOBILE_ROOT}/build",
+      export_xcargs: "-allowProvisioningUpdates",
+      export_options: { teamID: "7U9UCS34XM" },
+    )
+
+    # Upload
+    upload_to_testflight(
+      api_key: api_key,
+      app_identifier: config[:bundle_id],
+      skip_waiting_for_build_processing: true,
+    )
+
+    UI.success("#{variant} uploaded to TestFlight as build #{build_number}")
+  end
+
+  desc "Build and upload both variants to TestFlight"
+  lane :release do
+    upload(variant: "seaudecrabe")
+    upload(variant: "workplix")
+  end
+end

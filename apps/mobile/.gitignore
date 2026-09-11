@@ -40,3 +40,9 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# fastlane build output
+/build
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/.env
