@@ -1,10 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { db } from "@/lib/db";
 import { recordAiUsage } from "./ai-usage";
+import { notifyLowBalance } from "./notify-low-balance";
 import { chain } from "@/test/db-mock";
 
 vi.mock("@/lib/db", () => ({
   db: { transaction: vi.fn() },
+}));
+vi.mock("./notify-low-balance", () => ({
+  notifyLowBalance: vi.fn(),
 }));
 
 /** Builds a fake `tx` whose `select` resolves `billingRow` and whose
@@ -78,6 +82,40 @@ describe("recordAiUsage", () => {
     const result = await recordAiUsage("org-1");
     expect(result).toEqual({ allowed: true });
     expect(tx.insert).toHaveBeenCalled();
+  });
+
+  it("fires a low-balance notification once remaining usage crosses the threshold", async () => {
+    // 3 credits remaining before this call, allowance already exhausted —
+    // after drawing 1 down, 2 remain, under the LOW_BALANCE_THRESHOLD of 5.
+    const { tx, updateSet } = fakeTx(billingRow({ monthlyUsed: 50, creditsBalance: 3, lowBalanceNotifiedAt: null }));
+    (db.transaction as unknown as ReturnType<typeof vi.fn>).mockImplementation((fn: (tx: unknown) => unknown) =>
+      fn(tx)
+    );
+
+    const result = await recordAiUsage("org-1");
+    expect(result).toEqual({ allowed: true });
+    expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ lowBalanceNotifiedAt: expect.any(Date) }));
+    expect(notifyLowBalance).toHaveBeenCalledWith("org-1");
+  });
+
+  it("does not re-notify if a low-balance notification already fired this period", async () => {
+    const { tx } = fakeTx(billingRow({ monthlyUsed: 50, creditsBalance: 3, lowBalanceNotifiedAt: new Date() }));
+    (db.transaction as unknown as ReturnType<typeof vi.fn>).mockImplementation((fn: (tx: unknown) => unknown) =>
+      fn(tx)
+    );
+
+    await recordAiUsage("org-1");
+    expect(notifyLowBalance).not.toHaveBeenCalled();
+  });
+
+  it("does not notify when comfortably under the allowance", async () => {
+    const { tx } = fakeTx(billingRow({ monthlyUsed: 10, creditsBalance: 0 }));
+    (db.transaction as unknown as ReturnType<typeof vi.fn>).mockImplementation((fn: (tx: unknown) => unknown) =>
+      fn(tx)
+    );
+
+    await recordAiUsage("org-1");
+    expect(notifyLowBalance).not.toHaveBeenCalled();
   });
 
   it("blocks the request once both the allowance and credits are exhausted", async () => {

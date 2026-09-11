@@ -2,6 +2,7 @@ import { getUser } from "@/lib/auth/getUser";
 import { getOrCreateBilling } from "@/lib/billing/get-or-create-billing";
 import { getDisplayUsage } from "@/lib/billing/ai-usage";
 import { getMonthlyAllowance, MIN_CREDIT_PURCHASE, MAX_CREDIT_PURCHASE } from "@/lib/billing/plan-limits";
+import { getRecentTransactions } from "@/lib/billing/transactions";
 import { BillingClient } from "@/components/settings/BillingClient";
 
 export default async function BillingSettingsPage() {
@@ -21,6 +22,7 @@ export default async function BillingSettingsPage() {
   const billing = await getOrCreateBilling(user.organizationId);
   const allowance = getMonthlyAllowance(billing.plan);
   const { monthlyUsed } = getDisplayUsage(billing);
+  const transactions = await getRecentTransactions(user.organizationId);
 
   return (
     <div className="space-y-8">
@@ -39,6 +41,12 @@ export default async function BillingSettingsPage() {
           creditsBalance={billing.creditsBalance}
           minCredits={MIN_CREDIT_PURCHASE}
           maxCredits={MAX_CREDIT_PURCHASE}
+          transactions={transactions.map((t) => ({
+            id: t.id,
+            type: t.type,
+            amount: t.amount,
+            createdAt: t.createdAt.toISOString(),
+          }))}
         />
       </div>
     </div>

@@ -28,6 +28,11 @@ export const organizationBilling = pgTable("organization_billing", {
   periodStart: timestamp("period_start", { withTimezone: true }).notNull().defaultNow(),
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
+  // Set when a low-balance notification has been sent for the current
+  // shortage, so recordAiUsage doesn't re-notify on every subsequent
+  // request. Cleared on period rollover and on any credit purchase/plan
+  // change, so a fresh shortage later notifies again.
+  lowBalanceNotifiedAt: timestamp("low_balance_notified_at", { withTimezone: true }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

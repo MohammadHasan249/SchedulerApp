@@ -1,7 +1,8 @@
 import { sql, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { organizationBilling, creditTransactions } from "@scheduler/database/schema";
-import { getMonthlyAllowance } from "./plan-limits";
+import { getMonthlyAllowance, LOW_BALANCE_THRESHOLD } from "./plan-limits";
+import { notifyLowBalance } from "./notify-low-balance";
 
 const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -34,7 +35,12 @@ export function getDisplayUsage(billing: { monthlyUsed: number; periodStart: Dat
  * steps that must not interleave with a concurrent request for the same org.
  */
 export async function recordAiUsage(organizationId: string): Promise<AiUsageCheck> {
-  return db.transaction(async (tx) => {
+  // Set inside the transaction below (which must stay a quick DB round-trip,
+  // not block on an outbound push-notification call) and acted on after it
+  // commits.
+  let shouldNotifyLowBalance = false;
+
+  const result = await db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${organizationId}, 1))`);
 
     let [billing] = await tx
@@ -54,24 +60,47 @@ export async function recordAiUsage(organizationId: string): Promise<AiUsageChec
     const rolledOver = periodAge >= ONE_MONTH_MS;
     const { monthlyUsed } = getDisplayUsage(billing);
     const periodStart = rolledOver ? new Date() : billing.periodStart;
+    // A rollover starts a fresh shortage window — allow a new low-balance
+    // notification even if one already fired last period.
+    const lowBalanceNotifiedAt = rolledOver ? null : billing.lowBalanceNotifiedAt;
 
     const allowance = getMonthlyAllowance(billing.plan);
 
-    if (allowance === null || monthlyUsed < allowance) {
-      await tx
-        .update(organizationBilling)
-        .set({ monthlyUsed: monthlyUsed + 1, periodStart, updatedAt: new Date() })
-        .where(eq(organizationBilling.organizationId, organizationId));
-      return { allowed: true };
+    // Decides whether this update should also record the low-balance
+    // notification timestamp, and mirrors that decision into the outer
+    // `shouldNotifyLowBalance` so the actual notification (a network call)
+    // happens after the transaction commits.
+    function checkLowBalance(remaining: number | null): Date | null {
+      if (remaining !== null && remaining <= LOW_BALANCE_THRESHOLD && !lowBalanceNotifiedAt) {
+        shouldNotifyLowBalance = true;
+        return new Date();
+      }
+      return lowBalanceNotifiedAt;
     }
 
-    if (billing.creditsBalance > 0) {
+    if (allowance === null || monthlyUsed < allowance) {
+      const remaining = allowance === null ? null : allowance - (monthlyUsed + 1) + billing.creditsBalance;
       await tx
         .update(organizationBilling)
         .set({
-          creditsBalance: billing.creditsBalance - 1,
+          monthlyUsed: monthlyUsed + 1,
+          periodStart,
+          lowBalanceNotifiedAt: checkLowBalance(remaining),
+          updatedAt: new Date(),
+        })
+        .where(eq(organizationBilling.organizationId, organizationId));
+      return { allowed: true } as const;
+    }
+
+    if (billing.creditsBalance > 0) {
+      const remaining = billing.creditsBalance - 1;
+      await tx
+        .update(organizationBilling)
+        .set({
+          creditsBalance: remaining,
           monthlyUsed,
           periodStart,
+          lowBalanceNotifiedAt: checkLowBalance(remaining),
           updatedAt: new Date(),
         })
         .where(eq(organizationBilling.organizationId, organizationId));
@@ -80,7 +109,7 @@ export async function recordAiUsage(organizationId: string): Promise<AiUsageChec
         type: "usage",
         amount: -1,
       });
-      return { allowed: true };
+      return { allowed: true } as const;
     }
 
     // Persist the period reset even on the rejected path, so a stale
@@ -89,10 +118,16 @@ export async function recordAiUsage(organizationId: string): Promise<AiUsageChec
     if (rolledOver) {
       await tx
         .update(organizationBilling)
-        .set({ monthlyUsed, periodStart, updatedAt: new Date() })
+        .set({ monthlyUsed, periodStart, lowBalanceNotifiedAt, updatedAt: new Date() })
         .where(eq(organizationBilling.organizationId, organizationId));
     }
 
-    return { allowed: false, reason: "monthly_limit_and_no_credits" };
+    return { allowed: false, reason: "monthly_limit_and_no_credits" } as const;
   });
+
+  if (shouldNotifyLowBalance) {
+    await notifyLowBalance(organizationId);
+  }
+
+  return result;
 }

@@ -57,6 +57,8 @@ The AI scheduling assistant (`apps/web/app/api/ai/schedule/route.ts`) is metered
 
 Upgrades/top-ups go through Stripe Checkout (`apps/web/app/api/billing/checkout/route.ts`) and a webhook (`apps/web/app/api/billing/webhook/route.ts`) that grants credits / activates the Pro plan on `checkout.session.completed` and syncs plan status on subscription changes. Prices/products are looked up by ID from env vars in `apps/web/lib/billing/stripe.ts` — create the Product/Price in the Stripe dashboard, then set `STRIPE_PRICE_ID_PRO` / `STRIPE_PRICE_ID_CREDIT`. Credits are sold at a custom quantity chosen by the org (bounded by `MIN_CREDIT_PURCHASE`/`MAX_CREDIT_PURCHASE` in `apps/web/lib/billing/plan-limits.ts`), not fixed packs — `STRIPE_PRICE_ID_CREDIT` must be a Stripe Price with a "per unit" billing scheme. Point a Stripe webhook endpoint at `/api/billing/webhook` and set `STRIPE_WEBHOOK_SECRET` to its signing secret. Admin-facing UI is `/dashboard/settings/billing` (org_admin only).
 
+The billing page also shows recent `credit_transactions` ledger activity (grants/purchases/credit-usage, not raw monthly-allowance usage — see `lib/billing/transactions.ts`) and, once remaining usage (unused allowance + credits) drops to `LOW_BALANCE_THRESHOLD` or below, sends every org_admin a one-time notification via the existing `lib/notifications.ts` pipeline (`lib/billing/notify-low-balance.ts`). The "already notified" flag (`organization_billing.lowBalanceNotifiedAt`) resets on period rollover, credit purchase, or plan upgrade so a later shortage can notify again.
+
 ## Mobile App
 - Env file: `apps/mobile/.env.local`
 - `EXPO_PUBLIC_API_URL` must point to a non-protected deployment

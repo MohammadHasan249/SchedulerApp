@@ -1,0 +1,1 @@
+ALTER TABLE "organization_billing" ADD COLUMN "low_balance_notified_at" timestamp with time zone;

@@ -71,6 +71,9 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       .set({
         plan: "pro",
         stripeSubscriptionId: typeof session.subscription === "string" ? session.subscription : undefined,
+        // A plan upgrade changes the allowance the low-balance threshold is
+        // measured against — let a future shortage notify again.
+        lowBalanceNotifiedAt: null,
         updatedAt: new Date(),
       })
       .where(eq(organizationBilling.organizationId, organizationId));
@@ -118,6 +121,9 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       .update(organizationBilling)
       .set({
         creditsBalance: sql`${organizationBilling.creditsBalance} + ${quantity}`,
+        // A purchase relieves the shortage that triggered the last
+        // notification — let a future one fire again.
+        lowBalanceNotifiedAt: null,
         updatedAt: new Date(),
       })
       .where(eq(organizationBilling.organizationId, organizationId));

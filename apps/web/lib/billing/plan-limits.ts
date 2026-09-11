@@ -21,3 +21,10 @@ export function getMonthlyAllowance(plan: OrganizationPlan): number | null {
  */
 export const MIN_CREDIT_PURCHASE = 10;
 export const MAX_CREDIT_PURCHASE = 10_000;
+
+/**
+ * Remaining AI turns (unused monthly allowance + purchased credits combined)
+ * at or below which an org gets a one-time low-balance notification. Tune
+ * freely — doesn't affect enforcement, only when the heads-up fires.
+ */
+export const LOW_BALANCE_THRESHOLD = 5;

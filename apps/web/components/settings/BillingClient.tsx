@@ -3,6 +3,13 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 
+type Transaction = {
+  id: string;
+  type: "monthly_grant" | "purchase" | "usage" | "refund";
+  amount: number;
+  createdAt: string;
+};
+
 type Props = {
   plan: "free" | "pro";
   monthlyUsed: number;
@@ -10,6 +17,14 @@ type Props = {
   creditsBalance: number;
   minCredits: number;
   maxCredits: number;
+  transactions: Transaction[];
+};
+
+const TRANSACTION_LABELS: Record<Transaction["type"], string> = {
+  monthly_grant: "Monthly grant",
+  purchase: "Credit purchase",
+  usage: "AI assistant usage",
+  refund: "Refund",
 };
 
 export function BillingClient({
@@ -19,6 +34,7 @@ export function BillingClient({
   creditsBalance,
   minCredits,
   maxCredits,
+  transactions,
 }: Props) {
   const searchParams = useSearchParams();
   const checkoutResult = searchParams.get("checkout");
@@ -129,6 +145,33 @@ export function BillingClient({
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
+
+      <div className="rounded-lg border p-4 space-y-3">
+        <div>
+          <h3 className="font-medium">Credit history</h3>
+          <p className="text-sm text-muted-foreground">Recent grants, purchases, and credit usage.</p>
+        </div>
+        {transactions.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No credit activity yet.</p>
+        ) : (
+          <ul className="divide-y">
+            {transactions.map((t) => (
+              <li key={t.id} className="flex items-center justify-between py-2 text-sm">
+                <div>
+                  <p>{TRANSACTION_LABELS[t.type]}</p>
+                  <p className="text-muted-foreground text-xs">
+                    {new Date(t.createdAt).toLocaleString()}
+                  </p>
+                </div>
+                <span className={t.amount >= 0 ? "text-green-600" : "text-muted-foreground"}>
+                  {t.amount >= 0 ? "+" : ""}
+                  {t.amount}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
